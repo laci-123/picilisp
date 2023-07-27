@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 
 #[derive(Default)]
@@ -42,6 +42,24 @@ pub struct ConsCell {
 }
 
 
+pub struct Symbol {
+    name: Option<String>,
+    own_address: *const CellContent,
+    // TODO: position (file, line, column)
+}
+
+impl PartialEq for Symbol {
+    fn eq(&self, other: &Self) -> bool {
+        if self.own_address.is_null() {
+            false
+        }
+        else {
+            self.own_address == other.own_address
+        }
+    }
+}
+
+
 #[derive(Default)]
 pub enum PrimitiveValue {
     #[default]
@@ -49,7 +67,8 @@ pub enum PrimitiveValue {
     Number(f64),
     Character(char),
     Cons(ConsCell),
-    // TODO: Symbol, Function, SignalHandler
+    Symbol(Symbol),
+    // TODO: Function, SignalHandler
 }
 
 impl PrimitiveValue {
@@ -83,6 +102,15 @@ impl PrimitiveValue {
             panic!("attempted to cast non-conscell PrimitiveValue to conscell")
         }
     }
+
+    pub fn as_symbol(&self) -> &Symbol{
+        if let Self::Symbol(x) = self {
+            x
+        }
+        else {
+            panic!("attempted to cast non-symbol PrimitiveValue to symbol")
+        }
+    }
 }
 
 
@@ -112,6 +140,7 @@ impl Drop for ExternalRefrence {
 pub struct Memory {
     used_cells: Vec<Cell>,
     free_cells: Vec<Cell>,
+    symbols: HashMap<String, *const CellContent>,
 }
 
 /// number of free cells when the [Memory] is constructed
@@ -127,7 +156,32 @@ const ALLOCATION_INCREMENT: usize = 8;
 impl Memory {
     pub fn new() -> Self {
         Self { used_cells: vec![],
-               free_cells: (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect() }
+               free_cells: (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
+               symbols:    HashMap::new() }
+    }
+
+    pub fn symbol_for(&mut self, name: &str) -> ExternalRefrence {
+        if let Some(sym_ptr) = self.symbols.get(name) {
+            ExternalRefrence::new(*sym_ptr as *mut CellContent)
+        }
+        else {
+            let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() }));
+            if let PrimitiveValue::Symbol(sym) = unsafe { &mut (*sym_ptr).value } {
+                sym.own_address = sym_ptr;
+            }
+            else {
+                unreachable!();
+            }
+
+            self.symbols.insert(name.to_string(), sym_ptr);
+
+            ExternalRefrence::new(sym_ptr)
+        }
+    }
+
+    pub fn unique_symbol(&mut self) -> ExternalRefrence {
+        let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
+        ExternalRefrence::new(sym_ptr)
     }
 
     pub fn allocate(&mut self, value: PrimitiveValue) -> ExternalRefrence {
