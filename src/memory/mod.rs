@@ -184,8 +184,19 @@ impl Memory {
         ExternalRefrence::new(sym_ptr)
     }
 
-    pub fn allocate(&mut self, value: PrimitiveValue) -> ExternalRefrence {
-        let ptr = self.allocate_internal(value);
+    pub fn allocate_number(&mut self, number: f64) -> ExternalRefrence {
+        let ptr = self.allocate_internal(PrimitiveValue::Number(number));
+        ExternalRefrence::new(ptr)
+    }
+
+    pub fn allocate_character(&mut self, character: char) -> ExternalRefrence {
+        let ptr = self.allocate_internal(PrimitiveValue::Character(character));
+        ExternalRefrence::new(ptr)
+    }
+
+    pub fn allocate_cons(&mut self, car: Option<ExternalRefrence>, cdr: Option<ExternalRefrence>) -> ExternalRefrence {
+        let ptr = self.allocate_internal(PrimitiveValue::Cons(ConsCell{ car: car.map_or(std::ptr::null_mut(), |c| c.pointer),
+                                                                        cdr: cdr.map_or(std::ptr::null_mut(), |c| c.pointer) }));
         ExternalRefrence::new(ptr)
     }
 
