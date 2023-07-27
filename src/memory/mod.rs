@@ -139,7 +139,7 @@ impl Memory {
         if self.free_cells.len() == 0 {
             self.collect();
         }
-        
+ 
         if let Some(mut cell) = self.free_cells.pop() {
             cell.set(value);
             let ptr = cell.as_ptr_mut();
@@ -194,10 +194,10 @@ impl Memory {
         while i < self.used_cells.len() {
             let ptr = self.used_cells[i].as_ptr_mut();
             if reachable.contains(&ptr) {
-                self.free_cells.push(self.used_cells.swap_remove(i));
+                i += 1;
             }
             else {
-                i += 1;
+                self.free_cells.push(self.used_cells.swap_remove(i));
             }
         }
 
@@ -211,3 +211,7 @@ impl Memory {
         }
     }
 }
+
+
+#[cfg(test)]
+mod tests;
