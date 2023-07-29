@@ -1,4 +1,4 @@
-use pretty_assertions::assert_eq;
+use pretty_assertions::{assert_eq, assert_ne};
 use super::*;
 
 
@@ -35,9 +35,12 @@ fn memory_allocate() {
         // drop refs
     }
 
-    mem.collect();
+    // make sure gc collect actually happens
+    for i in 100 .. 200 {
+        mem.allocate_number(i as f64);
+    }
 
-    assert_eq!(mem.used_cells.len(), 0);
+    assert_eq!(mem.used_cells.len(), 1);
 }
 
 #[test]
@@ -77,5 +80,56 @@ fn memory_allocate_cons() {
     mem.collect();
 
     assert_eq!(mem.used_cells.len(), 0);
+}
+
+#[test]
+fn memory_allocate_symbol() {
+    let mut mem = Memory::new();
+    
+    let sym1 = mem.symbol_for("elephant");
+    let sym2 = mem.symbol_for("mamoth");
+    let sym3 = mem.symbol_for("elephant");
+
+    assert_eq!(sym1.get().as_symbol(), sym3.get().as_symbol());
+    assert_ne!(sym1.get().as_symbol(), sym2.get().as_symbol());
+    assert_ne!(sym3.get().as_symbol(), sym2.get().as_symbol());
+
+    assert_eq!(mem.used_cells.len(), 2);
+}
+
+#[test]
+fn memory_allocate_unique_symbol() {
+    let mut mem = Memory::new();
+    
+    let sym1 = mem.unique_symbol();
+    let sym2 = mem.symbol_for("whale");
+    let sym3 = mem.unique_symbol();
+
+    assert_ne!(sym1.get().as_symbol(), sym2.get().as_symbol());
+    assert_ne!(sym1.get().as_symbol(), sym3.get().as_symbol());
+    assert_ne!(sym2.get().as_symbol(), sym3.get().as_symbol());
+
+    assert_eq!(mem.used_cells.len(), 3);
+}
+
+#[test]
+fn gc_collect_symbols() {
+    let mut mem = Memory::new();
+    
+    let sym1 = mem.symbol_for("cat");
+    {
+        let mut syms = vec![];
+        for i in 0 .. 10 {
+            syms.push(mem.symbol_for(&format!("{i}")));
+        }
+    }
+    let sym2 = mem.symbol_for("cat");
+
+    mem.collect();
+
+    assert_eq!(sym1.get().as_symbol(), sym2.get().as_symbol());
+
+    assert_eq!(mem.used_cells.len(), 1);
+    assert_eq!(mem.symbols.len(), 1);
 }
 

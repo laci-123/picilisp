@@ -56,6 +56,7 @@ impl ConsCell {
 }
 
 
+#[derive(Debug)]
 pub struct Symbol {
     name: Option<String>,
     own_address: *const CellContent,
@@ -301,12 +302,18 @@ impl Memory {
                 i += 1;
             }
             else {
-                self.free_cells.push(self.used_cells.swap_remove(i));
+                let cell = self.used_cells.swap_remove(i);
+                if let PrimitiveValue::Symbol(s) = &cell.content.value {
+                    if let Some(name) = &s.name {
+                        self.symbols.remove(name);
+                    }
+                }
+                self.free_cells.push(cell);
             }
         }
 
         // if there are too many free cells
-        // then remove some, but not too many
+        // then deallocate some, but not too many
         let max_free_cells = (self.used_cells.len() as f32 * MAXIMUM_FREE_RATIO) as usize;
 
         if self.free_cells.len() > max_free_cells {
