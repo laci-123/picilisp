@@ -275,6 +275,53 @@ impl Memory {
             self.free_cells.truncate(min_free_cells);
         }
     }
+
+    fn dump_memory(&self) {
+        let used_count = self.used_cells.len();
+        let free_count = self.free_cells.len();
+        let total_count = used_count + free_count;
+        let total_size_kb = (total_count * (std::mem::size_of::<Cell>() + std::mem::size_of::<CellContent>())) as f32 / 1024.0;
+        
+        println!("Total: {} cells ({:.2} kB)", total_count, total_size_kb);
+        println!("  - used: {}", used_count);
+        println!("  - free: {}", free_count);
+        println!("");
+
+        println!("Used: ");
+        println!("Address        Type      Value                                    External RefCount");
+        println!("-------        ----      -----                                    -----------------");
+        for c in self.used_cells.iter() {
+            let string = 
+            match c.content.value {
+                PrimitiveValue::Nil            => format!("NIL       NIL"),
+                PrimitiveValue::Number(n)      => format!("NUMBER    {n}"),
+                PrimitiveValue::Character(ch)  => format!("CHARACTER {ch}"),
+                PrimitiveValue::Symbol(ref s)  => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
+                PrimitiveValue::Cons(ref cons) => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
+            };
+            let rc = c.content.external_ref_count;
+            println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
+        }
+        println!("");
+
+        println!("Free: ");
+        println!("Address        Type      Value                                    External RefCount");
+        println!("_______        ____      _____                                    _________________");
+        for c in self.free_cells.iter() {
+            let string = 
+            match c.content.value {
+                PrimitiveValue::Nil            => format!("NIL       NIL"),
+                PrimitiveValue::Number(n)      => format!("NUMBER    {n}"),
+                PrimitiveValue::Character(ch)  => format!("CHARACTER {ch}"),
+                PrimitiveValue::Symbol(ref s)  => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
+                PrimitiveValue::Cons(ref cons) => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
+            };
+            let rc = c.content.external_ref_count;
+            println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
+        }
+
+        println!("");
+    }
 }
 
 
