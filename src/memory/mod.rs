@@ -16,6 +16,10 @@ impl Cell {
     pub fn set(&mut self, value: PrimitiveValue) {
         self.content.as_mut().value = value;
     }
+
+    pub fn as_ptr(&self) -> *const CellContent {
+        &*self.content as *const CellContent
+    }
     
     pub fn as_ptr_mut(&self) -> *mut CellContent {
         (&*self.content as *const CellContent) as *mut CellContent
@@ -41,6 +45,16 @@ pub struct ConsCell {
     cdr: *mut CellContent,
 }
 
+impl ConsCell {
+    pub fn get_car(&self) -> ExternalRefrence {
+        ExternalRefrence::new(self.car)
+    }
+
+    pub fn get_cdr(&self) -> ExternalRefrence {
+        ExternalRefrence::new(self.cdr)
+    }
+}
+
 
 pub struct Symbol {
     name: Option<String>,
@@ -50,14 +64,11 @@ pub struct Symbol {
 
 impl PartialEq for Symbol {
     fn eq(&self, other: &Self) -> bool {
-        if self.own_address.is_null() {
-            false
-        }
-        else {
-            self.own_address == other.own_address
-        }
+        self.own_address == other.own_address
     }
 }
+
+impl Eq for Symbol {}
 
 
 #[derive(Default)]
@@ -120,18 +131,36 @@ pub struct ExternalRefrence {
 
 impl ExternalRefrence {
     fn new(pointer: *mut CellContent) -> Self {
-        unsafe {
-            (*pointer).external_ref_count += 1;
+        if !pointer.is_null() {
+            unsafe {
+                (*pointer).external_ref_count += 1;
+            }
         }
 
         Self{ pointer }
+    }
+
+    pub fn nil() -> Self {
+        Self{ pointer: std::ptr::null_mut() }
+    }
+
+    pub fn is_nil(&self) -> bool {
+        self.pointer.is_null()
+    }
+
+    pub fn get(&self) -> &PrimitiveValue {
+        unsafe {
+            &(*self.pointer).value
+        }
     }
 }
 
 impl Drop for ExternalRefrence {
     fn drop(&mut self) {
-        unsafe {
-            (*self.pointer).external_ref_count -= 1;
+        if !self.pointer.is_null() {
+            unsafe {
+                (*self.pointer).external_ref_count -= 1;
+            }
         }
     }
 }
@@ -181,6 +210,13 @@ impl Memory {
 
     pub fn unique_symbol(&mut self) -> ExternalRefrence {
         let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
+        if let PrimitiveValue::Symbol(sym) = unsafe { &mut (*sym_ptr).value } {
+            sym.own_address = sym_ptr;
+        }
+        else {
+            unreachable!();
+        }
+
         ExternalRefrence::new(sym_ptr)
     }
 
@@ -194,9 +230,8 @@ impl Memory {
         ExternalRefrence::new(ptr)
     }
 
-    pub fn allocate_cons(&mut self, car: Option<ExternalRefrence>, cdr: Option<ExternalRefrence>) -> ExternalRefrence {
-        let ptr = self.allocate_internal(PrimitiveValue::Cons(ConsCell{ car: car.map_or(std::ptr::null_mut(), |c| c.pointer),
-                                                                        cdr: cdr.map_or(std::ptr::null_mut(), |c| c.pointer) }));
+    pub fn allocate_cons(&mut self, car: ExternalRefrence, cdr: ExternalRefrence) -> ExternalRefrence {
+        let ptr = self.allocate_internal(PrimitiveValue::Cons(ConsCell{ car: car.pointer, cdr: cdr.pointer }));
         ExternalRefrence::new(ptr)
     }
 
@@ -247,8 +282,12 @@ impl Memory {
             let value = unsafe{ &(*cell).value };
             match value {
                 PrimitiveValue::Cons(cons) => {
-                    stack.push(cons.car);
-                    stack.push(cons.cdr);
+                    if !cons.car.is_null() {
+                        stack.push(cons.car);
+                    }
+                    if !cons.cdr.is_null() {
+                        stack.push(cons.cdr);
+                    }
                 },
                 _ =>{},
             }
@@ -306,7 +345,7 @@ impl Memory {
 
         println!("Free: ");
         println!("Address        Type      Value                                    External RefCount");
-        println!("_______        ____      _____                                    _________________");
+        println!("-------        ----      -----                                    -----------------");
         for c in self.free_cells.iter() {
             let string = 
             match c.content.value {
