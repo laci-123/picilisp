@@ -59,6 +59,8 @@ fn memory_allocate_cons() {
     let mut mem = Memory::new();
     let length = 10;
 
+    let remain = mem.allocate_number(9.9); // this one should not get garbage collected
+    
     {
         let mut c = ExternalReference::nil();
         for i in 0 .. length {
@@ -74,12 +76,13 @@ fn memory_allocate_cons() {
             c = c.get().as_conscell().get_cdr();
         }
 
-        assert_eq!(mem.used_count(), 2 * length);
+        assert_eq!(mem.used_count(), 2 * length + 1);
     }
 
     mem.collect();
 
-    assert_eq!(mem.used_count(), 0);
+    assert_eq!(mem.used_count(), 1);
+    assert_eq!(*remain.get().as_number(), 9.9);
 }
 
 #[test]
@@ -187,6 +190,37 @@ fn mem_allocate_trap() {
 
         assert_eq!(*trap.get().as_trap().get_normal_body().get().as_number(), 100.2);
         assert_eq!(*trap.get().as_trap().get_trap_body().get().as_character(), 'a');
+    }
+
+    mem.collect();
+
+    assert_eq!(mem.used_count(), 0);
+}
+
+#[test]
+fn mem_allocate_meta() {
+    let mut mem = Memory::new();
+    
+    {
+        let x1   = mem.allocate_number(137.0);
+        let loc1 = Location::in_stdin(23, 24);
+        let m1   = mem.allocate_metadata(x1, loc1);
+
+        let x2   = mem.allocate_character(' ');
+        let loc2 = Location::in_file(Path::new("~/the/input/file.lisp"), 41, 42);
+        let m2   = mem.allocate_metadata(x2, loc2);
+
+        let y    = mem.symbol_for("thing");
+
+        assert_eq!(*m1.get().as_number(),    137.0);
+        assert_eq!(*m2.get().as_character(), ' ');
+
+        assert_eq!(m1.get().get_metadata().unwrap().file, None);
+        assert_eq!(m1.get().get_metadata().unwrap().line, 23);
+        assert_eq!(m2.get().get_metadata().unwrap().file.as_ref().unwrap(), Path::new("~/the/input/file.lisp"));
+        assert_eq!(m2.get().get_metadata().unwrap().column, 42);
+
+        assert_eq!(y.get().get_metadata(), None);
     }
 
     mem.collect();

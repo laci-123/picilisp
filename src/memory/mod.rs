@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::{HashSet, HashMap};
+use std::path::{Path, PathBuf};
 
 
 #[derive(Default)]
@@ -132,6 +133,39 @@ impl Trap {
 }
 
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Location {
+    file: Option<PathBuf>, // None: reading from stdin
+    line: usize,
+    column: usize,
+}
+
+impl Location {
+    pub fn in_file(path: &Path, line: usize, column: usize) -> Self {
+        Self{ file: Some(path.to_path_buf()), line, column }
+    }
+
+    pub fn in_stdin(line: usize, column: usize) -> Self {
+        Self{ file: None, line, column }
+    }
+}
+
+
+pub struct Meta {
+    value: *mut CellContent,
+    metadata: Location,
+}
+
+impl Meta {
+    pub fn get_value(&self) -> ExternalReference {
+        ExternalReference::new(self.value)
+    }
+
+    pub fn get_metadata(&self) -> &Location {
+        &self.metadata
+    }
+}
+
 #[derive(Default)]
 pub enum PrimitiveValue {
     #[default]
@@ -142,17 +176,32 @@ pub enum PrimitiveValue {
     Symbol(Symbol),
     Function(Function),
     Trap(Trap),
-    // TODO: Meta
+    Meta(Meta),
 }
 
 impl PrimitiveValue {
     pub fn is_nil(&self) -> bool {
-        matches!(self, Self::Nil)
+        if let Self::Nil = self {
+            true
+        }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.is_nil()
+            }
+        }
+        else {
+            false
+        }
     }
 
     pub fn as_number(&self) -> &f64 {
         if let Self::Number(x) = self {
             x
+        }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.as_number()
+            }
         }
         else {
             panic!("attempted to cast non-number PrimitiveValue to number")
@@ -163,6 +212,11 @@ impl PrimitiveValue {
         if let Self::Character(x) = self {
             x
         }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.as_character()
+            }
+        }
         else {
             panic!("attempted to cast non-character PrimitiveValue to character")
         }
@@ -171,6 +225,11 @@ impl PrimitiveValue {
     pub fn as_conscell(&self) -> &ConsCell {
         if let Self::Cons(x) = self {
             x
+        }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.as_conscell()
+            }
         }
         else {
             panic!("attempted to cast non-conscell PrimitiveValue to conscell")
@@ -181,6 +240,11 @@ impl PrimitiveValue {
         if let Self::Symbol(x) = self {
             x
         }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.as_symbol()
+            }
+        }
         else {
             panic!("attempted to cast non-symbol PrimitiveValue to symbol")
         }
@@ -189,6 +253,11 @@ impl PrimitiveValue {
     pub fn as_function(&self) -> &Function{
         if let Self::Function(x) = self {
             x
+        }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.as_function()
+            }
         }
         else {
             panic!("attempted to cast non-function PrimitiveValue to function")
@@ -199,8 +268,22 @@ impl PrimitiveValue {
         if let Self::Trap(x) = self {
             x
         }
+        else if let Self::Meta(m) = self {
+            unsafe {
+                (*m.value).value.as_trap()
+            }
+        }
         else {
             panic!("attempted to cast non-trap PrimitiveValue to trap")
+        }
+    }
+
+    pub fn get_metadata(&self) -> Option<&Location> {
+        if let Self::Meta(m) = self {
+            Some(&m.metadata)
+        }
+        else {
+            None
         }
     }
 }
@@ -334,6 +417,11 @@ impl Memory {
         ExternalReference::new(ptr)
     }
 
+    pub fn allocate_metadata(&mut self, value: ExternalReference, metadata: Location) -> ExternalReference {
+        let ptr = self.allocate_internal(PrimitiveValue::Meta(Meta{ value: value.pointer, metadata }));
+        ExternalReference::new(ptr)
+    }
+
     fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {
         if self.free_cells.len() == 0 {
             self.collect();
@@ -406,6 +494,11 @@ impl Memory {
                         }
                     }
                 },
+                PrimitiveValue::Meta(m) => {
+                    if !m.value.is_null() {
+                        stack.push(m.value);
+                    }
+                }
                 _ =>{},
             }
         }
@@ -470,6 +563,7 @@ impl Memory {
                 PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
                 PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
                 PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
+                PrimitiveValue::Meta(ref m)     => format!("METADATA  value: {:p}", m.value),
             };
             let rc = c.content.external_ref_count;
             println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
@@ -489,6 +583,7 @@ impl Memory {
                 PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
                 PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
                 PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
+                PrimitiveValue::Meta(ref m)     => format!("METADATA  value: {:p}", m.value),
             };
             let rc = c.content.external_ref_count;
             println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
