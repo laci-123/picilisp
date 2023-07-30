@@ -331,8 +331,8 @@ impl Drop for ExternalReference {
 
 
 pub struct Memory {
-    used_cells: Vec<Cell>,
-    free_cells: Vec<Cell>,
+    cells: Vec<Cell>,
+    first_free: usize,
     symbols: HashMap<String, *const CellContent>,
 }
 
@@ -348,8 +348,8 @@ const ALLOCATION_INCREMENT: usize = 8;
 
 impl Memory {
     pub fn new() -> Self {
-        Self { used_cells: vec![],
-               free_cells: (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
+        Self { cells:      (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
+               first_free: 0,
                symbols:    HashMap::new() }
     }
 
@@ -423,27 +423,29 @@ impl Memory {
     }
 
     fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {
-        if self.free_cells.len() == 0 {
+        if self.first_free > self.cells.len() - 1 {
             self.collect();
         }
  
-        if let Some(mut cell) = self.free_cells.pop() {
+        if self.first_free <= self.cells.len() - 1 {
+            let cell = &mut self.cells[self.first_free];
+            self.first_free += 1;
             cell.set(value);
-            let ptr = cell.as_ptr_mut();
-            self.used_cells.push(cell);
-            ptr
+            cell.as_ptr_mut()
         }
         else {
+            let new_cell = Cell::new(value);
+            let ptr = new_cell.as_ptr_mut();
+            self.cells.push(new_cell);
+            self.first_free += 1;
+
             for _ in 1 .. ALLOCATION_INCREMENT {
                 // pre-allocate a bunch of cells
                 // so that `collect` won't have to run
                 // on the next few times `allocate_internal` is called
-                self.free_cells.push(Default::default());
+                self.cells.push(Default::default());
             }
 
-            let new_cell = Cell::new(value);
-            let ptr = new_cell.as_ptr_mut();
-            self.used_cells.push(new_cell);
             ptr
         }
     }
@@ -452,7 +454,8 @@ impl Memory {
         // find cells that are externally reachable (the roots)
         let mut stack = vec![];
 
-        for cell in self.used_cells.iter() {
+        for i in 0 .. self.first_free {
+            let cell = &self.cells[i];
             if cell.content.external_ref_count > 0 {
                 stack.push(cell.as_ptr_mut());
             }
@@ -505,44 +508,56 @@ impl Memory {
 
         // remove unreachable cells
         let mut i = 0;
-        while i < self.used_cells.len() {
-            let ptr = self.used_cells[i].as_ptr_mut();
+        while i < self.first_free {
+            let ptr = self.cells[i].as_ptr_mut();
             if reachable.contains(&ptr) {
                 i += 1;
             }
             else {
-                let cell = self.used_cells.swap_remove(i);
+                let cell = &self.cells[i];
                 if let PrimitiveValue::Symbol(s) = &cell.content.value {
                     if let Some(name) = &s.name {
                         self.symbols.remove(name);
                     }
                 }
-                self.free_cells.push(cell);
+                self.cells.swap(i, self.first_free - 1);
+                self.first_free -= 1;
             }
         }
 
         // if there are too many free cells
         // then deallocate some, but not too many
-        let max_free_cells = (self.used_cells.len() as f32 * MAXIMUM_FREE_RATIO) as usize;
+        let max_free_cells = (self.first_free as f32 * MAXIMUM_FREE_RATIO) as usize;
 
-        if self.free_cells.len() > max_free_cells {
-            let min_free_cells = (self.used_cells.len() as f32 * MINIMUM_FREE_RATIO) as usize;
-            self.free_cells.truncate(min_free_cells);
+        if self.free_count() > max_free_cells {
+            let used_count = self.used_count();
+            let min_free_cells = (used_count as f32 * MINIMUM_FREE_RATIO) as usize;
+            self.cells.truncate(used_count + min_free_cells + 1);
+            self.first_free = used_count;
         }
     }
 
     fn used_count(&self) -> usize {
-        self.used_cells.len()
+        // ------7------
+        // 0 1 2 3 4 5 6 7 8 9
+        //               ^
+        //               first_free
+        self.first_free
     }
 
     fn free_count(&self) -> usize {
-        self.free_cells.len()
+        // --------10---------
+        //               --3--
+        // 0 1 2 3 4 5 6 7 8 9
+        //               ^
+        //               first_free
+        self.cells.len() - self.first_free
     }
 
     fn dump_memory(&self) {
-        let used_count = self.used_cells.len();
-        let free_count = self.free_cells.len();
-        let total_count = used_count + free_count;
+        let used_count = self.used_count();
+        let free_count = self.free_count();
+        let total_count = self.cells.len();
         let total_size_kb = (total_count * (std::mem::size_of::<Cell>() + std::mem::size_of::<CellContent>())) as f32 / 1024.0;
         
         println!("Total: {} cells ({:.2} kB)", total_count, total_size_kb);
@@ -550,43 +565,23 @@ impl Memory {
         println!("  - free: {}", free_count);
         println!("");
 
-        println!("Used: ");
-        println!("Address        Type      Value                                    External RefCount");
-        println!("-------        ----      -----                                    -----------------");
-        for c in self.used_cells.iter() {
+        println!("Used Address        Type      Value                                    External RefCount");
+        println!("---- -------        ----      -----                                    -----------------");
+        for (i, c) in self.cells.iter().enumerate() {
             let string = 
             match c.content.value {
                 PrimitiveValue::Nil             => format!("NIL       NIL"),
                 PrimitiveValue::Number(n)       => format!("NUMBER    {n}"),
                 PrimitiveValue::Character(ch)   => format!("CHARACTER {ch}"),
-                PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
+                PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL    \"{n}\""))),
                 PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
                 PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
                 PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
                 PrimitiveValue::Meta(ref m)     => format!("METADATA  value: {:p}", m.value),
             };
+            let used = if i < self.first_free { "[x] " } else { "[ ] " };
             let rc = c.content.external_ref_count;
-            println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
-        }
-        println!("");
-
-        println!("Free: ");
-        println!("Address        Type      Value                                    External RefCount");
-        println!("-------        ----      -----                                    -----------------");
-        for c in self.free_cells.iter() {
-            let string = 
-            match c.content.value {
-                PrimitiveValue::Nil             => format!("NIL       NIL"),
-                PrimitiveValue::Number(n)       => format!("NUMBER    {n}"),
-                PrimitiveValue::Character(ch)   => format!("CHARACTER {ch}"),
-                PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
-                PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
-                PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
-                PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
-                PrimitiveValue::Meta(ref m)     => format!("METADATA  value: {:p}", m.value),
-            };
-            let rc = c.content.external_ref_count;
-            println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
+            println!("{} {:p} {:<50} {}", used, c.as_ptr(), string, rc);
         }
 
         println!("");
