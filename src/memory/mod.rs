@@ -46,12 +46,12 @@ pub struct ConsCell {
 }
 
 impl ConsCell {
-    pub fn get_car(&self) -> ExternalRefrence {
-        ExternalRefrence::new(self.car)
+    pub fn get_car(&self) -> ExternalReference {
+        ExternalReference::new(self.car)
     }
 
-    pub fn get_cdr(&self) -> ExternalRefrence {
-        ExternalRefrence::new(self.cdr)
+    pub fn get_cdr(&self) -> ExternalReference {
+        ExternalReference::new(self.cdr)
     }
 }
 
@@ -60,7 +60,6 @@ impl ConsCell {
 pub struct Symbol {
     name: Option<String>,
     own_address: *const CellContent,
-    // TODO: position (file, line, column)
 }
 
 impl PartialEq for Symbol {
@@ -72,6 +71,51 @@ impl PartialEq for Symbol {
 impl Eq for Symbol {}
 
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum FunctionKind {
+    Syntax,
+    Macro,
+    Lambda,
+}
+
+
+pub struct Function {
+    kind: FunctionKind,
+    parameters: Vec<*mut CellContent>,
+    body: *mut CellContent,
+}
+
+impl Function {
+    pub fn get_body(&self) -> ExternalReference {
+        ExternalReference::new(self.body)
+    }
+
+    pub fn params(&self) -> ParameterIterator {
+        ParameterIterator{ function: self, index: 0 }
+    }
+}
+
+pub struct ParameterIterator<'a> {
+    function: &'a Function,
+    index: usize,
+}
+
+impl<'a> Iterator for ParameterIterator<'a> {
+    type Item = ExternalReference;
+
+    fn next(&mut self) -> Option<ExternalReference> {
+        if self.index < self.function.parameters.len() {
+            let er = ExternalReference::new(self.function.parameters[self.index]);
+            self.index += 1;
+            Some(er)
+        }
+        else {
+            None
+        }
+    }
+}
+
+
 #[derive(Default)]
 pub enum PrimitiveValue {
     #[default]
@@ -80,7 +124,8 @@ pub enum PrimitiveValue {
     Character(char),
     Cons(ConsCell),
     Symbol(Symbol),
-    // TODO: Function, SignalHandler
+    Function(Function),
+    // TODO: Trap, Meta
 }
 
 impl PrimitiveValue {
@@ -123,14 +168,23 @@ impl PrimitiveValue {
             panic!("attempted to cast non-symbol PrimitiveValue to symbol")
         }
     }
+
+    pub fn as_function(&self) -> &Function{
+        if let Self::Function(x) = self {
+            x
+        }
+        else {
+            panic!("attempted to cast non-function PrimitiveValue to function")
+        }
+    }
 }
 
 
-pub struct ExternalRefrence {
+pub struct ExternalReference {
     pointer: *mut CellContent,
 }
 
-impl ExternalRefrence {
+impl ExternalReference {
     fn new(pointer: *mut CellContent) -> Self {
         if !pointer.is_null() {
             unsafe {
@@ -156,7 +210,7 @@ impl ExternalRefrence {
     }
 }
 
-impl Drop for ExternalRefrence {
+impl Drop for ExternalReference {
     fn drop(&mut self) {
         if !self.pointer.is_null() {
             unsafe {
@@ -190,9 +244,9 @@ impl Memory {
                symbols:    HashMap::new() }
     }
 
-    pub fn symbol_for(&mut self, name: &str) -> ExternalRefrence {
+    pub fn symbol_for(&mut self, name: &str) -> ExternalReference {
         if let Some(sym_ptr) = self.symbols.get(name) {
-            ExternalRefrence::new(*sym_ptr as *mut CellContent)
+            ExternalReference::new(*sym_ptr as *mut CellContent)
         }
         else {
             let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() }));
@@ -205,11 +259,11 @@ impl Memory {
 
             self.symbols.insert(name.to_string(), sym_ptr);
 
-            ExternalRefrence::new(sym_ptr)
+            ExternalReference::new(sym_ptr)
         }
     }
 
-    pub fn unique_symbol(&mut self) -> ExternalRefrence {
+    pub fn unique_symbol(&mut self) -> ExternalReference {
         let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
         if let PrimitiveValue::Symbol(sym) = unsafe { &mut (*sym_ptr).value } {
             sym.own_address = sym_ptr;
@@ -218,22 +272,35 @@ impl Memory {
             unreachable!();
         }
 
-        ExternalRefrence::new(sym_ptr)
+        ExternalReference::new(sym_ptr)
     }
 
-    pub fn allocate_number(&mut self, number: f64) -> ExternalRefrence {
+    pub fn allocate_number(&mut self, number: f64) -> ExternalReference {
         let ptr = self.allocate_internal(PrimitiveValue::Number(number));
-        ExternalRefrence::new(ptr)
+        ExternalReference::new(ptr)
     }
 
-    pub fn allocate_character(&mut self, character: char) -> ExternalRefrence {
+    pub fn allocate_character(&mut self, character: char) -> ExternalReference {
         let ptr = self.allocate_internal(PrimitiveValue::Character(character));
-        ExternalRefrence::new(ptr)
+        ExternalReference::new(ptr)
     }
 
-    pub fn allocate_cons(&mut self, car: ExternalRefrence, cdr: ExternalRefrence) -> ExternalRefrence {
+    pub fn allocate_cons(&mut self, car: ExternalReference, cdr: ExternalReference) -> ExternalReference {
         let ptr = self.allocate_internal(PrimitiveValue::Cons(ConsCell{ car: car.pointer, cdr: cdr.pointer }));
-        ExternalRefrence::new(ptr)
+        ExternalReference::new(ptr)
+    }
+
+    pub fn allocate_function(&mut self, body: ExternalReference, kind: FunctionKind, params: Vec<ExternalReference>) -> ExternalReference {
+        let mut param_ptrs = vec![];
+        for param in params {
+            if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
+                panic!("Function parameter is not a Symbol");
+            }
+            param_ptrs.push(param.pointer);
+        }
+
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function{ body: body.pointer, kind, parameters: param_ptrs }));
+        ExternalReference::new(ptr)
     }
 
     fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {
@@ -290,6 +357,16 @@ impl Memory {
                         stack.push(cons.cdr);
                     }
                 },
+                PrimitiveValue::Function(f) => {
+                    if !f.body.is_null() {
+                        stack.push(f.body);
+                    }
+                    for p in f.parameters.iter() {
+                        if !p.is_null() {
+                            stack.push(*p);
+                        }
+                    }
+                },
                 _ =>{},
             }
         }
@@ -322,6 +399,14 @@ impl Memory {
         }
     }
 
+    fn used_count(&self) -> usize {
+        self.used_cells.len()
+    }
+
+    fn free_count(&self) -> usize {
+        self.free_cells.len()
+    }
+
     fn dump_memory(&self) {
         let used_count = self.used_cells.len();
         let free_count = self.free_cells.len();
@@ -339,11 +424,12 @@ impl Memory {
         for c in self.used_cells.iter() {
             let string = 
             match c.content.value {
-                PrimitiveValue::Nil            => format!("NIL       NIL"),
-                PrimitiveValue::Number(n)      => format!("NUMBER    {n}"),
-                PrimitiveValue::Character(ch)  => format!("CHARACTER {ch}"),
-                PrimitiveValue::Symbol(ref s)  => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
-                PrimitiveValue::Cons(ref cons) => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
+                PrimitiveValue::Nil             => format!("NIL       NIL"),
+                PrimitiveValue::Number(n)       => format!("NUMBER    {n}"),
+                PrimitiveValue::Character(ch)   => format!("CHARACTER {ch}"),
+                PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
+                PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
+                PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
             };
             let rc = c.content.external_ref_count;
             println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
@@ -356,11 +442,12 @@ impl Memory {
         for c in self.free_cells.iter() {
             let string = 
             match c.content.value {
-                PrimitiveValue::Nil            => format!("NIL       NIL"),
-                PrimitiveValue::Number(n)      => format!("NUMBER    {n}"),
-                PrimitiveValue::Character(ch)  => format!("CHARACTER {ch}"),
-                PrimitiveValue::Symbol(ref s)  => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
-                PrimitiveValue::Cons(ref cons) => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
+                PrimitiveValue::Nil             => format!("NIL       NIL"),
+                PrimitiveValue::Number(n)       => format!("NUMBER    {n}"),
+                PrimitiveValue::Character(ch)   => format!("CHARACTER {ch}"),
+                PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
+                PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
+                PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
             };
             let rc = c.content.external_ref_count;
             println!("{:p} {:<50} {}", c.as_ptr(), string, rc);

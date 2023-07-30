@@ -6,7 +6,7 @@ use super::*;
 fn memory_init() {
     let mem = Memory::new();
 
-    assert_eq!(mem.free_cells.len(), INITIAL_FREE_CELLS);
+    assert_eq!(mem.free_count(), INITIAL_FREE_CELLS);
     assert!(mem.free_cells.iter().all(|c| c.content.value.is_nil()));
 }
 
@@ -20,13 +20,13 @@ fn memory_allocate() {
             refs.push(mem.allocate_number(i as f64));
         }
 
-        assert_eq!(mem.free_cells.len(), 0);
-        assert_eq!(mem.used_cells.len(), INITIAL_FREE_CELLS);
+        assert_eq!(mem.free_count(), 0);
+        assert_eq!(mem.used_count(), INITIAL_FREE_CELLS);
 
         refs.push(mem.allocate_number(-1.0));
 
-        assert_eq!(mem.free_cells.len(), ALLOCATION_INCREMENT - 1);
-        assert_eq!(mem.used_cells.len(), INITIAL_FREE_CELLS + 1);
+        assert_eq!(mem.free_count(), ALLOCATION_INCREMENT - 1);
+        assert_eq!(mem.used_count(), INITIAL_FREE_CELLS + 1);
 
         for i in 0 .. 100 {
             refs.push(mem.allocate_number(i as f64));
@@ -40,7 +40,7 @@ fn memory_allocate() {
         mem.allocate_number(i as f64);
     }
 
-    assert_eq!(mem.used_cells.len(), 1);
+    assert_eq!(mem.used_count(), 1);
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn memory_allocate_cons() {
     let length = 10;
 
     {
-        let mut c = ExternalRefrence::nil();
+        let mut c = ExternalReference::nil();
         for i in 0 .. length {
             let x = mem.allocate_number(i as f64);
             c = mem.allocate_cons(x, c);
@@ -74,12 +74,12 @@ fn memory_allocate_cons() {
             c = c.get().as_conscell().get_cdr();
         }
 
-        assert_eq!(mem.used_cells.len(), 2 * length);
+        assert_eq!(mem.used_count(), 2 * length);
     }
 
     mem.collect();
 
-    assert_eq!(mem.used_cells.len(), 0);
+    assert_eq!(mem.used_count(), 0);
 }
 
 #[test]
@@ -94,7 +94,7 @@ fn memory_allocate_symbol() {
     assert_ne!(sym1.get().as_symbol(), sym2.get().as_symbol());
     assert_ne!(sym3.get().as_symbol(), sym2.get().as_symbol());
 
-    assert_eq!(mem.used_cells.len(), 2);
+    assert_eq!(mem.used_count(), 2);
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn memory_allocate_unique_symbol() {
     assert_ne!(sym1.get().as_symbol(), sym3.get().as_symbol());
     assert_ne!(sym2.get().as_symbol(), sym3.get().as_symbol());
 
-    assert_eq!(mem.used_cells.len(), 3);
+    assert_eq!(mem.used_count(), 3);
 }
 
 #[test]
@@ -129,7 +129,50 @@ fn gc_collect_symbols() {
 
     assert_eq!(sym1.get().as_symbol(), sym2.get().as_symbol());
 
-    assert_eq!(mem.used_cells.len(), 1);
+    assert_eq!(mem.used_count(), 1);
     assert_eq!(mem.symbols.len(), 1);
+}
+
+#[test]
+fn mem_allocate_function() {
+    let mut mem = Memory::new();
+    
+    let p1 = mem.symbol_for("oak");
+    let p2 = mem.symbol_for("pine");
+    let p3 = mem.symbol_for("elm");
+    let body = mem.allocate_character('ß');
+
+    let fun = mem.allocate_function(body, FunctionKind::Lambda, vec![p1, p2, p3]);
+    assert_eq!(*fun.get().as_function().get_body().get().as_character(), 'ß');
+    let mut params = fun.get().as_function().params();
+    assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("oak").get().as_symbol());
+    assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("pine").get().as_symbol());
+    assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("elm").get().as_symbol());
+    assert!(params.next().is_none());
+    assert_eq!(fun.get().as_function().kind, FunctionKind::Lambda);
+}
+
+#[test]
+fn gc_collect_functions() {
+    let mut mem = Memory::new();
+
+    {
+        mem.allocate_number(0.0);
+
+        let p1 = mem.symbol_for("tulip");
+        let p2 = mem.symbol_for("rose");
+        let p3 = mem.symbol_for("sunflower");
+        let body = mem.allocate_character('🌻');
+
+        let fun = mem.allocate_function(body, FunctionKind::Macro, vec![p1, p2, p3]);
+
+        mem.symbol_for("tulip");
+
+        assert_eq!(fun.get().as_function().params().collect::<Vec<_>>().len(), 3);
+    }
+
+    mem.collect();
+
+    assert_eq!(mem.used_count(), 0);
 }
 
