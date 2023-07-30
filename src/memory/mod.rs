@@ -116,6 +116,22 @@ impl<'a> Iterator for ParameterIterator<'a> {
 }
 
 
+pub struct Trap {
+    normal_body: *mut CellContent,
+    trap_body: *mut CellContent,
+}
+
+impl Trap {
+    pub fn get_normal_body(&self) -> ExternalReference {
+        ExternalReference::new(self.normal_body)
+    }
+
+    pub fn get_trap_body(&self) -> ExternalReference {
+        ExternalReference::new(self.trap_body)
+    }
+}
+
+
 #[derive(Default)]
 pub enum PrimitiveValue {
     #[default]
@@ -125,7 +141,8 @@ pub enum PrimitiveValue {
     Cons(ConsCell),
     Symbol(Symbol),
     Function(Function),
-    // TODO: Trap, Meta
+    Trap(Trap),
+    // TODO: Meta
 }
 
 impl PrimitiveValue {
@@ -175,6 +192,15 @@ impl PrimitiveValue {
         }
         else {
             panic!("attempted to cast non-function PrimitiveValue to function")
+        }
+    }
+
+    pub fn as_trap(&self) -> &Trap{
+        if let Self::Trap(x) = self {
+            x
+        }
+        else {
+            panic!("attempted to cast non-trap PrimitiveValue to trap")
         }
     }
 }
@@ -303,6 +329,11 @@ impl Memory {
         ExternalReference::new(ptr)
     }
 
+    pub fn allocate_trap(&mut self, normal_body: ExternalReference, trap_body: ExternalReference) -> ExternalReference {
+        let ptr = self.allocate_internal(PrimitiveValue::Trap(Trap{ normal_body: normal_body.pointer, trap_body: trap_body.pointer }));
+        ExternalReference::new(ptr)
+    }
+
     fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {
         if self.free_cells.len() == 0 {
             self.collect();
@@ -355,6 +386,14 @@ impl Memory {
                     }
                     if !cons.cdr.is_null() {
                         stack.push(cons.cdr);
+                    }
+                },
+                PrimitiveValue::Trap(trap) => {
+                    if !trap.normal_body.is_null() {
+                        stack.push(trap.normal_body);
+                    }
+                    if !trap.trap_body.is_null() {
+                        stack.push(trap.trap_body);
                     }
                 },
                 PrimitiveValue::Function(f) => {
@@ -430,6 +469,7 @@ impl Memory {
                 PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
                 PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
                 PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
+                PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
             };
             let rc = c.content.external_ref_count;
             println!("{:p} {:<50} {}", c.as_ptr(), string, rc);
@@ -448,6 +488,7 @@ impl Memory {
                 PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL \"{n}\""))),
                 PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
                 PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
+                PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
             };
             let rc = c.content.external_ref_count;
             println!("{:p} {:<50} {}", c.as_ptr(), string, rc);

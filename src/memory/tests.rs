@@ -176,3 +176,21 @@ fn gc_collect_functions() {
     assert_eq!(mem.used_count(), 0);
 }
 
+#[test]
+fn mem_allocate_trap() {
+    let mut mem = Memory::new();
+    
+    {
+        let x = mem.allocate_number(100.2);
+        let y = mem.allocate_character('a');
+        let trap = mem.allocate_trap(x, y);
+
+        assert_eq!(*trap.get().as_trap().get_normal_body().get().as_number(), 100.2);
+        assert_eq!(*trap.get().as_trap().get_trap_body().get().as_character(), 'a');
+    }
+
+    mem.collect();
+
+    assert_eq!(mem.used_count(), 0);
+}
+
