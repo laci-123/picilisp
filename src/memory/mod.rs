@@ -319,6 +319,18 @@ impl ExternalReference {
     }
 }
 
+impl Clone for ExternalReference {
+    fn clone(&self) -> Self {
+        if !self.pointer.is_null() {
+            unsafe {
+                (*self.pointer).external_ref_count += 1;
+            }
+        }
+
+        Self{ pointer: self.pointer }
+    }
+}
+
 impl Drop for ExternalReference {
     fn drop(&mut self) {
         if !self.pointer.is_null() {

@@ -57,6 +57,27 @@ fn externalreference_deref() {
 }
 
 #[test]
+fn externalreference_clone() {
+    let mut mem = Memory::new();
+
+    let r4;
+    {
+        let r1 = mem.allocate_number(-1.2);
+        let r2 = r1.clone();
+        let r3 = mem.allocate_character('1');
+        r4 = r3.clone();
+
+        assert_eq!(*r2.get().as_number(), -1.2);
+        assert_eq!(mem.used_count(), 2);
+    }
+    assert_eq!(*r4.get().as_character(), '1');
+
+    mem.collect();
+
+    assert_eq!(mem.used_count(), 1);
+}
+
+#[test]
 fn memory_allocate_cons() {
     let mut mem = Memory::new();
     let length = 10;
