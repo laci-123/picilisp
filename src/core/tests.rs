@@ -50,3 +50,42 @@ fn core_vec_to_list() {
     c = c3.get_cdr();
     assert!(c.is_nil());
 }
+
+#[test]
+fn core_list_to_vec() {
+    let mut mem = Memory::new();
+
+    // empty list
+    let list = ExternalReference::nil();
+    assert_eq!(list_to_vec(list).unwrap().len(), 0);
+    
+    // non-empty list
+    let mut list = ExternalReference::nil();
+    for i in 0 .. 5 {
+        let x = mem.allocate_number(i as f64);
+        list = mem.allocate_cons(x, list);
+    }
+
+    let vec = list_to_vec(list);
+
+    for (i, x) in vec.unwrap().iter().enumerate() {
+        assert_eq!(*x.get().as_number(), i as f64);
+    }
+}
+
+#[test]
+fn core_list_to_vec_fail() {
+    let mut mem = Memory::new();
+
+    // not list at all
+    let not_list = mem.allocate_character('@');
+    assert!(list_to_vec(not_list).is_none());
+
+    // not valid list
+    let x1 = mem.allocate_number(10.0);
+    let x2 = mem.allocate_number(20.0);
+    let x3 = mem.allocate_number(30.0);
+    let c1 = mem.allocate_cons(x2, x3);
+    let c2 = mem.allocate_cons(x1, c1);
+    assert!(list_to_vec(c2).is_none());
+}
