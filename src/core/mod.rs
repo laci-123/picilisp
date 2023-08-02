@@ -56,21 +56,137 @@ pub fn list_to_vec(list: ExternalReference) -> Option<Vec<ExternalReference>> {
 }
 
 
-// pub enum FoldInput {
-//     Singleton(ExternalReference),
-//     List(Vec<ExternalReference>),
-// }
+pub enum FoldOutput {
+    Return(ExternalReference),
+    Call(ExternalReference, ExternalReference),
+    Signal(ExternalReference),
+}
+
+impl FoldOutput {
+    pub fn as_value(self) -> ExternalReference {
+        if let Self::Return(x) = self {
+            x
+        }
+        else {
+            panic!("attempted to get return value from a non-Return FoldOutput")
+        }
+    }
+
+    pub fn as_signal(self) -> ExternalReference {
+        if let Self::Signal(x) = self {
+            x
+        }
+        else {
+            panic!("attempted to get signal from a non-Signal FoldOutput")
+        }
+    }
+}
 
 
-// pub enum FoldOutput {
-//     Return(ExternalReference),
-//     Signal(ExternalReference),
-// }
+struct Atom {
+    value: ExternalReference,
+    in_call: bool,
+    state: ExternalReference,
+}
+
+struct List {
+    elems: Vec<ExternalReference>,
+    current: usize,
+    in_call: bool,
+    state: ExternalReference,
+}
+
+enum StackFrame {
+    Atom(Atom),
+    List(List),
+}
+
+impl StackFrame {
+    fn new(x: ExternalReference, initial_state: ExternalReference) -> Self {
+        if let Some(vec) = list_to_vec(x.clone()) {
+            Self::List(List{ elems: vec, current: 0, in_call: false, state: initial_state })
+        }
+        else {
+            Self::Atom(Atom{ value: x, in_call: false, state: initial_state })
+        }
+    }
+}
 
 
-// pub fn fold_tree<T>(mem: &mut Memory, tree: ExternalReference, initial: T, f: impl Fn(T, FoldInput) -> FoldOutput) -> T {
-//     todo!()
-// }
+pub fn fold_tree(mem:    &mut Memory,
+                 state:  ExternalReference,
+                 tree:   ExternalReference,
+                 f_atom: impl Fn(&mut Memory, ExternalReference, ExternalReference) -> ExternalReference,
+                 f_list: impl Fn(&mut Memory, ExternalReference, Vec<ExternalReference>) -> FoldOutput)
+                 -> FoldOutput
+{
+    let mut stack = vec![StackFrame::new(tree, state)];
+    let mut return_value = ExternalReference::nil();
+
+    'stack_loop: while let Some(frame) = stack.last_mut() {
+        match frame {
+            StackFrame::Atom(atom_frame) => {
+                if atom_frame.in_call {
+                    // Don't need to do anything.
+                    // The next frame (that evaluated trap.normal_body) set return_value,
+                    // we just leave it as it is.
+                }
+                else {
+                    if let PrimitiveValue::Trap(trap) = atom_frame.value.get() {
+                        let new_tree       = trap.get_normal_body();
+                        let new_state      = atom_frame.state.clone();
+                        atom_frame.in_call = true;
+                        stack.push(StackFrame::new(new_tree, new_state));
+                        continue 'stack_loop;
+                    }
+                    return_value = f_atom(mem, atom_frame.state.clone(), atom_frame.value.clone());
+                }
+            },
+            StackFrame::List(list_frame) => {
+                if list_frame.in_call {
+                    list_frame.elems[list_frame.current] = return_value.clone();
+                    list_frame.current += 1;
+                    list_frame.in_call = false;
+                }
+
+                for i in list_frame.current .. list_frame.elems.len() {
+                    let x = list_frame.elems[i].clone();
+                    list_frame.in_call = true;
+                    let s = list_frame.state.clone();
+                    stack.push(StackFrame::new(x, s));
+                    continue 'stack_loop;
+                }
+
+                match f_list(mem, list_frame.state.clone(), list_frame.elems.clone()) {
+                    FoldOutput::Return(x) => {
+                        return_value = x;
+                    },
+                    FoldOutput::Call(new_tree, new_state) => {
+                        *frame = StackFrame::new(new_tree, new_state);
+                        continue 'stack_loop;
+                    },
+                    FoldOutput::Signal(signal) => {
+                        while let Some(old_frame) = stack.pop() {
+                            if let StackFrame::Atom(af) = old_frame {
+                                if let PrimitiveValue::Trap(trap) = af.value.get() {
+                                    // TODO: give `signal` to `trap_body` somehow
+                                    stack.push(StackFrame::new(trap.get_trap_body(), af.state));
+                                    continue 'stack_loop;
+                                }
+                            }
+                        }
+
+                        return FoldOutput::Signal(signal);
+                    },
+                }
+            },
+        }
+
+        stack.pop();
+    }
+
+    FoldOutput::Return(return_value)
+}
 
 
 #[cfg(test)]
