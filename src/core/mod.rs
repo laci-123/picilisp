@@ -27,6 +27,17 @@ pub fn vec_to_list_reverse(mem: &mut Memory, vec: Vec<ExternalReference>) -> Ext
 }
 
 
+pub fn string_to_list(mem: &mut Memory, string: &str) -> ExternalReference {
+    let char_vec = string.chars().map(|c| mem.allocate_character(c)).collect();
+    vec_to_list(mem, char_vec)
+}
+
+
+pub fn list_to_string(list: ExternalReference) -> Option<String> {
+    list_to_vec(list).map(|vec| vec.iter().map(|x| x.get().as_character()).collect())
+}
+
+
 /// Converts a Lisp-style list of primitive values to a vector of primitive values
 ///
 /// Returns None if `list` is not a valid list, i.e. if it is not a cons cell (or `nil` in case of the empty list)
@@ -51,8 +62,17 @@ pub fn list_to_vec(list: ExternalReference) -> Option<Vec<ExternalReference>> {
         }
     }
 
-    vec.reverse();
     Some(vec)
+}
+
+
+pub fn append_lists(mem: &mut Memory, list1: ExternalReference, list2: ExternalReference) -> Option<ExternalReference> {
+    let mut c = list2;
+    let vec1 = list_to_vec(list1)?;
+    for x in vec1.iter().rev() {
+        c = mem.allocate_cons(x.clone(), c);
+    }
+    Some(c)
 }
 
 

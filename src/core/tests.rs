@@ -52,6 +52,26 @@ fn core_vec_to_list() {
 }
 
 #[test]
+fn core_string_to_list() {
+    let mut mem = Memory::new();
+    
+    let list = string_to_list(&mut mem, "cat");
+
+    let mut c = list;
+    let c1 = c.get().as_conscell();
+    assert_eq!(*c1.get_car().get().as_character(), 'c');
+    c = c1.get_cdr();                             
+    let c2 = c.get().as_conscell();
+    assert_eq!(*c2.get_car().get().as_character(), 'a');
+    c = c2.get_cdr();
+    let c3 = c.get().as_conscell();
+    assert_eq!(*c3.get_car().get().as_character(), 't');
+    c = c3.get_cdr();
+    assert!(c.is_nil());
+}
+
+
+#[test]
 fn core_vec_to_list_empty() {
     let mut mem = Memory::new();
     
@@ -71,7 +91,7 @@ fn core_list_to_vec() {
     
     // non-empty list
     let mut list = ExternalReference::nil();
-    for i in 0 .. 5 {
+    for i in (0 .. 5).rev() {
         let x = mem.allocate_number(i as f64);
         list = mem.allocate_cons(x, list);
     }
@@ -99,6 +119,21 @@ fn core_list_to_vec_fail() {
     let c2 = mem.allocate_cons(x1, c1);
     assert!(list_to_vec(c2).is_none());
 }
+
+#[test]
+fn core_append_lists() {
+    let mut mem = Memory::new();
+
+    let vec1  = vec![mem.allocate_number(11.0), mem.allocate_number(12.0), mem.allocate_number(13.0)];
+    let list1 = vec_to_list(&mut mem, vec1);
+    let vec2  = vec![mem.allocate_number(14.0), mem.allocate_number(15.0), mem.allocate_number(16.0)];
+    let list2 = vec_to_list(&mut mem, vec2);
+
+    let list3 = append_lists(&mut mem, list1, list2).unwrap();
+    let vec3  = list_to_vec(list3).unwrap();
+    assert_eq!(vec3.iter().map(|x| *x.get().as_number()).collect::<Vec<f64>>(), vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]);
+}
+
 
 #[test]
 fn fold_tree_atom() {

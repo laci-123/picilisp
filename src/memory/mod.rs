@@ -63,6 +63,17 @@ pub struct Symbol {
     own_address: *const CellContent,
 }
 
+impl Symbol {
+    pub fn get_name(&self) -> String {
+        if let Some(name) = &self.name {
+            name.clone()
+        }
+        else {
+            format!("#<symbol-{:p}>", self.own_address)
+        }
+    }
+}
+
 impl PartialEq for Symbol {
     fn eq(&self, other: &Self) -> bool {
         self.own_address == other.own_address

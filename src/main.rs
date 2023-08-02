@@ -4,3 +4,4 @@ fn main() {
 
 mod memory;
 mod core;
+mod native;
