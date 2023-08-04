@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::memory::*;
-use crate::core::{vec_to_list, string_to_list};
+use crate::util::{vec_to_list, string_to_list};
 
 
 /// Converts a Lisp-style string to an AST

@@ -3,5 +3,5 @@ fn main() {
 }
 
 mod memory;
-mod core;
+mod util;
 mod native;

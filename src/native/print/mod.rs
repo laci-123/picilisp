@@ -1,4 +1,4 @@
-use crate::core::*;
+use crate::util::*;
 use crate::memory::*;
 
 
@@ -69,8 +69,7 @@ impl StackFrame {
     }
 }
 
-pub fn print(mem: &mut Memory, tree: ExternalReference) -> ExternalReference
-{
+pub fn print(mem: &mut Memory, tree: ExternalReference) -> ExternalReference {
     let mut stack        = vec![StackFrame::new(tree)];
     let mut return_value = ExternalReference::nil();
 

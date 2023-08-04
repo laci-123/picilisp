@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use crate::core::{string_to_list, list_to_string, list_to_vec};
+use crate::util::{string_to_list, list_to_string, list_to_vec};
 use super::*;
 
 
