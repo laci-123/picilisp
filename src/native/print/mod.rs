@@ -89,7 +89,8 @@ pub fn print(mem: &mut Memory, tree: ExternalReference) -> ExternalReference {
                     return_value = print_string(mem, list_frame.elems.clone());
                 }
                 else {
-                    for i in list_frame.current .. list_frame.elems.len() {
+                    let i = list_frame.current;
+                    if i < list_frame.elems.len() {
                         let x = list_frame.elems[i].clone();
                         list_frame.in_call = true;
                         stack.push(StackFrame::new(x));

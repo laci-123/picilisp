@@ -1,4 +1,5 @@
-#[allow(dead_code)]
+#![allow(dead_code)]
 
 mod print;
 mod read;
+mod eval;

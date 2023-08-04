@@ -88,6 +88,7 @@ pub enum FunctionKind {
     Syntax,
     Macro,
     Lambda,
+    SpecialLambda,
 }
 
 
