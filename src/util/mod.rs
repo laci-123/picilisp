@@ -7,7 +7,7 @@ use crate::memory::*;
 /// Converts a vector of primitive values to a Lisp-style list of primitive values
 ///
 /// For example: [1, 2, 3] -> (cons 1 (cons 2 (cons 3 nil)))
-pub fn vec_to_list(mem: &mut Memory, mut vec: Vec<ExternalReference>) -> ExternalReference {
+pub fn vec_to_list(mem: &mut Memory, mut vec: Vec<GcRef>) -> GcRef {
     vec.reverse();
     vec_to_list_reverse(mem, vec)
 }
@@ -16,8 +16,8 @@ pub fn vec_to_list(mem: &mut Memory, mut vec: Vec<ExternalReference>) -> Externa
 /// Converts a vector of primitive values to a Lisp-style list of primitive values, in reverse order
 ///
 /// For example: [3, 2, 1] -> (cons 1 (cons 2 (cons 3 nil)))
-pub fn vec_to_list_reverse(mem: &mut Memory, vec: Vec<ExternalReference>) -> ExternalReference {
-    let mut c = ExternalReference::nil();
+pub fn vec_to_list_reverse(mem: &mut Memory, vec: Vec<GcRef>) -> GcRef {
+    let mut c = GcRef::nil();
 
     for v in vec {
         c = mem.allocate_cons(v, c);
@@ -27,13 +27,13 @@ pub fn vec_to_list_reverse(mem: &mut Memory, vec: Vec<ExternalReference>) -> Ext
 }
 
 
-pub fn string_to_list(mem: &mut Memory, string: &str) -> ExternalReference {
+pub fn string_to_list(mem: &mut Memory, string: &str) -> GcRef {
     let char_vec = string.chars().map(|c| mem.allocate_character(c)).collect();
     vec_to_list(mem, char_vec)
 }
 
 
-pub fn list_to_string(list: ExternalReference) -> Option<String> {
+pub fn list_to_string(list: GcRef) -> Option<String> {
     list_to_vec(list).map(|vec| vec.iter().map(|x| x.get().as_character()).collect())
 }
 
@@ -44,7 +44,7 @@ pub fn list_to_string(list: ExternalReference) -> Option<String> {
 /// or if the `cdr` of its last cons cell is not `nil`.
 /// 
 /// For example:  (cons 1 (cons 2 (cons 3 nil))) -> [1, 2, 3]
-pub fn list_to_vec(list: ExternalReference) -> Option<Vec<ExternalReference>> {
+pub fn list_to_vec(list: GcRef) -> Option<Vec<GcRef>> {
     let mut vec = vec![];
     
     let mut cursor = list;
@@ -66,7 +66,7 @@ pub fn list_to_vec(list: ExternalReference) -> Option<Vec<ExternalReference>> {
 }
 
 
-pub fn append_lists(mem: &mut Memory, list1: ExternalReference, list2: ExternalReference) -> Option<ExternalReference> {
+pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRef> {
     let mut c = list2;
     let vec1 = list_to_vec(list1)?;
     for x in vec1.iter().rev() {
@@ -77,13 +77,13 @@ pub fn append_lists(mem: &mut Memory, list1: ExternalReference, list2: ExternalR
 
 
 pub enum FoldOutput {
-    Return(ExternalReference),
-    Call(ExternalReference, ExternalReference),
-    Signal(ExternalReference),
+    Return(GcRef),
+    Call(GcRef, GcRef),
+    Signal(GcRef),
 }
 
 impl FoldOutput {
-    pub fn as_value(self) -> ExternalReference {
+    pub fn as_value(self) -> GcRef {
         if let Self::Return(x) = self {
             x
         }
@@ -92,7 +92,7 @@ impl FoldOutput {
         }
     }
 
-    pub fn as_signal(self) -> ExternalReference {
+    pub fn as_signal(self) -> GcRef {
         if let Self::Signal(x) = self {
             x
         }

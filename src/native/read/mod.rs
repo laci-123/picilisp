@@ -16,14 +16,14 @@ use crate::util::{vec_to_list, string_to_list};
 ///  * `invalid`:    `input` is not a valid string. `result` and `rest` are is undefined.
 /// `result` is the read AST and
 /// `rest` is the unread rest of `input`.
-pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
+pub fn read(mem: &mut Memory, input: GcRef) -> GcRef {
     use State::*;
     
     let ok_sym          = mem.symbol_for("ok");
     let incomplete_sym  = mem.symbol_for("incomplete");
     let invalid_sym     = mem.symbol_for("invalid");
     let error_sym       = mem.symbol_for("error");
-    let invalid         = vec_to_list(mem, vec![invalid_sym, ExternalReference::nil(), ExternalReference::nil(), ExternalReference::nil()]);
+    let invalid         = vec_to_list(mem, vec![invalid_sym, GcRef::nil(), GcRef::nil(), GcRef::nil()]);
 
     let mut atom_stack  = vec![];
     let mut list_stack  = vec![];
@@ -173,7 +173,7 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
             vec_to_list(mem, vec![ok_sym, elem.clone(), cursor])
         }
         else {
-            vec_to_list(mem, vec![incomplete_sym, ExternalReference::nil(), cursor])
+            vec_to_list(mem, vec![incomplete_sym, GcRef::nil(), cursor])
         }
     }
     else {
@@ -182,7 +182,7 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
             vec_to_list(mem, vec![ok_sym, result, cursor])
         }
         else {
-            vec_to_list(mem, vec![incomplete_sym, ExternalReference::nil(), cursor])
+            vec_to_list(mem, vec![incomplete_sym, GcRef::nil(), cursor])
         }
     }
 }
@@ -190,7 +190,7 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
 
 enum ListStack {
     Separator,
-    Elem(ExternalReference),
+    Elem(GcRef),
 }
 
 
@@ -204,7 +204,7 @@ enum State {
 }
 
 
-fn fetch_character(input: ExternalReference) -> Option<(char, ExternalReference)> {
+fn fetch_character(input: GcRef) -> Option<(char, GcRef)> {
     let cons =
     if let PrimitiveValue::Cons(cons) = input.get() {
         cons
@@ -221,13 +221,13 @@ fn fetch_character(input: ExternalReference) -> Option<(char, ExternalReference)
     }
 }
 
-fn build_list(mem: &mut Memory, list_stack: &mut Vec<ListStack>) -> Result<(), ExternalReference> {
+fn build_list(mem: &mut Memory, list_stack: &mut Vec<ListStack>) -> Result<(), GcRef> {
     if list_stack.len() == 0 || (list_stack.len() == 1 && !matches!(list_stack[0], ListStack::Separator)) {
         let error_msg = string_to_list(mem, "too many closing parentheses");
         return Err(error_msg);
     }
 
-    let mut new_list = ExternalReference::nil();
+    let mut new_list = GcRef::nil();
     while let Some(x) = list_stack.pop() {
         if let ListStack::Elem(elem) = x {
             new_list = mem.allocate_cons(elem, new_list);
@@ -242,7 +242,7 @@ fn build_list(mem: &mut Memory, list_stack: &mut Vec<ListStack>) -> Result<(), E
 }
 
 
-fn read_atom(mem: &mut Memory, string: &str) -> ExternalReference {
+fn read_atom(mem: &mut Memory, string: &str) -> GcRef {
     if let Some(x) = read_number(mem, string) {
         return x;
     }
@@ -253,7 +253,7 @@ fn read_atom(mem: &mut Memory, string: &str) -> ExternalReference {
 }
 
 
-fn read_number(mem: &mut Memory, string: &str) -> Option<ExternalReference> {
+fn read_number(mem: &mut Memory, string: &str) -> Option<GcRef> {
     if let Ok(x) = string.parse() {
         Some(mem.allocate_number(x))
     }
@@ -262,7 +262,7 @@ fn read_number(mem: &mut Memory, string: &str) -> Option<ExternalReference> {
     }
 }
 
-fn read_character(mem: &mut Memory, string: &str) -> Option<ExternalReference> {
+fn read_character(mem: &mut Memory, string: &str) -> Option<GcRef> {
     let mut chars = string.chars();
     if let Some('%') = chars.next() {
         let c1 = chars.next()?;
@@ -292,7 +292,7 @@ fn read_character(mem: &mut Memory, string: &str) -> Option<ExternalReference> {
     }
 }
 
-fn read_symbol(mem: &mut Memory, string: &str) -> ExternalReference {
+fn read_symbol(mem: &mut Memory, string: &str) -> GcRef {
     mem.symbol_for(&string)
 }
 

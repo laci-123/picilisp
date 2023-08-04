@@ -85,7 +85,7 @@ fn memory_allocate_cons() {
     let remain = mem.allocate_number(9.9); // this one should not get garbage collected
     
     {
-        let mut c = ExternalReference::nil();
+        let mut c = GcRef::nil();
         for i in 0 .. length {
             let x = mem.allocate_number(i as f64);
             c = mem.allocate_cons(x, c);

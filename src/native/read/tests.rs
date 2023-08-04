@@ -7,7 +7,7 @@ use super::*;
 fn read_empty() {
     let mut mem = Memory::new();
 
-    let r = read(&mut mem, ExternalReference::nil());
+    let r = read(&mut mem, GcRef::nil());
     let status = r.get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
 }

@@ -86,11 +86,11 @@ fn util_list_to_vec() {
     let mut mem = Memory::new();
 
     // empty list
-    let list = ExternalReference::nil();
+    let list = GcRef::nil();
     assert_eq!(list_to_vec(list).unwrap().len(), 0);
     
     // non-empty list
-    let mut list = ExternalReference::nil();
+    let mut list = GcRef::nil();
     for i in (0 .. 5).rev() {
         let x = mem.allocate_number(i as f64);
         list = mem.allocate_cons(x, list);

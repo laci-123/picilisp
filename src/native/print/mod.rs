@@ -2,7 +2,7 @@ use crate::util::*;
 use crate::memory::*;
 
 
-fn print_atom(mem: &mut Memory, atom: ExternalReference) -> ExternalReference {
+fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
     match atom.get() {
         PrimitiveValue::Nil          => string_to_list(mem, "()"),
         PrimitiveValue::Number(x)    => string_to_list(mem, &format!("{x}")),
@@ -19,7 +19,7 @@ fn print_atom(mem: &mut Memory, atom: ExternalReference) -> ExternalReference {
     }
 }
 
-fn print_string(mem: &mut Memory, list: Vec<ExternalReference>) -> ExternalReference {
+fn print_string(mem: &mut Memory, list: Vec<GcRef>) -> GcRef {
     let mut result = string_to_list(mem, "\"");
     for x in list.iter().rev() {
         result = mem.allocate_cons(x.clone(), result);
@@ -29,7 +29,7 @@ fn print_string(mem: &mut Memory, list: Vec<ExternalReference>) -> ExternalRefer
     mem.allocate_cons(quote, result)
 }
 
-fn print_list(mem: &mut Memory, list: Vec<ExternalReference>) -> ExternalReference {
+fn print_list(mem: &mut Memory, list: Vec<GcRef>) -> GcRef {
     let mut result = string_to_list(mem, ")");
     let space = string_to_list(mem, " ");
     for (i, x) in list.iter().rev().enumerate() {
@@ -44,11 +44,11 @@ fn print_list(mem: &mut Memory, list: Vec<ExternalReference>) -> ExternalReferen
 }
 
 struct Atom {
-    value: ExternalReference,
+    value: GcRef,
 }
 
 struct List {
-    elems: Vec<ExternalReference>,
+    elems: Vec<GcRef>,
     current: usize,
     in_call: bool,
 }
@@ -59,7 +59,7 @@ enum StackFrame {
 }
 
 impl StackFrame {
-    fn new(x: ExternalReference) -> Self {
+    fn new(x: GcRef) -> Self {
         if let Some(vec) = list_to_vec(x.clone()) {
             Self::List(List{ elems: vec, current: 0, in_call: false })
         }
@@ -69,9 +69,9 @@ impl StackFrame {
     }
 }
 
-pub fn print(mem: &mut Memory, tree: ExternalReference) -> ExternalReference {
+pub fn print(mem: &mut Memory, tree: GcRef) -> GcRef {
     let mut stack        = vec![StackFrame::new(tree)];
-    let mut return_value = ExternalReference::nil();
+    let mut return_value = GcRef::nil();
 
     'stack_loop: while let Some(frame) = stack.last_mut() {
         match frame {

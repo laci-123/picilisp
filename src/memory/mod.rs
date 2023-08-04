@@ -47,12 +47,12 @@ pub struct ConsCell {
 }
 
 impl ConsCell {
-    pub fn get_car(&self) -> ExternalReference {
-        ExternalReference::new(self.car)
+    pub fn get_car(&self) -> GcRef {
+        GcRef::new(self.car)
     }
 
-    pub fn get_cdr(&self) -> ExternalReference {
-        ExternalReference::new(self.cdr)
+    pub fn get_cdr(&self) -> GcRef {
+        GcRef::new(self.cdr)
     }
 }
 
@@ -99,8 +99,8 @@ pub struct Function {
 }
 
 impl Function {
-    pub fn get_body(&self) -> ExternalReference {
-        ExternalReference::new(self.body)
+    pub fn get_body(&self) -> GcRef {
+        GcRef::new(self.body)
     }
 
     pub fn params(&self) -> ParameterIterator {
@@ -118,11 +118,11 @@ pub struct ParameterIterator<'a> {
 }
 
 impl<'a> Iterator for ParameterIterator<'a> {
-    type Item = ExternalReference;
+    type Item = GcRef;
 
-    fn next(&mut self) -> Option<ExternalReference> {
+    fn next(&mut self) -> Option<GcRef> {
         if self.index < self.function.parameters.len() {
-            let er = ExternalReference::new(self.function.parameters[self.index]);
+            let er = GcRef::new(self.function.parameters[self.index]);
             self.index += 1;
             Some(er)
         }
@@ -139,12 +139,12 @@ pub struct Trap {
 }
 
 impl Trap {
-    pub fn get_normal_body(&self) -> ExternalReference {
-        ExternalReference::new(self.normal_body)
+    pub fn get_normal_body(&self) -> GcRef {
+        GcRef::new(self.normal_body)
     }
 
-    pub fn get_trap_body(&self) -> ExternalReference {
-        ExternalReference::new(self.trap_body)
+    pub fn get_trap_body(&self) -> GcRef {
+        GcRef::new(self.trap_body)
     }
 }
 
@@ -173,8 +173,8 @@ pub struct Meta {
 }
 
 impl Meta {
-    pub fn get_value(&self) -> ExternalReference {
-        ExternalReference::new(self.value)
+    pub fn get_value(&self) -> GcRef {
+        GcRef::new(self.value)
     }
 
     pub fn get_metadata(&self) -> &Location {
@@ -276,11 +276,11 @@ impl PrimitiveValue {
 }
 
 
-pub struct ExternalReference {
+pub struct GcRef {
     pointer: *mut CellContent,
 }
 
-impl ExternalReference {
+impl GcRef {
     fn new(pointer: *mut CellContent) -> Self {
         if !pointer.is_null() {
             unsafe {
@@ -330,7 +330,7 @@ impl ExternalReference {
     }
 }
 
-impl Clone for ExternalReference {
+impl Clone for GcRef {
     fn clone(&self) -> Self {
         if !self.pointer.is_null() {
             unsafe {
@@ -342,7 +342,7 @@ impl Clone for ExternalReference {
     }
 }
 
-impl Drop for ExternalReference {
+impl Drop for GcRef {
     fn drop(&mut self) {
         if !self.pointer.is_null() {
             unsafe {
@@ -376,9 +376,9 @@ impl Memory {
                symbols:    HashMap::new() }
     }
 
-    pub fn symbol_for(&mut self, name: &str) -> ExternalReference {
+    pub fn symbol_for(&mut self, name: &str) -> GcRef {
         if let Some(sym_ptr) = self.symbols.get(name) {
-            ExternalReference::new(*sym_ptr as *mut CellContent)
+            GcRef::new(*sym_ptr as *mut CellContent)
         }
         else {
             let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() }));
@@ -391,11 +391,11 @@ impl Memory {
 
             self.symbols.insert(name.to_string(), sym_ptr);
 
-            ExternalReference::new(sym_ptr)
+            GcRef::new(sym_ptr)
         }
     }
 
-    pub fn unique_symbol(&mut self) -> ExternalReference {
+    pub fn unique_symbol(&mut self) -> GcRef {
         let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
         if let PrimitiveValue::Symbol(sym) = unsafe { &mut (*sym_ptr).value } {
             sym.own_address = sym_ptr;
@@ -404,25 +404,25 @@ impl Memory {
             unreachable!();
         }
 
-        ExternalReference::new(sym_ptr)
+        GcRef::new(sym_ptr)
     }
 
-    pub fn allocate_number(&mut self, number: f64) -> ExternalReference {
+    pub fn allocate_number(&mut self, number: f64) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Number(number));
-        ExternalReference::new(ptr)
+        GcRef::new(ptr)
     }
 
-    pub fn allocate_character(&mut self, character: char) -> ExternalReference {
+    pub fn allocate_character(&mut self, character: char) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Character(character));
-        ExternalReference::new(ptr)
+        GcRef::new(ptr)
     }
 
-    pub fn allocate_cons(&mut self, car: ExternalReference, cdr: ExternalReference) -> ExternalReference {
+    pub fn allocate_cons(&mut self, car: GcRef, cdr: GcRef) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Cons(ConsCell{ car: car.pointer, cdr: cdr.pointer }));
-        ExternalReference::new(ptr)
+        GcRef::new(ptr)
     }
 
-    pub fn allocate_function(&mut self, body: ExternalReference, kind: FunctionKind, params: Vec<ExternalReference>) -> ExternalReference {
+    pub fn allocate_function(&mut self, body: GcRef, kind: FunctionKind, params: Vec<GcRef>) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
             if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
@@ -432,17 +432,17 @@ impl Memory {
         }
 
         let ptr = self.allocate_internal(PrimitiveValue::Function(Function{ body: body.pointer, kind, parameters: param_ptrs }));
-        ExternalReference::new(ptr)
+        GcRef::new(ptr)
     }
 
-    pub fn allocate_trap(&mut self, normal_body: ExternalReference, trap_body: ExternalReference) -> ExternalReference {
+    pub fn allocate_trap(&mut self, normal_body: GcRef, trap_body: GcRef) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Trap(Trap{ normal_body: normal_body.pointer, trap_body: trap_body.pointer }));
-        ExternalReference::new(ptr)
+        GcRef::new(ptr)
     }
 
-    pub fn allocate_metadata(&mut self, value: ExternalReference, metadata: Location) -> ExternalReference {
+    pub fn allocate_metadata(&mut self, value: GcRef, metadata: Location) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Meta(Meta{ value: value.pointer, metadata }));
-        ExternalReference::new(ptr)
+        GcRef::new(ptr)
     }
 
     fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {

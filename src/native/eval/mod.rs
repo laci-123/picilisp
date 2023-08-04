@@ -4,8 +4,8 @@ use crate::native::print::print;
 
 
 struct Atom {
-    value: ExternalReference,
-    environment: ExternalReference,
+    value: GcRef,
+    environment: GcRef,
     in_call: bool,
 }
 
@@ -18,10 +18,10 @@ enum ConsProgress {
 
 
 struct Cons {
-    car: ExternalReference,
-    cdr: ExternalReference,
+    car: GcRef,
+    cdr: GcRef,
     progress: ConsProgress,
-    environment: ExternalReference,
+    environment: GcRef,
 }
 
 
@@ -36,9 +36,9 @@ enum ListKind {
 
 struct List {
     kind: ListKind,
-    elems: Vec<ExternalReference>,
+    elems: Vec<GcRef>,
     current: usize,
-    environment: ExternalReference,
+    environment: GcRef,
     in_call: bool,
 }
 
@@ -50,7 +50,7 @@ enum StackFrame {
 }
 
 impl StackFrame {
-    fn new(x: ExternalReference, environment: ExternalReference) -> Self {
+    fn new(x: GcRef, environment: GcRef) -> Self {
         if let Some(vec) = list_to_vec(x.clone()) {
             let kind =
             if let Some(x) = vec.first() {
@@ -81,14 +81,14 @@ impl StackFrame {
 
 
 enum EvalInternal {
-    Return(ExternalReference),
-    Call(ExternalReference, ExternalReference),
-    Signal(ExternalReference),
+    Return(GcRef),
+    Call(GcRef, GcRef),
+    Signal(GcRef),
     Abort(String),
 }
 
 
-fn lookup(key: ExternalReference, environment: ExternalReference) -> Option<ExternalReference> {
+fn lookup(key: GcRef, environment: GcRef) -> Option<GcRef> {
     let mut cursor = environment;
 
     while !cursor.is_nil() {
@@ -106,7 +106,7 @@ fn lookup(key: ExternalReference, environment: ExternalReference) -> Option<Exte
 }
 
 
-fn eval_atom(mem: &mut Memory, atom: ExternalReference, environment: ExternalReference) -> EvalInternal {
+fn eval_atom(mem: &mut Memory, atom: GcRef, environment: GcRef) -> EvalInternal {
     match atom.get() {
         PrimitiveValue::Symbol(_) => {
             if let Some(value) = lookup(atom, environment) {
@@ -144,9 +144,9 @@ fn unwind_stack(stack: &mut Vec<StackFrame>) -> Option<StackFrame> {
 }
 
 
-fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: ExternalReference) -> EvalInternal {
+fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> EvalInternal {
     let mut stack        = vec![StackFrame::new(tree, environment)];
-    let mut return_value = ExternalReference::nil();
+    let mut return_value = GcRef::nil();
 
     'stack_loop: while let Some(frame) = stack.last_mut() {
         match frame {
@@ -207,7 +207,7 @@ fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: Externa
             StackFrame::List(list_frame) => {
                 match list_frame.kind {
                     ListKind::Empty => {
-                        return_value = ExternalReference::nil();
+                        return_value = GcRef::nil();
                     },
                     ListKind::BadOperator => {
                         let signal = mem.symbol_for("bad-operator");
@@ -270,8 +270,8 @@ fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: Externa
 }
 
 
-pub fn eval(mem: &mut Memory, tree: ExternalReference) -> Result<ExternalReference, String> {
-    let empty_env = ExternalReference::nil();
+pub fn eval(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
+    let empty_env = GcRef::nil();
     
     match eval_internal(mem, tree, empty_env) {
         EvalInternal::Return(x)      => Ok(x),

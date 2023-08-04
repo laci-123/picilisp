@@ -6,7 +6,7 @@ use super::*;
 fn print_print_atom() {
     let mut mem = Memory::new();
 
-    let x = ExternalReference::nil();
+    let x = GcRef::nil();
     let p = print(&mut mem, x);
     let s = list_to_string(p).unwrap();
     assert_eq!(s, "()");
@@ -26,7 +26,7 @@ fn print_print_atom() {
     let s = list_to_string(p).unwrap();
     assert_eq!(s, "kitten");
 
-    let x = mem.allocate_function(ExternalReference::nil(), FunctionKind::Lambda, vec![]);
+    let x = mem.allocate_function(GcRef::nil(), FunctionKind::Lambda, vec![]);
     let p = print(&mut mem, x);
     let s = list_to_string(p).unwrap();
     assert_eq!(s, "#<function>");
@@ -43,7 +43,7 @@ fn print_print_atom() {
 fn print_print_list() {
     let mut mem = Memory::new();
 
-    let vec = vec![mem.allocate_number(2.71), ExternalReference::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
+    let vec = vec![mem.allocate_number(2.71), GcRef::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
     let list = vec_to_list(&mut mem, vec);
     let p = print(&mut mem, list);
     let s = list_to_string(p).unwrap();
@@ -65,7 +65,7 @@ fn print_print_singleton_list() {
 fn print_print_nested_list() {
     let mut mem = Memory::new();
 
-    let vec1 = vec![mem.allocate_number(2.71), ExternalReference::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
+    let vec1 = vec![mem.allocate_number(2.71), GcRef::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
     let list1 = vec_to_list(&mut mem, vec1);
     let vec2 = vec![mem.symbol_for("one"), list1, mem.symbol_for("two")];
     let list2 = vec_to_list(&mut mem, vec2);

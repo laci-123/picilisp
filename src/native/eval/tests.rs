@@ -8,7 +8,7 @@ use crate::util::list_to_string;
 fn lookup_empty() {
     let mut mem = Memory::new();
 
-    let env = ExternalReference::nil();
+    let env = GcRef::nil();
     let value = lookup(mem.symbol_for("bird"), env);
     assert!(value.is_none());
 }
@@ -45,7 +45,7 @@ fn lookup_found() {
 fn eval_nil() {
     let mut mem = Memory::new();
 
-    let tree  = ExternalReference::nil();
+    let tree  = GcRef::nil();
     let value = eval(&mut mem, tree);
     assert!(value.unwrap().is_nil());
 }
