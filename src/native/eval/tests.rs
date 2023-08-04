@@ -162,3 +162,36 @@ fn eval_call_special_lambda() {
     let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
     assert_eq!(value_str, "symbols");
 }
+
+#[test]
+fn eval_trap_without_signal() {
+    let mut mem = Memory::new();
+
+    let normal_body = mem.allocate_number(10.0);
+    let trap_body   = mem.allocate_character('x');
+    let tree        = mem.allocate_trap(normal_body, trap_body);
+
+    let value = eval(&mut mem, tree);
+    assert_eq!(*value.unwrap().get().as_number(), 10.0);
+}
+
+#[test]
+fn eval_trap_with_signal() {
+    let mut mem = Memory::new();
+
+    // a lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+
+    let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
+    let normal  = vec_to_list(&mut mem, vec);
+
+    let trap    = mem.allocate_character('😊');
+
+    let tree    = mem.allocate_trap(normal, trap);
+
+    let value = eval(&mut mem, tree);
+    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    assert_eq!(value_str, "%😊");
+}

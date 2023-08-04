@@ -129,6 +129,21 @@ fn eval_atom(mem: &mut Memory, atom: ExternalReference, environment: ExternalRef
 }
 
 
+fn unwind_stack(stack: &mut Vec<StackFrame>) -> Option<StackFrame> {
+    while let Some(old_frame) = stack.pop() {
+        if let StackFrame::Atom(old_atom_frame) = old_frame {
+            if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
+                let trap_body = trap.get_trap_body();
+                let trap_env  = old_atom_frame.environment; // TODO: put `signal` into `trap_env`
+                return Some(StackFrame::new(trap_body, trap_env));
+            }
+        }
+    }
+
+    None
+}
+
+
 fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: ExternalReference) -> EvalInternal {
     let mut stack        = vec![StackFrame::new(tree, environment)];
     let mut return_value = ExternalReference::nil();
@@ -150,18 +165,13 @@ fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: Externa
                             continue 'stack_loop;
                         },
                         EvalInternal::Signal(signal) => {
-                            while let Some(old_frame) = stack.pop() {
-                                if let StackFrame::Atom(old_atom_frame) = old_frame {
-                                    if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
-                                        let trap_body = trap.get_trap_body();
-                                        let trap_env  = old_atom_frame.environment; // TODO: put `signal` into `trap_env`
-                                        stack.push(StackFrame::new(trap_body, trap_env));
-                                        continue 'stack_loop;
-                                    }
-                                }
+                            if let Some(trap_frame) = unwind_stack(&mut stack) {
+                                stack.push(trap_frame);
+                                continue 'stack_loop;
                             }
-
-                            return EvalInternal::Signal(signal);
+                            else {
+                                return EvalInternal::Signal(signal);
+                            }
                         },
                         EvalInternal::Abort(msg) => {
                             return EvalInternal::Abort(msg);
@@ -202,18 +212,13 @@ fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: Externa
                     ListKind::BadOperator => {
                         let signal = mem.symbol_for("bad-operator");
 
-                        while let Some(old_frame) = stack.pop() {
-                            if let StackFrame::Atom(old_atom_frame) = old_frame {
-                                if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
-                                    let trap_body = trap.get_trap_body();
-                                    let trap_env  = old_atom_frame.environment; // TODO: put `signal` into `trap_env`
-                                    stack.push(StackFrame::new(trap_body, trap_env));
-                                    continue 'stack_loop;
-                                }
-                            }
+                        if let Some(trap_frame) = unwind_stack(&mut stack) {
+                            stack.push(trap_frame);
+                            continue 'stack_loop;
                         }
-
-                        return EvalInternal::Signal(signal);
+                        else {
+                            return EvalInternal::Signal(signal);
+                        }
                     },
                     ListKind::Lambda | ListKind::SpecialLambda => {
                         if list_frame.in_call {
