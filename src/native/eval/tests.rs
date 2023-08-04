@@ -1,5 +1,7 @@
 use pretty_assertions::assert_eq;
 use super::*;
+use crate::native::print::print;
+use crate::util::list_to_string;
 
 
 #[test]
@@ -40,6 +42,15 @@ fn lookup_found() {
 }
 
 #[test]
+fn eval_nil() {
+    let mut mem = Memory::new();
+
+    let tree  = ExternalReference::nil();
+    let value = eval(&mut mem, tree);
+    assert!(value.unwrap().is_nil());
+}
+
+#[test]
 fn eval_number() {
     let mut mem = Memory::new();
 
@@ -76,4 +87,78 @@ fn eval_cons() {
     let value = eval(&mut mem, tree);
     assert_eq!(*value.clone().unwrap().get().as_conscell().get_car().get().as_number(), 1.0);
     assert_eq!(*value.unwrap().get().as_conscell().get_cdr().get().as_number(), 2.0);
+}
+
+#[test]
+fn eval_list_bad_operator() {
+    let mut mem = Memory::new();
+
+    let vec   = vec![mem.symbol_for("not-an-operator"), mem.allocate_number(-1.0), mem.allocate_number(-2.0), mem.allocate_number(-3.0)];
+    let tree  = vec_to_list(&mut mem, vec);
+    let value = eval(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: bad-operator");
+}
+
+#[test]
+fn eval_lambda() {
+    let mut mem = Memory::new();
+
+    // a lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+
+    let value = eval(&mut mem, lambda);
+    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    assert_eq!(value_str, "#<function>");
+}
+
+#[test]
+fn eval_call_lambda() {
+    let mut mem = Memory::new();
+
+    // a lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+
+    let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B')];
+    let tree    = vec_to_list(&mut mem, vec);
+
+    let value = eval(&mut mem, tree);
+    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    assert_eq!(value_str, "%B");
+}
+
+#[test]
+fn eval_call_lambda_unbound_params() {
+    let mut mem = Memory::new();
+
+    // a lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+
+    let vec     = vec![lambda, mem.allocate_character('A'), mem.symbol_for("no-value")];
+    let tree    = vec_to_list(&mut mem, vec);
+
+    let value = eval(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: unbound-symbol");
+}
+
+#[test]
+fn eval_call_special_lambda() {
+    let mut mem = Memory::new();
+
+    // a special-lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_function(body, FunctionKind::SpecialLambda, params);
+
+    let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
+    let tree    = vec_to_list(&mut mem, vec);
+
+    let value = eval(&mut mem, tree);
+    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    assert_eq!(value_str, "symbols");
 }

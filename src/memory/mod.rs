@@ -83,7 +83,7 @@ impl PartialEq for Symbol {
 impl Eq for Symbol {}
 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FunctionKind {
     Syntax,
     Macro,
@@ -105,6 +105,10 @@ impl Function {
 
     pub fn params(&self) -> ParameterIterator {
         ParameterIterator{ function: self, index: 0 }
+    }
+
+    pub fn get_kind(&self) -> FunctionKind {
+        self.kind
     }
 }
 

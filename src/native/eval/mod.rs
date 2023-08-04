@@ -25,7 +25,17 @@ struct Cons {
 }
 
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum ListKind {
+    BadOperator,
+    Empty,
+    Lambda,
+    SpecialLambda,
+}
+
+
 struct List {
+    kind: ListKind,
     elems: Vec<ExternalReference>,
     current: usize,
     environment: ExternalReference,
@@ -42,7 +52,23 @@ enum StackFrame {
 impl StackFrame {
     fn new(x: ExternalReference, environment: ExternalReference) -> Self {
         if let Some(vec) = list_to_vec(x.clone()) {
-            Self::List(List{ elems: vec, current: 0, environment, in_call: false })
+            let kind =
+            if let Some(x) = vec.first() {
+                if let PrimitiveValue::Function(f) = x.get() {
+                    match f.get_kind() {
+                        FunctionKind::Lambda        => ListKind::Lambda,
+                        FunctionKind::SpecialLambda => ListKind::SpecialLambda,
+                        _                           => ListKind::BadOperator,
+                    }
+                }
+                else {
+                    ListKind::BadOperator
+                }
+            }
+            else {
+                ListKind::Empty
+            };
+            Self::List(List{ kind, elems: vec, current: 0, environment, in_call: false })
         }
         else if let PrimitiveValue::Cons(cons) = x.get() {
             Self::Cons(Cons{ car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
@@ -169,23 +195,66 @@ fn eval_internal(mem: &mut Memory, tree: ExternalReference, environment: Externa
                 }
             },
             StackFrame::List(list_frame) => {
-                if list_frame.in_call {
-                    list_frame.elems[list_frame.current] = return_value.clone();
-                    list_frame.current += 1;
-                    list_frame.in_call = false;
-                }
+                match list_frame.kind {
+                    ListKind::Empty => {
+                        return_value = ExternalReference::nil();
+                    },
+                    ListKind::BadOperator => {
+                        let signal = mem.symbol_for("bad-operator");
 
-                let i = list_frame.current;
-                if i < list_frame.elems.len() {
-                    let x = list_frame.elems[i].clone();
-                    list_frame.in_call = true;
-                    let env = list_frame.environment.clone();
-                    stack.push(StackFrame::new(x, env));
-                    continue 'stack_loop;
-                }
+                        while let Some(old_frame) = stack.pop() {
+                            if let StackFrame::Atom(old_atom_frame) = old_frame {
+                                if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
+                                    let trap_body = trap.get_trap_body();
+                                    let trap_env  = old_atom_frame.environment; // TODO: put `signal` into `trap_env`
+                                    stack.push(StackFrame::new(trap_body, trap_env));
+                                    continue 'stack_loop;
+                                }
+                            }
+                        }
 
-                todo!()
-                // return_value = print_list(mem, list_frame.elems.clone());
+                        return EvalInternal::Signal(signal);
+                    },
+                    ListKind::Lambda | ListKind::SpecialLambda => {
+                        if list_frame.in_call {
+                            list_frame.elems[list_frame.current] = return_value.clone();
+                            list_frame.current += 1;
+                            list_frame.in_call = false;
+                        }
+
+                        let i = list_frame.current;
+                        let top =
+                        if list_frame.kind == ListKind::Lambda {
+                            // if lambda then evaluate the operator and the operands
+                            list_frame.elems.len()
+                        }
+                        else {
+                            // if special-lambda then only evaluate the operator
+                            1
+                        };
+
+                        if i < top {
+                            let x = list_frame.elems[i].clone();
+                            list_frame.in_call = true;
+                            let env = list_frame.environment.clone();
+                            stack.push(StackFrame::new(x, env));
+                            continue 'stack_loop;
+                        }
+
+                        let mut new_env = list_frame.environment.clone();
+                        let operator    = list_frame.elems[0].get().as_function();
+                        for (i, param) in operator.params().enumerate() {
+                            let arg       = list_frame.elems[i + 1].clone();
+                            let param_arg = mem.allocate_cons(param, arg);
+                            new_env       = mem.allocate_cons(param_arg, new_env);
+                        }
+
+                        let new_tree = operator.get_body();
+                        *frame = StackFrame::new(new_tree, new_env);
+
+                        continue 'stack_loop;
+                    },
+                }
             },
         }
 
