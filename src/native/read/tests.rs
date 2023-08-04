@@ -176,12 +176,96 @@ fn read_string() {
 fn read_escaped_string() {
     let mut mem = Memory::new();
 
-    let input = string_to_list(&mut mem, r#" "This is a newline: \n." "#);
+    let input = string_to_list(&mut mem, r#" "This is not the end: \". This is a newline: \n." "#);
     let r = read(&mut mem, input);
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
 
     let string = list_to_string(result).unwrap();
-    assert_eq!(string, "This is a newline: \n.");
+    assert_eq!(string, "This is not the end: \". This is a newline: \n.");
+}
+
+#[test]
+fn read_string_with_special_chars() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, r#" "The sky isn't pink (for now); Elephants are also not pink." "#);
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+
+    let string = list_to_string(result).unwrap();
+    assert_eq!(string, "The sky isn't pink (for now); Elephants are also not pink.");
+}
+
+#[test]
+fn read_with_remainder() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, "1.0(a b c)");
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(*result.get().as_number(), 1.0);
+    assert_eq!(list_to_string(rest).unwrap(), "(a b c)");
+}
+
+#[test]
+fn read_incomplete() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, "(((");
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
+
+    let input = string_to_list(&mut mem, "(%a %b %c ((");
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
+
+    let input = string_to_list(&mut mem, "(a b c (1 2 3) d");
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
+
+    let input = string_to_list(&mut mem, r#" "something "#);
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
+}
+
+#[test]
+fn read_bad_escape_char() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, r#" "abc \k def" "#);
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
+    assert_eq!(list_to_string(result).unwrap(), "'k' is not a valid escape character in a string literal");
+}
+
+#[test]
+fn read_bad_parens() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, ")");
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
+    assert_eq!(list_to_string(result).unwrap(), "too many closing parentheses");
+
+    let input = string_to_list(&mut mem, "(a b (1 2 3) c))");
+    let r = read(&mut mem, input);
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
+    assert_eq!(list_to_string(result).unwrap(), "too many closing parentheses");
 }

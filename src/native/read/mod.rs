@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::memory::*;
-use crate::core::vec_to_list;
+use crate::core::{vec_to_list, string_to_list};
 
 
 /// Converts a Lisp-style string to an AST
@@ -56,22 +56,8 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
                 // do nothing
             },
             (WhiteSpace, ')')  => { 
-                // too many close parens => error
-                if list_stack.len() == 0 {
-                    let error_msg = ExternalReference::nil(); // TODO
+                if let Err(error_msg) = build_list(mem, &mut list_stack) {
                     return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
-                }
-                
-                // right amount of close parens => build list
-                let mut new_list = ExternalReference::nil();
-                while let Some(x) = list_stack.pop() {
-                    if let ListStack::Elem(elem) = x {
-                        new_list = mem.allocate_cons(elem, new_list);
-                    }
-                    else {
-                        list_stack.push(ListStack::Elem(new_list));
-                        break;
-                    }
                 }
             },
             (WhiteSpace, c) => {
@@ -87,70 +73,70 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
             (Atom, ')') => {
                 list_stack.push(ListStack::Elem(read_atom(mem, &atom_stack.drain(..).collect::<String>())));
 
-                // too many close parens => error
-                if list_stack.len() == 0 {
-                    let error_msg = ExternalReference::nil(); // TODO
+                if let Err(error_msg) = build_list(mem, &mut list_stack) {
                     return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
                 }
-                
-                // right amount of close parens => build list
-                let mut new_list = ExternalReference::nil();
-                while let Some(x) = list_stack.pop() {
-                    if let ListStack::Elem(elem) = x {
-                        new_list = mem.allocate_cons(elem, new_list);
-                    }
-                    else {
-                        list_stack.push(ListStack::Elem(new_list));
-                        break;
-                    }
+
+                state = WhiteSpace;
+            },
+            (Atom, '(') => {
+                let atom = read_atom(mem, &atom_stack.drain(..).collect::<String>());
+
+                if list_stack.len() > 0 {
+                    list_stack.push(ListStack::Elem(atom));
+                }
+                else {
+                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                }
+
+                list_stack.push(ListStack::Separator);
+
+                state = WhiteSpace;
+            },
+            (Atom, '"') => {
+                let atom = read_atom(mem, &atom_stack.drain(..).collect::<String>());
+
+                if list_stack.len() > 0 {
+                    list_stack.push(ListStack::Elem(atom));
+                }
+                else {
+                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                }
+
+                list_stack.push(ListStack::Separator);
+
+                state = StringNormal;
+            },
+            (Atom, ';') => {
+                let atom = read_atom(mem, &atom_stack.drain(..).collect::<String>());
+
+                if list_stack.len() > 0 {
+                    list_stack.push(ListStack::Elem(atom));
+                }
+                else {
+                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                }
+
+                state = Comment;
+            },
+            (Atom, c) if c.is_whitespace() => {
+                let atom = read_atom(mem, &atom_stack.drain(..).collect::<String>());
+
+                if list_stack.len() > 0 {
+                    list_stack.push(ListStack::Elem(atom));
+                }
+                else {
+                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
                 }
 
                 state = WhiteSpace;
             },
             (Atom, c) => {
-                if c.is_whitespace() || c == '(' || c == '"' || c == ';' {
-                    let atom = read_atom(mem, &atom_stack.drain(..).collect::<String>());
-
-                    if list_stack.len() > 0 {
-                        list_stack.push(ListStack::Elem(atom));
-                    }
-                    else {
-                        return vec_to_list(mem, vec![ok_sym, atom, cursor]);
-                    }
-
-                    if c == '(' || c == '"' {
-                        list_stack.push(ListStack::Separator);
-                    }
-
-                    state =
-                    match c {
-                        ';' => Comment,
-                        '"' => StringNormal,
-                        _   => WhiteSpace,
-
-                    };
-                }
-                else {
-                    atom_stack.push(c);
-                }
+                atom_stack.push(c);
             },
             (StringNormal, '"') => {
-                // too many close parens => error
-                if list_stack.len() == 0 {
-                    let error_msg = ExternalReference::nil(); // TODO
+                if let Err(error_msg) = build_list(mem, &mut list_stack) {
                     return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
-                }
-                
-                // right amount of close parens => build list
-                let mut new_list = ExternalReference::nil();
-                while let Some(x) = list_stack.pop() {
-                    if let ListStack::Elem(elem) = x {
-                        new_list = mem.allocate_cons(elem, new_list);
-                    }
-                    else {
-                        list_stack.push(ListStack::Elem(new_list));
-                        break;
-                    }
                 }
 
                 state = WhiteSpace;
@@ -162,11 +148,19 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
                 list_stack.push(ListStack::Elem(mem.allocate_character(c)));
             },
             (StringEscape, c) => {
-                if c != 'n' && c != 't' && c != 'r' && c != '\\' {
-                    let error_msg = ExternalReference::nil(); // TODO
-                    return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                let escaped =
+                match c {
+                    'n'   => '\n',
+                    't'   => '\t',
+                    'r'   => '\r',
+                    '"'   => '"',
+                    '\\'  => '\\',
+                    other => {
+                        let error_msg = string_to_list(mem, &format!("'{other}' is not a valid escape character in a string literal"));
+                        return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                    },
                 };
-                list_stack.push(ListStack::Elem(mem.allocate_character(c)));
+                list_stack.push(ListStack::Elem(mem.allocate_character(escaped)));
                 state = StringNormal;
             },
         }
@@ -174,9 +168,9 @@ pub fn read(mem: &mut Memory, input: ExternalReference) -> ExternalReference {
         cursor = next_cursor;
     }
 
-    if let Some(x) = list_stack.pop() {
-        if let ListStack::Elem(elem) = x {
-            vec_to_list(mem, vec![ok_sym, elem, cursor])
+    if let Some(first) = list_stack.first() {
+        if let ListStack::Elem(elem) = first {
+            vec_to_list(mem, vec![ok_sym, elem.clone(), cursor])
         }
         else {
             vec_to_list(mem, vec![incomplete_sym, ExternalReference::nil(), cursor])
@@ -225,6 +219,26 @@ fn fetch_character(input: ExternalReference) -> Option<(char, ExternalReference)
     else {
         None
     }
+}
+
+fn build_list(mem: &mut Memory, list_stack: &mut Vec<ListStack>) -> Result<(), ExternalReference> {
+    if list_stack.len() == 0 || (list_stack.len() == 1 && !matches!(list_stack[0], ListStack::Separator)) {
+        let error_msg = string_to_list(mem, "too many closing parentheses");
+        return Err(error_msg);
+    }
+
+    let mut new_list = ExternalReference::nil();
+    while let Some(x) = list_stack.pop() {
+        if let ListStack::Elem(elem) = x {
+            new_list = mem.allocate_cons(elem, new_list);
+        }
+        else {
+            list_stack.push(ListStack::Elem(new_list));
+            break;
+        }
+    }
+
+    Ok(())
 }
 
 
