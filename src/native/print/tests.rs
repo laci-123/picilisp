@@ -73,3 +73,35 @@ fn print_print_nested_list() {
     let s = list_to_string(p).unwrap();
     assert_eq!(s, "(one (2.71 () %$ puppy) two)");
 }
+
+#[test]
+fn print_print_string() {
+    let mut mem = Memory::new();
+
+    let list = string_to_list(&mut mem, "The quick brown fox jumps over the lazy dog.");
+    let p = print(&mut mem, list);
+    let s = list_to_string(p).unwrap();
+    assert_eq!(s, r#""The quick brown fox jumps over the lazy dog.""#);
+}
+
+#[test]
+fn print_print_almost_string() {
+    let mut mem = Memory::new();
+
+    let vec = vec![mem.allocate_character('a'), mem.allocate_character('b'), mem.allocate_character('c'), mem.symbol_for("d")];
+    let list = vec_to_list(&mut mem, vec);
+    let p = print(&mut mem, list);
+    let s = list_to_string(p).unwrap();
+    assert_eq!(s, "(%a %b %c d)");
+}
+
+#[test]
+fn print_print_string_in_list() {
+    let mut mem = Memory::new();
+
+    let vec = vec![mem.allocate_number(1.0), string_to_list(&mut mem, "two"), mem.allocate_number(3.0)];
+    let list = vec_to_list(&mut mem, vec);
+    let p = print(&mut mem, list);
+    let s = list_to_string(p).unwrap();
+    assert_eq!(s, r#"(1 "two" 3)"#);
+}

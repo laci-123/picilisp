@@ -191,6 +191,20 @@ pub enum PrimitiveValue {
 }
 
 impl PrimitiveValue {
+    // for debuggnig
+    pub fn which(&self) -> &str {
+        match self {
+            Self::Nil          => "nil",
+            Self::Number(_)    => "number",
+            Self::Character(_) => "character",
+            Self::Cons(_)      => "conscell",
+            Self::Symbol(_)    => "symbol",
+            Self::Function(_)  => "function",
+            Self::Trap(_)      => "trap",
+            Self::Meta(_)      => "meta",
+        }
+    }
+    
     pub fn is_nil(&self) -> bool {
         if let Self::Nil = self {
             true
