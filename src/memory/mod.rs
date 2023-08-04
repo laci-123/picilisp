@@ -214,11 +214,6 @@ impl PrimitiveValue {
         if let Self::Nil = self {
             true
         }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.is_nil()
-            }
-        }
         else {
             false
         }
@@ -227,11 +222,6 @@ impl PrimitiveValue {
     pub fn as_number(&self) -> &f64 {
         if let Self::Number(x) = self {
             x
-        }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.as_number()
-            }
         }
         else {
             panic!("attempted to cast non-number PrimitiveValue to number")
@@ -242,11 +232,6 @@ impl PrimitiveValue {
         if let Self::Character(x) = self {
             x
         }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.as_character()
-            }
-        }
         else {
             panic!("attempted to cast non-character PrimitiveValue to character")
         }
@@ -256,11 +241,7 @@ impl PrimitiveValue {
         if let Self::Cons(x) = self {
             x
         }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.as_conscell()
-            }
-        }
+        
         else {
             panic!("attempted to cast non-conscell PrimitiveValue to conscell")
         }
@@ -269,11 +250,6 @@ impl PrimitiveValue {
     pub fn as_symbol(&self) -> &Symbol{
         if let Self::Symbol(x) = self {
             x
-        }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.as_symbol()
-            }
         }
         else {
             panic!("attempted to cast non-symbol PrimitiveValue to symbol")
@@ -284,11 +260,6 @@ impl PrimitiveValue {
         if let Self::Function(x) = self {
             x
         }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.as_function()
-            }
-        }
         else {
             panic!("attempted to cast non-function PrimitiveValue to function")
         }
@@ -298,22 +269,8 @@ impl PrimitiveValue {
         if let Self::Trap(x) = self {
             x
         }
-        else if let Self::Meta(m) = self {
-            unsafe {
-                (*m.value).value.as_trap()
-            }
-        }
         else {
             panic!("attempted to cast non-trap PrimitiveValue to trap")
-        }
-    }
-
-    pub fn get_metadata(&self) -> Option<&Location> {
-        if let Self::Meta(m) = self {
-            Some(&m.metadata)
-        }
-        else {
-            None
         }
     }
 }
@@ -343,8 +300,32 @@ impl ExternalReference {
     }
 
     pub fn get(&self) -> &PrimitiveValue {
+        let value =
         unsafe {
             &(*self.pointer).value
+        };
+
+        if let PrimitiveValue::Meta(meta) = value {
+            unsafe {
+                &(*meta.value).value
+            }
+        }
+        else {
+            value
+        }
+    }
+
+    pub fn get_metadata(&self) -> Option<&Location> {
+        let value =
+        unsafe {
+            &(*self.pointer).value
+        };
+
+        if let PrimitiveValue::Meta(meta) = value {
+            Some(&meta.metadata)
+        }
+        else {
+            None
         }
     }
 }

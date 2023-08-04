@@ -238,12 +238,12 @@ fn mem_allocate_meta() {
         assert_eq!(*m1.get().as_number(),    137.0);
         assert_eq!(*m2.get().as_character(), ' ');
 
-        assert_eq!(m1.get().get_metadata().unwrap().file, None);
-        assert_eq!(m1.get().get_metadata().unwrap().line, 23);
-        assert_eq!(m2.get().get_metadata().unwrap().file.as_ref().unwrap(), Path::new("~/the/input/file.lisp"));
-        assert_eq!(m2.get().get_metadata().unwrap().column, 42);
+        assert_eq!(m1.get_metadata().unwrap().file, None);
+        assert_eq!(m1.get_metadata().unwrap().line, 23);
+        assert_eq!(m2.get_metadata().unwrap().file.as_ref().unwrap(), Path::new("~/the/input/file.lisp"));
+        assert_eq!(m2.get_metadata().unwrap().column, 42);
 
-        assert_eq!(y.get().get_metadata(), None);
+        assert_eq!(y.get_metadata(), None);
     }
 
     mem.collect();
