@@ -226,11 +226,11 @@ fn eval_trap_with_signal() {
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
     let normal  = vec_to_list(&mut mem, vec);
 
-    let trap    = mem.allocate_character('😊');
+    let trap    = mem.symbol_for("trapped-signal");
 
     let tree    = mem.allocate_trap(normal, trap);
 
     let value = eval(&mut mem, tree);
     let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
-    assert_eq!(value_str, "%😊");
+    assert_eq!(value_str, "unbound-symbol");
 }

@@ -129,12 +129,15 @@ fn eval_atom(mem: &mut Memory, atom: GcRef, environment: GcRef) -> EvalInternal 
 }
 
 
-fn unwind_stack(stack: &mut Vec<StackFrame>) -> Option<StackFrame> {
+fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Option<StackFrame> {
     while let Some(old_frame) = stack.pop() {
         if let StackFrame::Atom(old_atom_frame) = old_frame {
             if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
-                let trap_body = trap.get_trap_body();
-                let trap_env  = old_atom_frame.environment; // TODO: put `signal` into `trap_env`
+                let trap_body          = trap.get_trap_body();
+                let mut trap_env       = old_atom_frame.environment;
+                let trapped_signal_sym = mem.symbol_for("trapped-signal");
+                let key_value          = mem.allocate_cons(trapped_signal_sym, signal);
+                trap_env               = mem.allocate_cons(key_value, trap_env);
                 return Some(StackFrame::new(trap_body, trap_env));
             }
         }
@@ -165,7 +168,7 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> EvalInter
                             continue 'stack_loop;
                         },
                         EvalInternal::Signal(signal) => {
-                            if let Some(trap_frame) = unwind_stack(&mut stack) {
+                            if let Some(trap_frame) = unwind_stack(mem, &mut stack, signal.clone()) {
                                 stack.push(trap_frame);
                                 continue 'stack_loop;
                             }
@@ -212,7 +215,7 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> EvalInter
                     ListKind::BadOperator => {
                         let signal = mem.symbol_for("bad-operator");
 
-                        if let Some(trap_frame) = unwind_stack(&mut stack) {
+                        if let Some(trap_frame) = unwind_stack(mem, &mut stack, signal.clone()) {
                             stack.push(trap_frame);
                             continue 'stack_loop;
                         }
