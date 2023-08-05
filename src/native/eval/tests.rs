@@ -145,7 +145,7 @@ fn eval_lambda() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+    let lambda  = mem.allocate_function(false, FunctionKind::Lambda, body, params);
 
     let value = eval(&mut mem, lambda);
     let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
@@ -159,7 +159,7 @@ fn eval_call_lambda() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+    let lambda  = mem.allocate_function(false, FunctionKind::Lambda, body, params);
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B')];
     let tree    = vec_to_list(&mut mem, vec);
@@ -176,7 +176,7 @@ fn eval_call_lambda_unbound_params() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+    let lambda  = mem.allocate_function(false, FunctionKind::Lambda, body, params);
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.symbol_for("no-value")];
     let tree    = vec_to_list(&mut mem, vec);
@@ -192,7 +192,7 @@ fn eval_call_special_lambda() {
     // a special-lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_function(body, FunctionKind::SpecialLambda, params);
+    let lambda  = mem.allocate_function(false, FunctionKind::SpecialLambda, body, params);
 
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
     let tree    = vec_to_list(&mut mem, vec);
@@ -221,16 +221,47 @@ fn eval_trap_with_signal() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_function(body, FunctionKind::Lambda, params);
+    let lambda  = mem.allocate_function(false, FunctionKind::Lambda, body, params);
 
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
     let normal  = vec_to_list(&mut mem, vec);
 
-    let trap    = mem.symbol_for("trapped-signal");
+    let trap    = mem.symbol_for("*trapped-signal*");
 
     let tree    = mem.allocate_trap(normal, trap);
 
     let value = eval(&mut mem, tree);
     let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
     assert_eq!(value_str, "unbound-symbol");
+}
+
+#[test]
+fn eval_unknown_native_function() {
+    let mut mem = Memory::new();
+
+    let params      = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let native_name = mem.symbol_for("no-such-thing");
+    let lambda      = mem.allocate_function(true, FunctionKind::Lambda, native_name, params);
+
+    let vec  = vec![lambda, mem.allocate_number(100.0), mem.allocate_number(200.0)];
+    let tree = vec_to_list(&mut mem, vec);
+
+    let value = eval(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: unknown-native-function");
+}
+
+#[test]
+fn eval_native_function() {
+    let mut mem = Memory::new();
+
+    let params      = vec![mem.symbol_for("tree")];
+    let native_name = mem.symbol_for("print");
+    let lambda      = mem.allocate_function(true, FunctionKind::Lambda, native_name, params);
+
+    let vec  = vec![lambda, mem.allocate_number(-1.23)];
+    let tree = vec_to_list(&mut mem, vec);
+
+    let value     = eval(&mut mem, tree);
+    let value_str = list_to_string(value.unwrap()).unwrap();
+    assert_eq!(value_str, "-1.23");
 }

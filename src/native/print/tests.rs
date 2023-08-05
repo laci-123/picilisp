@@ -26,7 +26,7 @@ fn print_print_atom() {
     let s = list_to_string(p).unwrap();
     assert_eq!(s, "kitten");
 
-    let x = mem.allocate_function(GcRef::nil(), FunctionKind::Lambda, vec![]);
+    let x = mem.allocate_function(false, FunctionKind::Lambda, GcRef::nil(), vec![]);
     let p = print(&mut mem, x);
     let s = list_to_string(p).unwrap();
     assert_eq!(s, "#<function>");

@@ -3,6 +3,25 @@ use crate::util::*;
 use crate::native::print::print;
 
 
+
+fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
+    let mut cursor = environment;
+
+    while !cursor.is_nil() {
+        let cons = cursor.get().as_conscell();
+        let key_value = cons.get_car();
+
+        if key_value.get().as_conscell().get_car().get().as_symbol() == key.get().as_symbol() {
+            return Some(key_value.get().as_conscell().get_cdr());
+        }
+
+        cursor = cons.get_cdr();
+    }
+
+    mem.get_global(&key.get().as_symbol().get_name())
+}
+
+
 struct AtomFrame {
     value: GcRef,
     environment: GcRef,
@@ -52,12 +71,16 @@ enum StackFrame {
 impl StackFrame {
     fn new(x: GcRef, environment: GcRef) -> Self {
         if let Some(vec) = list_to_vec(x.clone()) {
+            // x is some kind of list
             let kind =
             if let Some(x) = vec.first() {
+                // x is a non-empty list
                 if let PrimitiveValue::Function(f) = x.get() {
+                    // the first element of x is a function
                     match f.get_kind() {
                         FunctionKind::Lambda        => ListKind::Lambda,
                         FunctionKind::SpecialLambda => ListKind::SpecialLambda,
+                        // cannot eval macros at runtime
                         _                           => ListKind::BadOperator,
                     }
                 }
@@ -71,6 +94,8 @@ impl StackFrame {
             Self::List(ListFrame{ kind, elems: vec, current: 0, environment, in_call: false })
         }
         else if let PrimitiveValue::Cons(cons) = x.get() {
+            // x is a conscell but not a list
+            // (a conscell is a list if its cdr is either a list or nil)
             Self::Cons(ConsFrame{ car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
         }
         else {
@@ -89,31 +114,16 @@ enum EvalInternal {
 }
 
 
-fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
-    let mut cursor = environment;
-
-    while !cursor.is_nil() {
-        let cons = cursor.get().as_conscell();
-        let key_value = cons.get_car();
-
-        if key_value.get().as_conscell().get_car().get().as_symbol() == key.get().as_symbol() {
-            return Some(key_value.get().as_conscell().get_cdr());
-        }
-
-        cursor = cons.get_cdr();
-    }
-
-    mem.get_global(&key.get().as_symbol().get_name())
-}
-
-
 fn eval_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRef) -> EvalInternal {
     if atom_frame.in_call {
+        // The callee was the normal body of a trap.
+        // It has already set the return value, here we just forward it.
         return EvalInternal::Return(return_value);
     }
     
     let atom = atom_frame.value.clone();
     let env  = atom_frame.environment.clone();
+
     match atom.get() {
         PrimitiveValue::Symbol(_) => {
             if let Some(value) = lookup(mem, atom, env) {
@@ -124,61 +134,15 @@ fn eval_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRef) 
             }
         },
         PrimitiveValue::Cons(_) => {
-            unreachable!("eval_atom received a conscell, but conscells shuld be processed in eval_internal")
+            unreachable!("eval_atom received a conscell, but conscells shuld be processed in eval_cons")
         },
         PrimitiveValue::Trap(trap) => {
             atom_frame.in_call = true;
             EvalInternal::Call(trap.get_normal_body(), env)
         },
         _ => {
+            // numbers, characters and functions in non-call position don't get evaluated
             EvalInternal::Return(atom)
-        },
-    }
-}
-
-fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) -> EvalInternal {
-    match list_frame.kind {
-        ListKind::Empty => {
-            EvalInternal::Return(GcRef::nil())
-        },
-        ListKind::BadOperator => {
-            EvalInternal::Signal(mem.symbol_for("bad-operator"))
-        },
-        ListKind::Lambda | ListKind::SpecialLambda => {
-            if list_frame.in_call {
-                list_frame.elems[list_frame.current] = return_value.clone();
-                list_frame.current += 1;
-                list_frame.in_call = false;
-            }
-
-            let i = list_frame.current;
-            let top =
-            if list_frame.kind == ListKind::Lambda {
-                // if lambda then evaluate the operator and the operands
-                list_frame.elems.len()
-            }
-            else {
-                // if special-lambda then only evaluate the operator
-                1
-            };
-
-            if i < top {
-                let x = list_frame.elems[i].clone();
-                list_frame.in_call = true;
-                let env = list_frame.environment.clone();
-                return EvalInternal::Call(x, env);
-            }
-
-            let mut new_env = list_frame.environment.clone();
-            let operator    = list_frame.elems[0].get().as_function();
-            for (i, param) in operator.params().enumerate() {
-                let arg       = list_frame.elems[i + 1].clone();
-                let param_arg = mem.allocate_cons(param, arg);
-                new_env       = mem.allocate_cons(param_arg, new_env);
-            }
-
-            let new_tree = operator.get_body();
-            EvalInternal::TailCall(new_tree, new_env)
         },
     }
 }
@@ -208,13 +172,89 @@ fn eval_cons(mem: &mut Memory, cons_frame: &mut ConsFrame, return_value: GcRef) 
 }
 
 
+fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) -> EvalInternal {
+    match list_frame.kind {
+        ListKind::Empty => {
+            EvalInternal::Return(GcRef::nil())
+        },
+        ListKind::BadOperator => {
+            EvalInternal::Signal(mem.symbol_for("bad-operator"))
+        },
+        ListKind::Lambda | ListKind::SpecialLambda => {
+            if list_frame.in_call {
+                // receive the evaluated element and step to the next one
+                list_frame.elems[list_frame.current] = return_value.clone();
+                list_frame.current += 1;
+                list_frame.in_call = false;
+            }
+
+            let i = list_frame.current;
+            let top =
+            if list_frame.kind == ListKind::Lambda {
+                // if lambda then evaluate the operator and the operands
+                list_frame.elems.len()
+            }
+            else {
+                // if special-lambda then only evaluate the operator
+                1
+            };
+
+            // evaluate the operator and maybe the operands
+            if i < top {
+                let x = list_frame.elems[i].clone();
+                list_frame.in_call = true;
+                let env = list_frame.environment.clone();
+                return EvalInternal::Call(x, env);
+            }
+
+            let mut new_env = list_frame.environment.clone();
+            let operator    = list_frame.elems[0].get().as_function();
+            // pair the formal parameters with the (possibly evaluated) arguments
+            for (i, param) in operator.params().enumerate() {
+                let arg       = list_frame.elems[i + 1].clone();
+                let param_arg = mem.allocate_cons(param, arg);
+                new_env       = mem.allocate_cons(param_arg, new_env);
+            }
+
+            if operator.is_native() {
+                let name = operator.get_body().get().as_symbol().get_name();
+
+                let native_result =
+                match name.as_str() {
+                    "print" => {
+                        // first argument
+                        let x = new_env.get().as_conscell().get_car().get().as_conscell().get_cdr();
+                        Ok(print(mem, x))
+                    },
+                    "eval" => {
+                        eval(mem, new_env)
+                    },
+                    _ => {
+                        return EvalInternal::Signal(mem.symbol_for("unknown-native-function"))
+                    },
+                };
+
+                match native_result {
+                    Ok(x)    => return EvalInternal::Return(x),
+                    Err(msg) => return EvalInternal::Abort(msg),
+                }
+            }
+
+
+            let new_tree = operator.get_body();
+            EvalInternal::TailCall(new_tree, new_env)
+        },
+    }
+}
+
+
 fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Option<StackFrame> {
     while let Some(old_frame) = stack.pop() {
         if let StackFrame::Atom(old_atom_frame) = old_frame {
             if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
                 let trap_body          = trap.get_trap_body();
                 let mut trap_env       = old_atom_frame.environment;
-                let trapped_signal_sym = mem.symbol_for("trapped-signal");
+                let trapped_signal_sym = mem.symbol_for("*trapped-signal*");
                 let key_value          = mem.allocate_cons(trapped_signal_sym, signal);
                 trap_env               = mem.allocate_cons(key_value, trap_env);
                 return Some(StackFrame::new(trap_body, trap_env));

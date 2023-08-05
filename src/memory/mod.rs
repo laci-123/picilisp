@@ -94,6 +94,7 @@ pub enum FunctionKind {
 
 pub struct Function {
     kind: FunctionKind,
+    is_native: bool, // when is_native, body contains the name of the native Rust function
     parameters: Vec<*mut CellContent>,
     body: *mut CellContent,
 }
@@ -109,6 +110,10 @@ impl Function {
 
     pub fn get_kind(&self) -> FunctionKind {
         self.kind
+    }
+
+    pub fn is_native(&self) -> bool {
+        self.is_native
     }
 }
 
@@ -440,7 +445,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_function(&mut self, body: GcRef, kind: FunctionKind, params: Vec<GcRef>) -> GcRef {
+    pub fn allocate_function(&mut self, is_native: bool, kind: FunctionKind, body: GcRef, params: Vec<GcRef>) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
             if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
@@ -449,7 +454,7 @@ impl Memory {
             param_ptrs.push(param.pointer);
         }
 
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function{ body: body.pointer, kind, parameters: param_ptrs }));
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function{ is_native, kind, body: body.pointer, parameters: param_ptrs }));
         GcRef::new(ptr)
     }
 
