@@ -1,6 +1,7 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::native::print::print;
+use super::*;
 
 
 
@@ -209,37 +210,36 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
 
             let mut new_env = list_frame.environment.clone();
             let operator    = list_frame.elems[0].get().as_function();
+
+            if operator.is_native() {
+                let name = operator.get_body().get().as_symbol().get_name();
+
+                if name == "eval" {
+                    // We handle the case of eval here instead of calling call_native_function,
+                    // because we don't want multiple callstacks running at the same time
+                    // (because it would greatly complicate debugging and signal-handling).
+                    if list_frame.elems.len() == 2 {
+                        return EvalInternal::TailCall(list_frame.elems[1].clone(), new_env);
+                    }
+                    else {
+                        return EvalInternal::Signal(mem.symbol_for("wrong-number-of-arguments"))
+                    }
+                }
+
+                match call_native_function(mem, &name, &list_frame.elems[1..]) {
+                    NativeResult::Value(x)       => return EvalInternal::Return(x),
+                    NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
+                    NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
+                }
+            }
+
+
             // pair the formal parameters with the (possibly evaluated) arguments
             for (i, param) in operator.params().enumerate() {
                 let arg       = list_frame.elems[i + 1].clone();
                 let param_arg = mem.allocate_cons(param, arg);
                 new_env       = mem.allocate_cons(param_arg, new_env);
             }
-
-            if operator.is_native() {
-                let name = operator.get_body().get().as_symbol().get_name();
-
-                let native_result =
-                match name.as_str() {
-                    "print" => {
-                        // first argument
-                        let x = new_env.get().as_conscell().get_car().get().as_conscell().get_cdr();
-                        Ok(print(mem, x))
-                    },
-                    "eval" => {
-                        eval(mem, new_env)
-                    },
-                    _ => {
-                        return EvalInternal::Signal(mem.symbol_for("unknown-native-function"))
-                    },
-                };
-
-                match native_result {
-                    Ok(x)    => return EvalInternal::Return(x),
-                    Err(msg) => return EvalInternal::Abort(msg),
-                }
-            }
-
 
             let new_tree = operator.get_body();
             EvalInternal::TailCall(new_tree, new_env)

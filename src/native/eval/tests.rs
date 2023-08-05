@@ -251,6 +251,21 @@ fn eval_unknown_native_function() {
 }
 
 #[test]
+fn eval_native_function_wrong_arg_count() {
+    let mut mem = Memory::new();
+
+    let params      = vec![mem.symbol_for("tree")];
+    let native_name = mem.symbol_for("print");
+    let lambda      = mem.allocate_function(true, FunctionKind::Lambda, native_name, params);
+
+    let vec  = vec![lambda, mem.allocate_number(-1.23), mem.allocate_character('c')];
+    let tree = vec_to_list(&mut mem, vec);
+
+    let value     = eval(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: wrong-number-of-arguments");
+}
+
+#[test]
 fn eval_native_function() {
     let mut mem = Memory::new();
 
@@ -264,4 +279,34 @@ fn eval_native_function() {
     let value     = eval(&mut mem, tree);
     let value_str = list_to_string(value.unwrap()).unwrap();
     assert_eq!(value_str, "-1.23");
+}
+
+#[test]
+fn eval_native_eval() {
+    let mut mem = Memory::new();
+
+    let params      = vec![mem.symbol_for("tree")];
+    let native_name = mem.symbol_for("eval");
+    let lambda      = mem.allocate_function(true, FunctionKind::Lambda, native_name, params);
+
+    let vec  = vec![lambda, mem.allocate_number(-1.23)];
+    let tree = vec_to_list(&mut mem, vec);
+
+    let value     = eval(&mut mem, tree);
+    assert_eq!(*value.unwrap().get().as_number(), -1.23);
+}
+
+#[test]
+fn eval_native_eval_wrong_arg_count() {
+    let mut mem = Memory::new();
+
+    let params      = vec![mem.symbol_for("tree")];
+    let native_name = mem.symbol_for("eval");
+    let lambda      = mem.allocate_function(true, FunctionKind::Lambda, native_name, params);
+
+    let vec  = vec![lambda, mem.allocate_number(-1.23), mem.allocate_character('c')];
+    let tree = vec_to_list(&mut mem, vec);
+
+    let value     = eval(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: wrong-number-of-arguments");
 }
