@@ -354,9 +354,14 @@ impl Drop for GcRef {
 
 
 pub struct Memory {
+    // Order of fields matter!
+    // Fields are dropped in declaration order.
+    // `globals` must be dropped before `cells`,
+    // because on drop `GcRef` wants to access `cells`.
+    globals: HashMap<String, GcRef>,
+    symbols: HashMap<String, *const CellContent>,
     cells: Vec<Cell>,
     first_free: usize,
-    symbols: HashMap<String, *const CellContent>,
 }
 
 /// number of free cells when the [Memory] is constructed
@@ -371,9 +376,22 @@ const ALLOCATION_INCREMENT: usize = 8;
 
 impl Memory {
     pub fn new() -> Self {
-        Self { cells:      (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
-               first_free: 0,
-               symbols:    HashMap::new() }
+        Self { globals:    HashMap::new(),
+               symbols:    HashMap::new(),
+               cells:      (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
+               first_free: 0}
+    }
+
+    pub fn define_global(&mut self, name: &str, value: GcRef) {
+        self.globals.insert(name.to_string(), value);
+    }
+
+    pub fn undefine_global(&mut self, name: &str) {
+        self.globals.remove(name);
+    }
+
+    pub fn get_global(&self, name: &str) -> Option<GcRef> {
+        self.globals.get(name).map(|r| r.clone())
     }
 
     pub fn symbol_for(&mut self, name: &str) -> GcRef {

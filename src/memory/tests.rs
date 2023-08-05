@@ -251,3 +251,22 @@ fn mem_allocate_meta() {
     assert_eq!(mem.used_count(), 0);
 }
 
+#[test]
+fn mem_globals() {
+    let mut mem = Memory::new();
+
+    let x = mem.allocate_number(14.0);
+    mem.define_global("x", x);
+    let y = mem.symbol_for("thing");
+    mem.define_global("y", y);
+
+    assert_eq!(*mem.get_global("x").unwrap().get().as_number(), 14.0);
+    assert!(mem.get_global("z").is_none());
+
+    mem.undefine_global("x");
+    assert!(mem.get_global("x").is_none());
+
+    mem.collect();
+
+    assert_eq!(mem.get_global("y").unwrap().get().as_symbol(), mem.symbol_for("thing").get().as_symbol());
+}

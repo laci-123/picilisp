@@ -88,7 +88,7 @@ enum EvalInternal {
 }
 
 
-fn lookup(key: GcRef, environment: GcRef) -> Option<GcRef> {
+fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
     let mut cursor = environment;
 
     while !cursor.is_nil() {
@@ -102,14 +102,14 @@ fn lookup(key: GcRef, environment: GcRef) -> Option<GcRef> {
         cursor = cons.get_cdr();
     }
 
-    return None;
+    mem.get_global(&key.get().as_symbol().get_name())
 }
 
 
 fn eval_atom(mem: &mut Memory, atom: GcRef, environment: GcRef) -> EvalInternal {
     match atom.get() {
         PrimitiveValue::Symbol(_) => {
-            if let Some(value) = lookup(atom, environment) {
+            if let Some(value) = lookup(mem, atom, environment) {
                 EvalInternal::Return(value)
             }
             else {

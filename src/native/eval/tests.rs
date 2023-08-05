@@ -9,7 +9,8 @@ fn lookup_empty() {
     let mut mem = Memory::new();
 
     let env = GcRef::nil();
-    let value = lookup(mem.symbol_for("bird"), env);
+    let key = mem.symbol_for("bird");
+    let value = lookup(&mem, key, env);
     assert!(value.is_none());
 }
 
@@ -23,7 +24,8 @@ fn lookup_not_found() {
     let v2 = mem.allocate_number(2.0);
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, vec);
-    let value = lookup(mem.symbol_for("bird"), env);
+    let key = mem.symbol_for("bird");
+    let value = lookup(&mem, key, env);
     assert!(value.is_none());
 }
 
@@ -37,7 +39,44 @@ fn lookup_found() {
     let v2 = mem.allocate_number(2.0);
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, vec);
-    let value = lookup(mem.symbol_for("falcon"), env);
+    let key = mem.symbol_for("falcon");
+    let value = lookup(&mem, key, env);
+    assert_eq!(*value.unwrap().get().as_number(), 2.0);
+}
+
+#[test]
+fn lookup_global() {
+    let mut mem = Memory::new();
+
+    let v0 = mem.allocate_number(0.0);
+    mem.define_global("starling", v0);
+
+    let k1 = mem.symbol_for("owl");
+    let v1 = mem.allocate_number(1.0);
+    let k2 = mem.symbol_for("falcon");
+    let v2 = mem.allocate_number(2.0);
+    let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
+    let env = vec_to_list(&mut mem, vec);
+    let key = mem.symbol_for("starling");
+    let value = lookup(&mem, key, env);
+    assert_eq!(*value.unwrap().get().as_number(), 0.0);
+}
+
+#[test]
+fn lookup_shadowing() {
+    let mut mem = Memory::new();
+
+    let v0 = mem.allocate_number(0.0);
+    mem.define_global("starling", v0);
+
+    let k1 = mem.symbol_for("owl");
+    let v1 = mem.allocate_number(1.0);
+    let k2 = mem.symbol_for("starling");
+    let v2 = mem.allocate_number(2.0);
+    let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
+    let env = vec_to_list(&mut mem, vec);
+    let key = mem.symbol_for("starling");
+    let value = lookup(&mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 2.0);
 }
 
