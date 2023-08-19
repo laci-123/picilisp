@@ -50,6 +50,7 @@ enum ListKind {
     Empty,
     Lambda,
     SpecialLambda,
+    CompoundOperator,
 }
 
 
@@ -75,17 +76,19 @@ impl StackFrame {
             let kind =
             if let Some(x) = vec.first() {
                 // tree is a non-empty list
-                if let PrimitiveValue::Function(f) = x.get() {
-                    // the first element of tree is a function
-                    match f.get_kind() {
-                        FunctionKind::Lambda        => ListKind::Lambda,
-                        FunctionKind::SpecialLambda => ListKind::SpecialLambda,
-                        // cannot eval macros at runtime
-                        _                           => ListKind::BadOperator,
-                    }
-                }
-                else {
-                    ListKind::BadOperator
+                match x.get() {
+                    PrimitiveValue::Function(f) => {
+                        // the first element of tree is a function
+                        match f.get_kind() {
+                            FunctionKind::Lambda        => ListKind::Lambda,
+                            FunctionKind::SpecialLambda => ListKind::SpecialLambda,
+                            // cannot eval macros at runtime
+                            _                           => ListKind::BadOperator,
+                        }
+                    },
+                    // the first element of tree is a list (which may evaluate to an operator)
+                    PrimitiveValue::Cons(_) => ListKind::CompoundOperator,
+                    _ => ListKind::BadOperator,
                 }
             }
             else {
@@ -179,6 +182,30 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
         },
         ListKind::BadOperator => {
             EvalInternal::Signal(mem.symbol_for("eval-bad-operator"))
+        },
+        ListKind::CompoundOperator => {
+            if list_frame.in_call {
+                list_frame.elems[0] = return_value.clone();
+                if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
+                    list_frame.kind = 
+                    match f.get_kind() {
+                        FunctionKind::Lambda        => ListKind::Lambda,
+                        FunctionKind::SpecialLambda => ListKind::SpecialLambda,
+                        // cannot eval macros at runtime
+                        _                           => ListKind::BadOperator,
+                    };
+                    list_frame.in_call = false;
+                    return eval_list(mem, list_frame, return_value);
+                }
+                else {
+                    return EvalInternal::Signal(mem.symbol_for("eval-bad-operator"));
+                }
+            }
+            
+            let operator       = list_frame.elems[0].clone();
+            list_frame.in_call = true;
+            let env            = list_frame.environment.clone();
+            EvalInternal::Call(operator, env)
         },
         ListKind::Lambda | ListKind::SpecialLambda => {
             if list_frame.in_call {
