@@ -92,14 +92,13 @@ pub enum FunctionKind {
 }
 
 
-pub struct Function {
+pub struct NormalFunction {
     kind: FunctionKind,
-    is_native: bool, // when is_native, body contains the name of the native Rust function
     parameters: Vec<*mut CellContent>,
     body: *mut CellContent,
 }
 
-impl Function {
+impl NormalFunction {
     pub fn get_body(&self) -> GcRef {
         GcRef::new(self.body)
     }
@@ -111,14 +110,10 @@ impl Function {
     pub fn get_kind(&self) -> FunctionKind {
         self.kind
     }
-
-    pub fn is_native(&self) -> bool {
-        self.is_native
-    }
 }
 
 pub struct ParameterIterator<'a> {
-    function: &'a Function,
+    function: &'a NormalFunction,
     index: usize,
 }
 
@@ -133,6 +128,61 @@ impl<'a> Iterator for ParameterIterator<'a> {
         }
         else {
             None
+        }
+    }
+}
+
+
+pub enum NativeResult {
+    Value(GcRef),
+    Signal(GcRef),
+    Abort(String),
+}
+
+pub struct NativeFunction {
+    kind: FunctionKind,
+    function: fn(&mut Memory, &[GcRef]) -> NativeResult,
+}
+
+impl NativeFunction {
+    pub fn new(kind: FunctionKind, function: fn(&mut Memory, &[GcRef]) -> NativeResult) -> Self {
+        Self{ kind, function }
+    }
+
+    pub fn call(&self, mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+        (self.function)(mem, args)
+    }
+}
+
+
+pub enum Function {
+    NormalFunction(NormalFunction),
+    NativeFunction(NativeFunction),
+}
+
+impl Function {
+    fn as_normal_function(&self) -> &NormalFunction {
+        if let Self::NormalFunction(nf) = self {
+            nf
+        }
+        else {
+            panic!("attempted to cast a native function to a normal function")
+        }
+    }
+
+    fn as_native_function(&self) -> &NativeFunction {
+        if let Self::NativeFunction(nf) = self {
+            nf
+        }
+        else {
+            panic!("attempted to cast a normal function to a native function")
+        }
+    }
+
+    pub fn get_kind(&self) -> FunctionKind {
+        match self {
+            Self::NormalFunction(nf) => nf.kind,
+            Self::NativeFunction(nf) => nf.kind,
         }
     }
 }
@@ -445,7 +495,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_function(&mut self, is_native: bool, kind: FunctionKind, body: GcRef, params: Vec<GcRef>) -> GcRef {
+    pub fn allocate_normal_function(&mut self, kind: FunctionKind, body: GcRef, params: Vec<GcRef>) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
             if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
@@ -454,7 +504,12 @@ impl Memory {
             param_ptrs.push(param.pointer);
         }
 
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function{ is_native, kind, body: body.pointer, parameters: param_ptrs }));
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind, body: body.pointer, parameters: param_ptrs })));
+        GcRef::new(ptr)
+    }
+
+    pub fn allocate_native_function(&mut self, kind: FunctionKind, function: fn(&mut Self, &[GcRef]) -> NativeResult) -> GcRef {
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, function })));
         GcRef::new(ptr)
     }
 
@@ -533,7 +588,7 @@ impl Memory {
                         stack.push(trap.trap_body);
                     }
                 },
-                PrimitiveValue::Function(f) => {
+                PrimitiveValue::Function(Function::NormalFunction(f)) => {
                     if !f.body.is_null() {
                         stack.push(f.body);
                     }
@@ -621,7 +676,12 @@ impl Memory {
                 PrimitiveValue::Character(ch)   => format!("CHARACTER {ch}"),
                 PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL    \"{n}\""))),
                 PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
-                PrimitiveValue::Function(ref f) => format!("FUCTION   body: {:p}", f.body),
+                PrimitiveValue::Function(ref f) => {
+                    match f {
+                        Function::NormalFunction(nf) => format!("FUNCTION   body: {:p}", nf.body),
+                        Function::NativeFunction(_)  => format!("FUNCTION   body: <native>"),
+                    }
+                },
                 PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
                 PrimitiveValue::Meta(ref m)     => format!("METADATA  value: {:p}", m.value),
             };

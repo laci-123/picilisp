@@ -1,7 +1,6 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::native::print::print;
-use super::*;
 
 
 
@@ -189,60 +188,48 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
                 list_frame.in_call = false;
             }
 
-            let i = list_frame.current;
-            let top =
+            let top;
             if list_frame.kind == ListKind::Lambda {
                 // if lambda then evaluate the operator and the operands
-                list_frame.elems.len()
+                top = list_frame.elems.len();
             }
             else {
                 // if special-lambda then only evaluate the operator
-                1
-            };
+                top = 1;
+            }
 
+            let i = list_frame.current;
             // evaluate the operator and maybe the operands
             if i < top {
-                let x = list_frame.elems[i].clone();
+                let x              = list_frame.elems[i].clone();
                 list_frame.in_call = true;
-                let env = list_frame.environment.clone();
+                let env            = list_frame.environment.clone();
                 return EvalInternal::Call(x, env);
             }
 
             let mut new_env = list_frame.environment.clone();
             let operator    = list_frame.elems[0].get().as_function();
 
-            if operator.is_native() {
-                let name = operator.get_body().get().as_symbol().get_name();
-
-                if name == "eval" {
-                    // We handle the case of eval here instead of calling call_native_function,
-                    // because we don't want multiple callstacks running at the same time
-                    // (because it would greatly complicate debugging and signal-handling).
-                    if list_frame.elems.len() == 2 {
-                        return EvalInternal::TailCall(list_frame.elems[1].clone(), new_env);
+            match operator {
+                Function::NativeFunction(nf) => {
+                    match nf.call(mem, &list_frame.elems[1..]) {
+                        NativeResult::Value(x)       => return EvalInternal::Return(x),
+                        NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
+                        NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
+                    };
+                },
+                Function::NormalFunction(nf) => {
+                    // pair the formal parameters with the (possibly evaluated) arguments
+                    for (i, param) in nf.params().enumerate() {
+                        let arg       = list_frame.elems[i + 1].clone(); // i + 1: list_frame.elems[0] is the operator
+                        let param_arg = mem.allocate_cons(param, arg);
+                        new_env       = mem.allocate_cons(param_arg, new_env);
                     }
-                    else {
-                        return EvalInternal::Signal(mem.symbol_for("wrong-number-of-arguments"))
-                    }
-                }
 
-                match call_native_function(mem, &name, &list_frame.elems[1..]) {
-                    NativeResult::Value(x)       => return EvalInternal::Return(x),
-                    NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
-                    NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
-                }
+                    let new_tree = nf.get_body();
+                    EvalInternal::TailCall(new_tree, new_env)
+                },
             }
-
-
-            // pair the formal parameters with the (possibly evaluated) arguments
-            for (i, param) in operator.params().enumerate() {
-                let arg       = list_frame.elems[i + 1].clone();
-                let param_arg = mem.allocate_cons(param, arg);
-                new_env       = mem.allocate_cons(param_arg, new_env);
-            }
-
-            let new_tree = operator.get_body();
-            EvalInternal::TailCall(new_tree, new_env)
         },
     }
 }
@@ -266,7 +253,7 @@ fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) ->
 }
 
 
-fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> Result<GcRef, String> {
+fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> NativeResult {
     let mut stack        = vec![StackFrame::new(tree, environment)];
     let mut return_value = GcRef::nil();
 
@@ -303,24 +290,39 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> Result<Gc
                 }
                 else {
                     let abort_msg = format!("Unhandled signal: {}", list_to_string(print(mem, signal)).unwrap());
-                    return Err(abort_msg);
+                    return NativeResult::Abort(abort_msg);
                 }
             },
             EvalInternal::Abort(msg) => {
-                return Err(msg);
+                return NativeResult::Abort(msg);
             },
         }
 
         stack.pop();
     }
 
-    Ok(return_value)
+    NativeResult::Value(return_value)
 }
 
 
-pub fn eval(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
-    let empty_env = GcRef::nil();
-    eval_internal(mem, tree, empty_env)
+pub fn eval(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+    if let Some(tree) = args.first() {
+        let empty_env = GcRef::nil();
+        eval_internal(mem, tree.clone(), empty_env)
+    }
+    else {
+        let signal = mem.symbol_for("wrong-number-of-arguments");
+        NativeResult::Signal(signal)
+    }
+}
+
+
+pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
+    match eval(mem, &[tree]) {
+        NativeResult::Value(x)       => Ok(x),
+        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, signal)).unwrap())),
+        NativeResult::Abort(msg)     => Err(msg),
+    }
 }
 
 

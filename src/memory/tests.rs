@@ -168,14 +168,14 @@ fn mem_allocate_function() {
     let p3 = mem.symbol_for("elm");
     let body = mem.allocate_character('ß');
 
-    let fun = mem.allocate_function(false, FunctionKind::Lambda, body, vec![p1, p2, p3]);
-    assert_eq!(*fun.get().as_function().get_body().get().as_character(), 'ß');
-    let mut params = fun.get().as_function().params();
+    let fun = mem.allocate_normal_function(FunctionKind::Lambda, body, vec![p1, p2, p3]);
+    assert_eq!(*fun.get().as_function().as_normal_function().get_body().get().as_character(), 'ß');
+    let mut params = fun.get().as_function().as_normal_function().params();
     assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("oak").get().as_symbol());
     assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("pine").get().as_symbol());
     assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("elm").get().as_symbol());
     assert!(params.next().is_none());
-    assert_eq!(fun.get().as_function().kind, FunctionKind::Lambda);
+    assert_eq!(fun.get().as_function().as_normal_function().kind, FunctionKind::Lambda);
 }
 
 #[test]
@@ -190,11 +190,11 @@ fn gc_collect_functions() {
         let p3 = mem.symbol_for("sunflower");
         let body = mem.allocate_character('🌻');
 
-        let fun = mem.allocate_function(false, FunctionKind::Macro, body, vec![p1, p2, p3]);
+        let fun = mem.allocate_normal_function(FunctionKind::Macro, body, vec![p1, p2, p3]);
 
         mem.symbol_for("tulip");
 
-        assert_eq!(fun.get().as_function().params().collect::<Vec<_>>().len(), 3);
+        assert_eq!(fun.get().as_function().as_normal_function().params().collect::<Vec<_>>().len(), 3);
     }
 
     mem.collect();
