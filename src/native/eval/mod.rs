@@ -247,10 +247,23 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
                 },
                 Function::NormalFunction(nf) => {
                     // pair the formal parameters with the (possibly evaluated) arguments
-                    for (i, param) in nf.params().enumerate() {
-                        let arg       = list_frame.elems[i + 1].clone(); // i + 1: list_frame.elems[0] is the operator
+                    let mut i = 1; // list_frame.elems[0] is the operator
+                    for param in nf.params() {
+                        let arg; 
+                        if let Some(a) = list_frame.elems.get(i) {
+                            arg = a.clone();
+                        }
+                        else {
+                            return EvalInternal::Signal(mem.symbol_for("not-enough-arguments"));
+                        };
                         let param_arg = mem.allocate_cons(param, arg);
                         new_env       = mem.allocate_cons(param_arg, new_env);
+
+                        i += 1;
+                    }
+
+                    if i < list_frame.elems.len() {
+                        return EvalInternal::Signal(mem.symbol_for("too-many-arguments"));
                     }
 
                     let new_tree = nf.get_body();

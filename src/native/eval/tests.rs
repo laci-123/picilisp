@@ -297,3 +297,35 @@ fn eval_native_eval() {
     let value = eval_external(&mut mem, tree);
     assert_eq!(*value.unwrap().get().as_number(), -1.23);
 }
+
+#[test]
+fn eval_not_enough_args() {
+    let mut mem = Memory::new();
+
+    // a lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params);
+
+    let vec     = vec![lambda, mem.allocate_character('A')];
+    let tree    = vec_to_list(&mut mem, vec);
+
+    let value     = eval_external(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: not-enough-arguments");
+}
+
+#[test]
+fn eval_too_many_args() {
+    let mut mem = Memory::new();
+
+    // a lambda that returns its second parameter
+    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
+    let body    = mem.symbol_for("y");
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params);
+
+    let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B'), mem.allocate_character('C')];
+    let tree    = vec_to_list(&mut mem, vec);
+
+    let value     = eval_external(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: too-many-arguments");
+}
