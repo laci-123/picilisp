@@ -16,7 +16,7 @@ use crate::util::{vec_to_list, string_to_list};
 ///  * `invalid`:    `input` is not a valid string. `result` and `rest` are is undefined.
 /// `result` is the read AST and
 /// `rest` is the unread rest of `input`.
-pub fn read(mem: &mut Memory, input: GcRef) -> GcRef {
+fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
     use State::*;
     
     let ok_sym          = mem.symbol_for("ok");
@@ -294,6 +294,14 @@ fn read_character(mem: &mut Memory, string: &str) -> Option<GcRef> {
 
 fn read_symbol(mem: &mut Memory, string: &str) -> GcRef {
     mem.symbol_for(&string)
+}
+
+
+pub fn read(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+    if args.len() != 1 {
+        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    }
+    NativeResult::Value(read_internal(mem, args[0].clone()))
 }
 
 

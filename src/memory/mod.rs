@@ -139,6 +139,17 @@ pub enum NativeResult {
     Abort(String),
 }
 
+impl NativeResult {
+    pub fn unwrap(self) -> GcRef {
+        if let Self::Value(x) = self {
+            x
+        }
+        else {
+            panic!("called `NativeResult::unwrap()` on a non-`Value` variant")
+        }
+    }
+}
+
 pub struct NativeFunction {
     kind: FunctionKind,
     function: fn(&mut Memory, &[GcRef]) -> NativeResult,

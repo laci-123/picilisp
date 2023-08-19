@@ -329,7 +329,7 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> NativeRes
                     continue;
                 }
                 else {
-                    let abort_msg = format!("Unhandled signal: {}", list_to_string(print(mem, signal)).unwrap());
+                    let abort_msg = format!("Unhandled signal: {}", list_to_string(print(mem, &[signal]).unwrap()).unwrap());
                     return NativeResult::Abort(abort_msg);
                 }
             },
@@ -360,7 +360,7 @@ pub fn eval(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
 pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     match eval(mem, &[tree]) {
         NativeResult::Value(x)       => Ok(x),
-        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, signal)).unwrap())),
+        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, &[signal]).unwrap()).unwrap())),
         NativeResult::Abort(msg)     => Err(msg),
     }
 }

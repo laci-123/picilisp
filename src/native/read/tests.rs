@@ -7,7 +7,7 @@ use super::*;
 fn read_empty() {
     let mut mem = Memory::new();
 
-    let r = read(&mut mem, GcRef::nil());
+    let r = read(&mut mem, &[GcRef::nil()]).unwrap();
     let status = r.get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
 }
@@ -17,7 +17,7 @@ fn read_number() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "-123.5");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -31,7 +31,7 @@ fn read_character() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "%a");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -45,7 +45,7 @@ fn read_escaped_character() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, r"%\n");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -59,7 +59,7 @@ fn read_symbol() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "+a-symbol");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -73,7 +73,7 @@ fn read_whitespace() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "   %A   ");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -88,7 +88,7 @@ fn read_comment() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, " ;this is a comment\n 10");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -102,7 +102,7 @@ fn read_empty_list() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "()");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -116,7 +116,7 @@ fn read_list() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "( 1 ;something\n  2 3)");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -130,7 +130,7 @@ fn read_singleton_list() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "(blue-whale)");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
@@ -145,7 +145,7 @@ fn read_nested_list() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "(1 (%a %b)  2)");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
@@ -163,7 +163,7 @@ fn read_string() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, r#" "The sky is blue." "#);
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
@@ -177,7 +177,7 @@ fn read_escaped_string() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, r#" "This is not the end: \". This is a newline: \n." "#);
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
@@ -191,7 +191,7 @@ fn read_string_with_special_chars() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, r#" "The sky isn't pink (for now); Elephants are also not pink." "#);
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
@@ -205,7 +205,7 @@ fn read_with_remainder() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "1.0(a b c)");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
@@ -219,22 +219,22 @@ fn read_incomplete() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, "(((");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
 
     let input = string_to_list(&mut mem, "(%a %b %c ((");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
 
     let input = string_to_list(&mut mem, "(a b c (1 2 3) d");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
 
     let input = string_to_list(&mut mem, r#" "something "#);
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
 }
@@ -244,7 +244,7 @@ fn read_bad_escape_char() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, r#" "abc \k def" "#);
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
@@ -256,14 +256,14 @@ fn read_bad_parens() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, ")");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
     assert_eq!(list_to_string(result).unwrap(), "too many closing parentheses");
 
     let input = string_to_list(&mut mem, "(a b (1 2 3) c))");
-    let r = read(&mut mem, input);
+    let r = read(&mut mem, &[input]).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());

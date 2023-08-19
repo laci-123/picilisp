@@ -148,7 +148,7 @@ fn eval_lambda() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params);
 
     let value = eval_external(&mut mem, lambda);
-    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()]).unwrap()).unwrap();
     assert_eq!(value_str, "#<function>");
 }
 
@@ -165,7 +165,7 @@ fn eval_call_lambda() {
     let tree    = vec_to_list(&mut mem, vec);
 
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()]).unwrap()).unwrap();
     assert_eq!(value_str, "%B");
 }
 
@@ -198,7 +198,7 @@ fn eval_call_special_lambda() {
     let tree    = vec_to_list(&mut mem, vec);
 
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()]).unwrap()).unwrap();
     assert_eq!(value_str, "symbols");
 }
 
@@ -231,7 +231,7 @@ fn eval_trap_with_signal() {
     let tree    = mem.allocate_trap(normal, trap);
 
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, value.unwrap())).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()]).unwrap()).unwrap();
     assert_eq!(value_str, "unbound-symbol");
 }
 

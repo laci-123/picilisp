@@ -69,7 +69,7 @@ impl StackFrame {
     }
 }
 
-pub fn print(mem: &mut Memory, tree: GcRef) -> GcRef {
+fn print_internal(mem: &mut Memory, tree: GcRef) -> GcRef {
     let mut stack        = vec![StackFrame::new(tree)];
     let mut return_value = GcRef::nil();
 
@@ -107,6 +107,16 @@ pub fn print(mem: &mut Memory, tree: GcRef) -> GcRef {
 
     return_value
 }
+
+
+pub fn print(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+    if args.len() != 1 {
+        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    }
+    NativeResult::Value(print_internal(mem, args[0].clone()))
+}
+
+
 
 #[cfg(test)]
 mod tests;

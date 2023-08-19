@@ -4,4 +4,4 @@
 mod print;
 mod read;
 mod eval;
-mod function;
+mod functions;
