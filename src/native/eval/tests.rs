@@ -135,7 +135,7 @@ fn eval_list_bad_operator() {
     let vec   = vec![mem.symbol_for("not-an-operator"), mem.allocate_number(-1.0), mem.allocate_number(-2.0), mem.allocate_number(-3.0)];
     let tree  = vec_to_list(&mut mem, vec);
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: bad-operator");
+    assert_eq!(value.err().unwrap(), "Unhandled signal: eval-bad-operator");
 }
 
 #[test]

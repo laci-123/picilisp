@@ -69,14 +69,14 @@ enum StackFrame {
 }
 
 impl StackFrame {
-    fn new(x: GcRef, environment: GcRef) -> Self {
-        if let Some(vec) = list_to_vec(x.clone()) {
-            // x is some kind of list
+    fn new(tree: GcRef, environment: GcRef) -> Self {
+        if let Some(vec) = list_to_vec(tree.clone()) {
+            // tree is some kind of list
             let kind =
             if let Some(x) = vec.first() {
-                // x is a non-empty list
+                // tree is a non-empty list
                 if let PrimitiveValue::Function(f) = x.get() {
-                    // the first element of x is a function
+                    // the first element of tree is a function
                     match f.get_kind() {
                         FunctionKind::Lambda        => ListKind::Lambda,
                         FunctionKind::SpecialLambda => ListKind::SpecialLambda,
@@ -93,13 +93,13 @@ impl StackFrame {
             };
             Self::List(ListFrame{ kind, elems: vec, current: 0, environment, in_call: false })
         }
-        else if let PrimitiveValue::Cons(cons) = x.get() {
-            // x is a conscell but not a list
+        else if let PrimitiveValue::Cons(cons) = tree.get() {
+            // tree is a conscell but not a list
             // (a conscell is a list if its cdr is either a list or nil)
             Self::Cons(ConsFrame{ car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
         }
         else {
-            Self::Atom(AtomFrame{ value: x, environment, in_call: false })
+            Self::Atom(AtomFrame{ value: tree, environment, in_call: false })
         }
     }
 }
@@ -178,7 +178,7 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
             EvalInternal::Return(GcRef::nil())
         },
         ListKind::BadOperator => {
-            EvalInternal::Signal(mem.symbol_for("bad-operator"))
+            EvalInternal::Signal(mem.symbol_for("eval-bad-operator"))
         },
         ListKind::Lambda | ListKind::SpecialLambda => {
             if list_frame.in_call {

@@ -161,7 +161,7 @@ pub enum Function {
 }
 
 impl Function {
-    fn as_normal_function(&self) -> &NormalFunction {
+    pub fn as_normal_function(&self) -> &NormalFunction {
         if let Self::NormalFunction(nf) = self {
             nf
         }
@@ -170,7 +170,7 @@ impl Function {
         }
     }
 
-    fn as_native_function(&self) -> &NativeFunction {
+    pub fn as_native_function(&self) -> &NativeFunction {
         if let Self::NativeFunction(nf) = self {
             nf
         }
