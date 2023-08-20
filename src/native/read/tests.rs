@@ -215,6 +215,34 @@ fn read_with_remainder() {
 }
 
 #[test]
+fn read_with_remainder_2() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, "(a b c) 1.0");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(list_to_vec(result).unwrap().len(), 3);
+    assert_eq!(list_to_string(rest).unwrap(), " 1.0");
+}
+
+#[test]
+fn read_with_remainder_3() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, "(a b c ) 1.0");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(list_to_vec(result).unwrap().len(), 3);
+    assert_eq!(list_to_string(rest).unwrap(), " 1.0");
+}
+
+#[test]
 fn read_incomplete() {
     let mut mem = Memory::new();
 
@@ -256,13 +284,6 @@ fn read_bad_parens() {
     let mut mem = Memory::new();
 
     let input = string_to_list(&mut mem, ")");
-    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
-    let status = r.get().as_conscell().get_car();
-    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
-    assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
-    assert_eq!(list_to_string(result).unwrap(), "too many closing parentheses");
-
-    let input = string_to_list(&mut mem, "(a b (1 2 3) c))");
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();

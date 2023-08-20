@@ -61,6 +61,11 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                 if let Err(error_msg) = build_list(mem, &mut list_stack) {
                     return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
                 }
+
+                if list_stack.len() == 1 {
+                    cursor = next_cursor;
+                    break;
+                }
             },
             (WhiteSpace, c) => {
                 atom_stack.push(c);
@@ -77,6 +82,11 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
 
                 if let Err(error_msg) = build_list(mem, &mut list_stack) {
                     return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                }
+
+                if list_stack.len() == 1 {
+                    cursor = next_cursor;
+                    break;
                 }
 
                 state = WhiteSpace;
