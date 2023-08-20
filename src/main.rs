@@ -10,6 +10,9 @@ fn main() {
     let repl = mem.allocate_native_function(FunctionKind::Lambda, crate::native::repl::repl);
     mem.define_global("repl", repl);
 
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::functions::lambda);
+    mem.define_global("lambda", lambda);
+
     let vec = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, vec);
 
