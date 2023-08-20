@@ -22,6 +22,8 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "add",      numbers::add,      FunctionKind::Lambda);
     load_native_function(mem, "multiply", numbers::multiply, FunctionKind::Lambda);
     load_native_function(mem, "divide",   numbers::divide,   FunctionKind::Lambda);
+    load_native_function(mem, "define",   globals::define,   FunctionKind::SpecialLambda);
+    load_native_function(mem, "undefine", globals::undefine, FunctionKind::SpecialLambda);
     load_native_function(mem, "repl",     repl::repl,        FunctionKind::Lambda);
 }
 
@@ -42,4 +44,5 @@ pub mod repl;
 pub mod list;
 pub mod signal;
 pub mod numbers;
+pub mod globals;
 pub mod misc;

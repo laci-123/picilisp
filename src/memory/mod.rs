@@ -463,6 +463,10 @@ impl Memory {
         self.globals.get(name).map(|r| r.clone())
     }
 
+    pub fn is_global_defined(&self, name: &str) -> bool {
+        self.globals.contains_key(name)
+    }
+
     pub fn symbol_for(&mut self, name: &str) -> GcRef {
         if let Some(sym_ptr) = self.symbols.get(name) {
             GcRef::new(*sym_ptr as *mut CellContent)
