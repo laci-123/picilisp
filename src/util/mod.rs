@@ -34,7 +34,27 @@ pub fn string_to_list(mem: &mut Memory, string: &str) -> GcRef {
 
 
 pub fn list_to_string(list: GcRef) -> Option<String> {
-    list_to_vec(list).map(|vec| vec.iter().map(|x| x.get().as_character()).collect())
+    if let Some(vec) = list_to_vec(list) {
+        let mut string = String::new();
+
+        let mut from = 0;
+        if let Some(x) = vec.first() {
+            if let PrimitiveValue::Symbol(sym) = x.get() {
+                if sym.get_name() == "list" {
+                    from = 1;
+                }
+            }
+        }
+
+        for x in &vec[from..] {
+            string.push(*x.get().as_character());
+        }
+
+        Some(string)
+    }
+    else {
+        None
+    }
 }
 
 

@@ -23,6 +23,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
     let incomplete_sym  = mem.symbol_for("incomplete");
     let invalid_sym     = mem.symbol_for("invalid");
     let error_sym       = mem.symbol_for("error");
+    let list_sym        = mem.symbol_for("list");
     let invalid         = vec_to_list(mem, vec![invalid_sym, GcRef::nil(), GcRef::nil(), GcRef::nil()]);
 
     let mut atom_stack  = vec![];
@@ -50,6 +51,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             },
             (WhiteSpace, '"') => {
                 list_stack.push(ListStack::Separator);
+                list_stack.push(ListStack::Elem(list_sym.clone()));
                 state = StringNormal;
             },
             (WhiteSpace, c) if c.is_whitespace() => {
