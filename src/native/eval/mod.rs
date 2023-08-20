@@ -296,6 +296,12 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef) -> NativeResult {
         }
 
         stack.pop();
+
+        if !return_value.is_nil() {
+            if let PrimitiveValue::Trap(_) = return_value.get() {
+                stack.push(StackFrame::new(return_value.clone(), env.clone()));
+            }
+        }
     }
 
     NativeResult::Value(return_value)

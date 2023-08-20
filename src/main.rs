@@ -39,6 +39,15 @@ fn main() {
     let abort = mem.allocate_native_function(FunctionKind::Lambda, crate::native::misc::abort, empty_env.clone());
     mem.define_global("abort", abort);
 
+    let signal = mem.allocate_native_function(FunctionKind::Lambda, crate::native::signal::signal, empty_env.clone());
+    mem.define_global("signal", signal);
+
+    let trap = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::signal::trap, empty_env.clone());
+    mem.define_global("trap", trap);
+
+    let eval = mem.allocate_native_function(FunctionKind::Lambda, crate::native::eval::eval, empty_env.clone());
+    mem.define_global("eval", eval);
+
     let vec = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, vec);
 
