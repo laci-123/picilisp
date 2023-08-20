@@ -48,6 +48,15 @@ fn main() {
     let eval = mem.allocate_native_function(FunctionKind::Lambda, crate::native::eval::eval, empty_env.clone());
     mem.define_global("eval", eval);
 
+    let add = mem.allocate_native_function(FunctionKind::Lambda, crate::native::numbers::add, empty_env.clone());
+    mem.define_global("add", add);
+
+    let multiply = mem.allocate_native_function(FunctionKind::Lambda, crate::native::numbers::multiply, empty_env.clone());
+    mem.define_global("multiply", multiply);
+
+    let divide = mem.allocate_native_function(FunctionKind::Lambda, crate::native::numbers::divide, empty_env.clone());
+    mem.define_global("divide", divide);
+
     let vec = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, vec);
 
