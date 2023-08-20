@@ -193,12 +193,11 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
         return EvalInternal::Call(x, env);
     }
 
-    let mut new_env = list_frame.environment.clone();
     let operator    = list_frame.elems[0].get().as_function();
 
     match operator {
         Function::NativeFunction(nf) => {
-            match nf.call(mem, &list_frame.elems[1..]) {
+            match nf.call(mem, &list_frame.elems[1..], list_frame.environment.clone()) {
                 NativeResult::Value(x)       => return EvalInternal::Return(x),
                 NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
                 NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
@@ -206,6 +205,7 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
         },
         Function::NormalFunction(nf) => {
             // pair the formal parameters with the (possibly evaluated) arguments
+            let mut new_env = nf.get_env();
             let mut i = 1; // list_frame.elems[0] is the operator
             for param in nf.params() {
                 let arg; 
@@ -250,8 +250,8 @@ fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) ->
 }
 
 
-fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> NativeResult {
-    let mut stack        = vec![StackFrame::new(tree, environment)];
+fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef) -> NativeResult {
+    let mut stack        = vec![StackFrame::new(tree, env.clone())];
     let mut return_value = GcRef::nil();
 
     while let Some(frame) = stack.last_mut() {
@@ -286,7 +286,7 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> NativeRes
                     continue;
                 }
                 else {
-                    let abort_msg = format!("Unhandled signal: {}", list_to_string(print(mem, &[signal]).unwrap()).unwrap());
+                    let abort_msg = format!("Unhandled signal: {}", list_to_string(print(mem, &[signal], env.clone()).unwrap()).unwrap());
                     return NativeResult::Abort(abort_msg);
                 }
             },
@@ -302,11 +302,10 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> NativeRes
 }
 
 
-pub fn eval(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     // TODO: check for too many arguments
     if let Some(tree) = args.first() {
-        let empty_env = GcRef::nil();
-        eval_internal(mem, tree.clone(), empty_env)
+        eval_internal(mem, tree.clone(), env)
     }
     else {
         let signal = mem.symbol_for("wrong-number-of-arguments");
@@ -316,9 +315,11 @@ pub fn eval(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
 
 
 pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
-    match eval(mem, &[tree]) {
+    let empty_env = GcRef::nil();
+    
+    match eval(mem, &[tree], empty_env.clone()) {
         NativeResult::Value(x)       => Ok(x),
-        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, &[signal]).unwrap()).unwrap())),
+        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, &[signal], empty_env).unwrap()).unwrap())),
         NativeResult::Abort(msg)     => Err(msg),
     }
 }

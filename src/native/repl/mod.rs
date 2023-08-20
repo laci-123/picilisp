@@ -7,7 +7,7 @@ use std::io::{self, BufRead};
 use std::io::prelude::*;
 
 
-pub fn repl(mem: &mut Memory, _args: &[GcRef]) -> NativeResult {
+pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
     let ok_symbol         = mem.symbol_for("ok");
     let incomplete_symbol = mem.symbol_for("incomplete");
     let error_symbol      = mem.symbol_for("error");
@@ -27,7 +27,7 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef]) -> NativeResult {
         
         let input_list  = string_to_list(mem, input.as_str());
         let read_output = 
-        match read(mem, &[input_list]) {
+        match read(mem, &[input_list], env.clone()) {
             NativeResult::Value(x) => x,
             other                  => return other,
         };
@@ -45,13 +45,13 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef]) -> NativeResult {
 
             let ast    = result;
             let evaled =
-            match eval(mem, &[ast]) {
+            match eval(mem, &[ast], env.clone()) {
                 NativeResult::Value(x) => x,
                 other                  => return other,
             };
 
             let output =
-            match print(mem, &[evaled]) {
+            match print(mem, &[evaled], env.clone()) {
                 NativeResult::Value(x) => x,
                 other                  => return other,
             };

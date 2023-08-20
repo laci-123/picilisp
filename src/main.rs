@@ -7,10 +7,12 @@ fn main() {
 
     let mut mem = Memory::new();
 
-    let repl = mem.allocate_native_function(FunctionKind::Lambda, crate::native::repl::repl);
+    let empty_env = GcRef::nil();
+
+    let repl = mem.allocate_native_function(FunctionKind::Lambda, crate::native::repl::repl, empty_env.clone());
     mem.define_global("repl", repl);
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::functions::lambda);
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::functions::lambda, empty_env);
     mem.define_global("lambda", lambda);
 
     let vec = vec![mem.symbol_for("repl")];

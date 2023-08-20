@@ -96,6 +96,7 @@ pub struct NormalFunction {
     kind: FunctionKind,
     parameters: Vec<*mut CellContent>,
     body: *mut CellContent,
+    environment: *mut CellContent,
 }
 
 impl NormalFunction {
@@ -109,6 +110,10 @@ impl NormalFunction {
 
     pub fn get_kind(&self) -> FunctionKind {
         self.kind
+    }
+
+    pub fn get_env(&self) -> GcRef {
+        GcRef::new(self.environment)
     }
 }
 
@@ -152,16 +157,14 @@ impl NativeResult {
 
 pub struct NativeFunction {
     kind: FunctionKind,
-    function: fn(&mut Memory, &[GcRef]) -> NativeResult,
+              // memory,     argumetns, environment
+    function: fn(&mut Memory, &[GcRef], GcRef) -> NativeResult,
+    environment: *mut CellContent,
 }
 
 impl NativeFunction {
-    pub fn new(kind: FunctionKind, function: fn(&mut Memory, &[GcRef]) -> NativeResult) -> Self {
-        Self{ kind, function }
-    }
-
-    pub fn call(&self, mem: &mut Memory, args: &[GcRef]) -> NativeResult {
-        (self.function)(mem, args)
+    pub fn call(&self, mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+        (self.function)(mem, args, env)
     }
 }
 
@@ -506,7 +509,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_normal_function(&mut self, kind: FunctionKind, body: GcRef, params: Vec<GcRef>) -> GcRef {
+    pub fn allocate_normal_function(&mut self, kind: FunctionKind, body: GcRef, params: Vec<GcRef>, environment: GcRef) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
             if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
@@ -515,12 +518,12 @@ impl Memory {
             param_ptrs.push(param.pointer);
         }
 
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind, body: body.pointer, parameters: param_ptrs })));
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind, body: body.pointer, parameters: param_ptrs, environment: environment.pointer })));
         GcRef::new(ptr)
     }
 
-    pub fn allocate_native_function(&mut self, kind: FunctionKind, function: fn(&mut Self, &[GcRef]) -> NativeResult) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, function })));
+    pub fn allocate_native_function(&mut self, kind: FunctionKind, function: fn(&mut Self, &[GcRef], GcRef) -> NativeResult, environment: GcRef) -> GcRef {
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, function, environment: environment.pointer })));
         GcRef::new(ptr)
     }
 
@@ -602,6 +605,9 @@ impl Memory {
                 PrimitiveValue::Function(Function::NormalFunction(f)) => {
                     if !f.body.is_null() {
                         stack.push(f.body);
+                    }
+                    if !f.environment.is_null() {
+                        stack.push(f.environment);
                     }
                     for p in f.parameters.iter() {
                         if !p.is_null() {

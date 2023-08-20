@@ -109,7 +109,7 @@ fn print_internal(mem: &mut Memory, tree: GcRef) -> GcRef {
 }
 
 
-pub fn print(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }

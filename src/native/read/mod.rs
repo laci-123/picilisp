@@ -297,7 +297,7 @@ fn read_symbol(mem: &mut Memory, string: &str) -> GcRef {
 }
 
 
-pub fn read(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
