@@ -99,5 +99,5 @@ fn eval_not_lambda() {
     let tree       = vec_to_list(&mut mem, vec2);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: eval-bad-operator");
+    assert_eq!(value.err().unwrap(), "Unhandled signal: unbound-symbol");
 }

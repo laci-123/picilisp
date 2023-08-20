@@ -132,7 +132,7 @@ fn eval_cons() {
 fn eval_list_bad_operator() {
     let mut mem = Memory::new();
 
-    let vec   = vec![mem.symbol_for("not-an-operator"), mem.allocate_number(-1.0), mem.allocate_number(-2.0), mem.allocate_number(-3.0)];
+    let vec   = vec![mem.allocate_number(0.0), mem.allocate_number(-1.0), mem.allocate_number(-2.0), mem.allocate_number(-3.0)];
     let tree  = vec_to_list(&mut mem, vec);
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: eval-bad-operator");

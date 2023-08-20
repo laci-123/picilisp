@@ -44,18 +44,8 @@ struct ConsFrame {
 }
 
 
-#[derive(PartialEq, Eq, Clone, Copy)]
-enum ListKind {
-    BadOperator,
-    Empty,
-    Lambda,
-    SpecialLambda,
-    CompoundOperator,
-}
-
-
 struct ListFrame {
-    kind: ListKind,
+    eval_args: bool,
     elems: Vec<GcRef>,
     current: usize,
     environment: GcRef,
@@ -72,29 +62,8 @@ enum StackFrame {
 impl StackFrame {
     fn new(tree: GcRef, environment: GcRef) -> Self {
         if let Some(vec) = list_to_vec(tree.clone()) {
-            // tree is some kind of list
-            let kind =
-            if let Some(x) = vec.first() {
-                // tree is a non-empty list
-                match x.get() {
-                    PrimitiveValue::Function(f) => {
-                        // the first element of tree is a function
-                        match f.get_kind() {
-                            FunctionKind::Lambda        => ListKind::Lambda,
-                            FunctionKind::SpecialLambda => ListKind::SpecialLambda,
-                            // cannot eval macros at runtime
-                            _                           => ListKind::BadOperator,
-                        }
-                    },
-                    // the first element of tree is a list (which may evaluate to an operator)
-                    PrimitiveValue::Cons(_) => ListKind::CompoundOperator,
-                    _ => ListKind::BadOperator,
-                }
-            }
-            else {
-                ListKind::Empty
-            };
-            Self::List(ListFrame{ kind, elems: vec, current: 0, environment, in_call: false })
+            // tree is a list
+            Self::List(ListFrame{ eval_args: false, elems: vec, current: 0, environment, in_call: false })
         }
         else if let PrimitiveValue::Cons(cons) = tree.get() {
             // tree is a conscell but not a list
@@ -102,6 +71,7 @@ impl StackFrame {
             Self::Cons(ConsFrame{ car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
         }
         else {
+            // tree is an atom
             Self::Atom(AtomFrame{ value: tree, environment, in_call: false })
         }
     }
@@ -176,100 +146,87 @@ fn eval_cons(mem: &mut Memory, cons_frame: &mut ConsFrame, return_value: GcRef) 
 
 
 fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) -> EvalInternal {
-    match list_frame.kind {
-        ListKind::Empty => {
-            EvalInternal::Return(GcRef::nil())
+    // empty list evaluates to nil
+    if list_frame.elems.len() == 0 {
+        return EvalInternal::Return(GcRef::nil());
+    }
+
+    // receive the evaluated element and step to the next one
+    if list_frame.in_call {
+        list_frame.elems[list_frame.current] = return_value.clone();
+        list_frame.current += 1;
+        list_frame.in_call = false;
+    }
+
+    // the operator has just been evaluated, now we decide whether to evaluate the arguments
+    if list_frame.current == 1 {
+        if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
+            match f.get_kind() {
+                FunctionKind::Lambda        => list_frame.eval_args = true,
+                FunctionKind::SpecialLambda => list_frame.eval_args = false,
+                _                           => {
+                    // cannot evaluate macros at runtime
+                    return EvalInternal::Signal(mem.symbol_for("eval-bad-operator"));
+                },
+            }
+        }
+        else {
+            // first element of list is not a function
+            return EvalInternal::Signal(mem.symbol_for("eval-bad-operator"));
+        }
+    }
+
+    let top =
+    if list_frame.eval_args {
+        list_frame.elems.len()
+    }
+    else {
+        1
+    };
+
+    // evaluate the operator and maybe the operands
+    let i = list_frame.current;
+    if i < top {
+        let x              = list_frame.elems[i].clone();
+        list_frame.in_call = true;
+        let env            = list_frame.environment.clone();
+        return EvalInternal::Call(x, env);
+    }
+
+    let mut new_env = list_frame.environment.clone();
+    let operator    = list_frame.elems[0].get().as_function();
+
+    match operator {
+        Function::NativeFunction(nf) => {
+            match nf.call(mem, &list_frame.elems[1..]) {
+                NativeResult::Value(x)       => return EvalInternal::Return(x),
+                NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
+                NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
+            };
         },
-        ListKind::BadOperator => {
-            EvalInternal::Signal(mem.symbol_for("eval-bad-operator"))
-        },
-        ListKind::CompoundOperator => {
-            if list_frame.in_call {
-                list_frame.elems[0] = return_value.clone();
-                if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
-                    list_frame.kind = 
-                    match f.get_kind() {
-                        FunctionKind::Lambda        => ListKind::Lambda,
-                        FunctionKind::SpecialLambda => ListKind::SpecialLambda,
-                        // cannot eval macros at runtime
-                        _                           => ListKind::BadOperator,
-                    };
-                    list_frame.in_call = false;
-                    return eval_list(mem, list_frame, return_value);
+        Function::NormalFunction(nf) => {
+            // pair the formal parameters with the (possibly evaluated) arguments
+            let mut i = 1; // list_frame.elems[0] is the operator
+            for param in nf.params() {
+                let arg; 
+                if let Some(a) = list_frame.elems.get(i) {
+                    arg = a.clone();
                 }
                 else {
-                    return EvalInternal::Signal(mem.symbol_for("eval-bad-operator"));
-                }
-            }
-            
-            let operator       = list_frame.elems[0].clone();
-            list_frame.in_call = true;
-            let env            = list_frame.environment.clone();
-            EvalInternal::Call(operator, env)
-        },
-        ListKind::Lambda | ListKind::SpecialLambda => {
-            if list_frame.in_call {
-                // receive the evaluated element and step to the next one
-                list_frame.elems[list_frame.current] = return_value.clone();
-                list_frame.current += 1;
-                list_frame.in_call = false;
+                    return EvalInternal::Signal(mem.symbol_for("not-enough-arguments"));
+                };
+                let param_arg = mem.allocate_cons(param, arg);
+                new_env       = mem.allocate_cons(param_arg, new_env);
+
+                i += 1;
             }
 
-            let top;
-            if list_frame.kind == ListKind::Lambda {
-                // if lambda then evaluate the operator and the operands
-                top = list_frame.elems.len();
-            }
-            else {
-                // if special-lambda then only evaluate the operator
-                top = 1;
+            if i < list_frame.elems.len() {
+                return EvalInternal::Signal(mem.symbol_for("too-many-arguments"));
             }
 
-            let i = list_frame.current;
-            // evaluate the operator and maybe the operands
-            if i < top {
-                let x              = list_frame.elems[i].clone();
-                list_frame.in_call = true;
-                let env            = list_frame.environment.clone();
-                return EvalInternal::Call(x, env);
-            }
-
-            let mut new_env = list_frame.environment.clone();
-            let operator    = list_frame.elems[0].get().as_function();
-
-            match operator {
-                Function::NativeFunction(nf) => {
-                    match nf.call(mem, &list_frame.elems[1..]) {
-                        NativeResult::Value(x)       => return EvalInternal::Return(x),
-                        NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
-                        NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
-                    };
-                },
-                Function::NormalFunction(nf) => {
-                    // pair the formal parameters with the (possibly evaluated) arguments
-                    let mut i = 1; // list_frame.elems[0] is the operator
-                    for param in nf.params() {
-                        let arg; 
-                        if let Some(a) = list_frame.elems.get(i) {
-                            arg = a.clone();
-                        }
-                        else {
-                            return EvalInternal::Signal(mem.symbol_for("not-enough-arguments"));
-                        };
-                        let param_arg = mem.allocate_cons(param, arg);
-                        new_env       = mem.allocate_cons(param_arg, new_env);
-
-                        i += 1;
-                    }
-
-                    if i < list_frame.elems.len() {
-                        return EvalInternal::Signal(mem.symbol_for("too-many-arguments"));
-                    }
-
-                    let new_tree = nf.get_body();
-                    EvalInternal::TailCall(new_tree, new_env)
-                },
-            }
+            let new_tree = nf.get_body();
+            EvalInternal::TailCall(new_tree, new_env)
         },
     }
 }
@@ -346,6 +303,7 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, environment: GcRef) -> NativeRes
 
 
 pub fn eval(mem: &mut Memory, args: &[GcRef]) -> NativeResult {
+    // TODO: check for too many arguments
     if let Some(tree) = args.first() {
         let empty_env = GcRef::nil();
         eval_internal(mem, tree.clone(), empty_env)

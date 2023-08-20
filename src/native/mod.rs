@@ -1,7 +1,8 @@
 #![allow(dead_code)]
 
 
-mod print;
-mod read;
-mod eval;
-mod functions;
+pub mod print;
+pub mod read;
+pub mod eval;
+pub mod functions;
+pub mod repl;
