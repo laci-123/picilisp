@@ -12,8 +12,20 @@ fn main() {
     let repl = mem.allocate_native_function(FunctionKind::Lambda, crate::native::repl::repl, empty_env.clone());
     mem.define_global("repl", repl);
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::functions::lambda, empty_env);
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::functions::lambda, empty_env.clone());
     mem.define_global("lambda", lambda);
+
+    let cons = mem.allocate_native_function(FunctionKind::Lambda, crate::native::list::cons, empty_env.clone());
+    mem.define_global("cons", cons);
+
+    let car = mem.allocate_native_function(FunctionKind::Lambda, crate::native::list::car, empty_env.clone());
+    mem.define_global("car", car);
+
+    let cdr = mem.allocate_native_function(FunctionKind::Lambda, crate::native::list::cdr, empty_env.clone());
+    mem.define_global("cdr", cdr);
+
+    let list = mem.allocate_native_function(FunctionKind::Lambda, crate::native::list::list, empty_env.clone());
+    mem.define_global("list", list);
 
     let vec = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, vec);

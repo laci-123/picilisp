@@ -6,3 +6,4 @@ pub mod read;
 pub mod eval;
 pub mod functions;
 pub mod repl;
+pub mod list;
