@@ -23,6 +23,8 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef]) -> NativeResult {
 
     for line in stdin.lock().lines() {
         input.push_str(&line.unwrap());
+        input.push_str("\n"); // put back the newline to know where line comments end
+        
         let input_list  = string_to_list(mem, input.as_str());
         let read_output = 
         match read(mem, &[input_list]) {
@@ -35,6 +37,7 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef]) -> NativeResult {
         let status = car1.get().as_symbol();
         let cons2  = cons1.get_cdr();
         let result = cons2.get().as_conscell().get_car();
+        // ignore rest of input
 
         if status == ok_symbol.get().as_symbol() {
             incomplete = false;
