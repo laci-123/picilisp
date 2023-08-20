@@ -27,6 +27,18 @@ fn main() {
     let list = mem.allocate_native_function(FunctionKind::Lambda, crate::native::list::list, empty_env.clone());
     mem.define_global("list", list);
 
+    let quote = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::misc::quote, empty_env.clone());
+    mem.define_global("quote", quote);
+
+    let branch = mem.allocate_native_function(FunctionKind::SpecialLambda, crate::native::misc::branch, empty_env.clone());
+    mem.define_global("if", branch);
+
+    let equal = mem.allocate_native_function(FunctionKind::Lambda, crate::native::misc::equal, empty_env.clone());
+    mem.define_global("=", equal);
+
+    let abort = mem.allocate_native_function(FunctionKind::Lambda, crate::native::misc::abort, empty_env.clone());
+    mem.define_global("abort", abort);
+
     let vec = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, vec);
 
