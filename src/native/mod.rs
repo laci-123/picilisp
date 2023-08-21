@@ -17,7 +17,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "signal",   signal::signal,    FunctionKind::Lambda);
     load_native_function(mem, "trap",     signal::trap,      FunctionKind::SpecialLambda);
     load_native_function(mem, "read",     read::read,        FunctionKind::Lambda);
-    load_native_function(mem, "eval",     eval::eval,        FunctionKind::Lambda);
+    load_native_function(mem, "eval",     eval::eval,        FunctionKind::SpecialLambda);
     load_native_function(mem, "print",    print::print,      FunctionKind::Lambda);
     load_native_function(mem, "add",      numbers::add,      FunctionKind::Lambda);
     load_native_function(mem, "multiply", numbers::multiply, FunctionKind::Lambda);
