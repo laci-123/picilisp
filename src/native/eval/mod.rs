@@ -45,6 +45,7 @@ struct ConsFrame {
 
 
 struct ListFrame {
+    macro_expand: bool,
     eval_args: bool,
     elems: Vec<GcRef>,
     current: usize,
@@ -63,7 +64,7 @@ impl StackFrame {
     fn new(tree: GcRef, environment: GcRef) -> Self {
         if let Some(vec) = list_to_vec(tree.clone()) {
             // tree is a list
-            Self::List(ListFrame{ eval_args: false, elems: vec, current: 0, environment, in_call: false })
+            Self::List(ListFrame{ macro_expand: false, eval_args: false, elems: vec, current: 0, environment, in_call: false })
         }
         else if let PrimitiveValue::Cons(cons) = tree.get() {
             // tree is a conscell but not a list
