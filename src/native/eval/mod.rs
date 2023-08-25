@@ -22,7 +22,15 @@ fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
 }
 
 
+#[derive(PartialEq, Eq, Clone, Copy)]
+enum Mode {
+    Eval,
+    MacroExpand,
+}
+
+
 struct AtomFrame {
+    mode: Mode,
     value: GcRef,
     environment: GcRef,
     in_call: bool,
@@ -37,6 +45,7 @@ enum ConsProgress {
 
 
 struct ConsFrame {
+    mode: Mode,
     car: GcRef,
     cdr: GcRef,
     progress: ConsProgress,
@@ -45,7 +54,7 @@ struct ConsFrame {
 
 
 struct ListFrame {
-    macro_expand: bool,
+    mode: Mode,
     eval_args: bool,
     elems: Vec<GcRef>,
     current: usize,
@@ -61,19 +70,19 @@ enum StackFrame {
 }
 
 impl StackFrame {
-    fn new(tree: GcRef, environment: GcRef) -> Self {
+    fn new(tree: GcRef, environment: GcRef, mode: Mode) -> Self {
         if let Some(vec) = list_to_vec(tree.clone()) {
             // tree is a list
-            Self::List(ListFrame{ macro_expand: false, eval_args: false, elems: vec, current: 0, environment, in_call: false })
+            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false })
         }
         else if let PrimitiveValue::Cons(cons) = tree.get() {
             // tree is a conscell but not a list
             // (a conscell is a list if its cdr is either a list or nil)
-            Self::Cons(ConsFrame{ car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
+            Self::Cons(ConsFrame{ mode, car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
         }
         else {
             // tree is an atom
-            Self::Atom(AtomFrame{ value: tree, environment, in_call: false })
+            Self::Atom(AtomFrame{ mode, value: tree, environment, in_call: false })
         }
     }
 }
@@ -81,23 +90,41 @@ impl StackFrame {
 
 enum EvalInternal {
     Return(GcRef),
-    Call(GcRef, GcRef),
-    TailCall(GcRef, GcRef),
+    Call(GcRef, GcRef, Mode),
+    TailCall(GcRef, GcRef, Mode),
     Signal(GcRef),
     Abort(String),
 }
 
 
 fn eval_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRef) -> EvalInternal {
+    let atom = atom_frame.value.clone();
+    let env  = atom_frame.environment.clone();
+
+    // MACROEXPAND
+
+    if atom_frame.mode == Mode::MacroExpand {
+        if let PrimitiveValue::Symbol(_) = atom.get() {
+            if let Some(value) = lookup(mem, atom.clone(), env) {
+                if let PrimitiveValue::Function(f) = value.get() {
+                    if f.get_kind() == FunctionKind::Macro {
+                        return EvalInternal::Return(value);
+                    }
+                }
+            }
+        }
+
+        return EvalInternal::Return(atom);
+    }
+
+    // EVAL
+    
     if atom_frame.in_call {
         // The callee was the normal body of a trap.
         // It has already set the return value, here we just forward it.
         return EvalInternal::Return(return_value);
     }
     
-    let atom = atom_frame.value.clone();
-    let env  = atom_frame.environment.clone();
-
     match atom.get() {
         PrimitiveValue::Symbol(_) => {
             if let Some(value) = lookup(mem, atom, env) {
@@ -112,7 +139,7 @@ fn eval_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRef) 
         },
         PrimitiveValue::Trap(trap) => {
             atom_frame.in_call = true;
-            EvalInternal::Call(trap.get_normal_body(), env)
+            EvalInternal::Call(trap.get_normal_body(), env, atom_frame.mode)
         },
         _ => {
             // numbers, characters and functions in non-call position don't get evaluated
@@ -128,7 +155,7 @@ fn eval_cons(mem: &mut Memory, cons_frame: &mut ConsFrame, return_value: GcRef) 
             let car = cons_frame.car.clone();
             let env = cons_frame.environment.clone();
             cons_frame.progress = ConsProgress::EvalingCar;
-            EvalInternal::Call(car, env)
+            EvalInternal::Call(car, env, cons_frame.mode)
         },
         ConsProgress::EvalingCar => {
             cons_frame.car = return_value.clone();
@@ -136,7 +163,7 @@ fn eval_cons(mem: &mut Memory, cons_frame: &mut ConsFrame, return_value: GcRef) 
             let cdr = cons_frame.cdr.clone();
             let env = cons_frame.environment.clone();
             cons_frame.progress = ConsProgress::EvalingCdr;
-            EvalInternal::Call(cdr, env)
+            EvalInternal::Call(cdr, env, cons_frame.mode)
         },
         ConsProgress::EvalingCdr => {
             cons_frame.cdr = return_value.clone();
@@ -161,19 +188,17 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
 
     // the operator has just been evaluated, now we decide whether to evaluate the arguments
     if list_frame.current == 1 {
-        if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
-            match f.get_kind() {
-                FunctionKind::Lambda        => list_frame.eval_args = true,
-                FunctionKind::SpecialLambda => list_frame.eval_args = false,
-                _                           => {
-                    // cannot evaluate macros at runtime
-                    return EvalInternal::Signal(mem.symbol_for("eval-bad-operator"));
-                },
-            }
+        if list_frame.mode == Mode::MacroExpand {
+            list_frame.eval_args = true;
+        }
+        else if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
+            list_frame.eval_args =  f.get_kind() == FunctionKind::Lambda && list_frame.mode == Mode::Eval;
         }
         else {
             // first element of list is not a function
-            return EvalInternal::Signal(mem.symbol_for("eval-bad-operator"));
+            if list_frame.mode == Mode::Eval {
+                return EvalInternal::Signal(mem.symbol_for("eval-bad-operator")); // [1]
+            }
         }
     }
 
@@ -191,10 +216,23 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
         let x              = list_frame.elems[i].clone();
         list_frame.in_call = true;
         let env            = list_frame.environment.clone();
-        return EvalInternal::Call(x, env);
+        return EvalInternal::Call(x, env, list_frame.mode);
     }
 
-    let operator    = list_frame.elems[0].get().as_function();
+    let operator;
+    if let PrimitiveValue::Function(op) = list_frame.elems[0].get() {
+        operator = op;
+    }
+    else {
+        if list_frame.mode == Mode::MacroExpand {
+            // TODO: vec_to_list should take a reference
+            return EvalInternal::Return(vec_to_list(mem, list_frame.elems.clone()));
+        }
+        else {
+            // already checked at [1]
+            unreachable!();
+        }
+    };
 
     match operator {
         Function::NativeFunction(nf) => {
@@ -227,7 +265,7 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
             }
 
             let new_tree = nf.get_body();
-            EvalInternal::TailCall(new_tree, new_env)
+            EvalInternal::TailCall(new_tree, new_env, Mode::Eval)
         },
     }
 }
@@ -242,7 +280,7 @@ fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) ->
                 let trapped_signal_sym = mem.symbol_for("*trapped-signal*");
                 let key_value          = mem.allocate_cons(trapped_signal_sym, signal);
                 trap_env               = mem.allocate_cons(key_value, trap_env);
-                return Some(StackFrame::new(trap_body, trap_env));
+                return Some(StackFrame::new(trap_body, trap_env, Mode::Eval));
             }
         }
     }
@@ -251,8 +289,8 @@ fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) ->
 }
 
 
-fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef) -> NativeResult {
-    let mut stack        = vec![StackFrame::new(tree, env.clone())];
+fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef, mode: Mode) -> NativeResult {
+    let mut stack        = vec![StackFrame::new(tree, env.clone(), mode)];
     let mut return_value = GcRef::nil();
 
     while let Some(frame) = stack.last_mut() {
@@ -273,12 +311,12 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef) -> NativeResult {
             EvalInternal::Return(x) => {
                 return_value = x;
             },
-            EvalInternal::Call(new_tree, new_env) => {
-                stack.push(StackFrame::new(new_tree, new_env));
+            EvalInternal::Call(new_tree, new_env, mode) => {
+                stack.push(StackFrame::new(new_tree, new_env, mode));
                 continue;
             },
-            EvalInternal::TailCall(new_tree, new_env) => {
-                *frame = StackFrame::new(new_tree, new_env);
+            EvalInternal::TailCall(new_tree, new_env, mode) => {
+                *frame = StackFrame::new(new_tree, new_env, mode);
                 continue;
             },
             EvalInternal::Signal(signal) => {
@@ -300,7 +338,7 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef) -> NativeResult {
 
         if !return_value.is_nil() {
             if let PrimitiveValue::Trap(_) = return_value.get() {
-                stack.push(StackFrame::new(return_value.clone(), env.clone()));
+                stack.push(StackFrame::new(return_value.clone(), env.clone(), Mode::Eval));
             }
         }
     }
@@ -310,14 +348,22 @@ fn eval_internal(mem: &mut Memory, tree: GcRef, env: GcRef) -> NativeResult {
 
 
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    // TODO: check for too many arguments
-    if let Some(tree) = args.first() {
-        eval_internal(mem, tree.clone(), env)
-    }
-    else {
+    if args.len() != 1 {
         let signal = mem.symbol_for("wrong-number-of-arguments");
-        NativeResult::Signal(signal)
+        return NativeResult::Signal(signal);
     }
+
+    eval_internal(mem, args[0].clone(), env, Mode::Eval)
+}
+
+
+pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+    if args.len() != 1 {
+        let signal = mem.symbol_for("wrong-number-of-arguments");
+        return NativeResult::Signal(signal);
+    }
+
+    eval_internal(mem, args[0].clone(), env, Mode::MacroExpand)
 }
 
 
