@@ -37,6 +37,13 @@ pub fn string_to_list(mem: &mut Memory, string: &str) -> GcRef {
 }
 
 
+pub fn string_to_proper_list(mem: &mut Memory, string: &str) -> GcRef {
+    let mut char_vec = string.chars().map(|c| mem.allocate_character(c)).collect::<Vec<GcRef>>();
+    char_vec.insert(0, mem.symbol_for("list"));
+    vec_to_list(mem, &char_vec)
+}
+
+
 pub fn list_to_string(list: GcRef) -> Option<String> {
     if let Some(vec) = list_to_vec(list) {
         let mut string = String::new();
