@@ -369,6 +369,10 @@ impl GcRef {
     }
 
     pub fn get(&self) -> &PrimitiveValue {
+        if self.pointer.is_null() {
+            panic!("attempted to dereference a NULL GcRef");
+        }
+        
         let value =
         unsafe {
             &(*self.pointer).value

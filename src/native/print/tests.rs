@@ -37,6 +37,13 @@ fn print_print_atom() {
     let p = print(&mut mem, &[x], GcRef::nil());
     let s = list_to_string(p.unwrap()).unwrap();
     assert_eq!(s, "(cons 99.9 %9)");
+
+    let car = GcRef::nil();
+    let cdr = mem.allocate_number(1.0);
+    let x = mem.allocate_cons(car, cdr);
+    let p = print(&mut mem, &[x], GcRef::nil());
+    let s = list_to_string(p.unwrap()).unwrap();
+    assert_eq!(s, "(cons () 1)");
 }
 
 #[test]
