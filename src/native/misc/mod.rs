@@ -48,7 +48,10 @@ fn equal_internal(x: GcRef, y: GcRef) -> bool {
     x.is_nil() && y.is_nil() ||
     match x.get() {
         PrimitiveValue::Number(n1) => {
-            if let PrimitiveValue::Number(n2) = y.get() {
+            if y.is_nil() {
+                false
+            }
+            else if let PrimitiveValue::Number(n2) = y.get() {
                 *n1 == *n2
             }
             else {
@@ -56,7 +59,10 @@ fn equal_internal(x: GcRef, y: GcRef) -> bool {
             }
         },
         PrimitiveValue::Character(c1) => {
-            if let PrimitiveValue::Character(c2) = y.get() {
+            if y.is_nil() {
+                false
+            }
+            else if let PrimitiveValue::Character(c2) = y.get() {
                 *c1 == *c2
             }
             else {
@@ -64,7 +70,10 @@ fn equal_internal(x: GcRef, y: GcRef) -> bool {
             }
         },
         PrimitiveValue::Symbol(s1) => {
-            if let PrimitiveValue::Symbol(s2) = y.get() {
+            if y.is_nil() {
+                false
+            }
+            else if let PrimitiveValue::Symbol(s2) = y.get() {
                 *s1 == *s2
             }
             else {
@@ -72,7 +81,10 @@ fn equal_internal(x: GcRef, y: GcRef) -> bool {
             }
         },
         PrimitiveValue::Cons(c1) => {
-            if let PrimitiveValue::Cons(c2) = y.get() {
+            if y.is_nil() {
+                false
+            }
+            else if let PrimitiveValue::Cons(c2) = y.get() {
                 if let Some(l1) = list_to_vec(x.clone()) {
                     if let Some(l2) = list_to_vec(y.clone()) {
                         let mut i = 0;
