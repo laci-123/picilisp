@@ -18,7 +18,12 @@ fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
         cursor = cons.get_cdr();
     }
 
-    mem.get_global(&key.get().as_symbol().get_name())
+    if key.is_nil() {
+        Some(GcRef::nil())
+    }
+    else {
+        mem.get_global(&key.get().as_symbol().get_name())
+    }
 }
 
 
@@ -114,9 +119,11 @@ fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRe
     if atom_frame.mode == Mode::MacroExpand {
         if let PrimitiveValue::Symbol(_) = atom.get() {
             if let Some(value) = lookup(mem, atom.clone(), env) {
-                if let PrimitiveValue::Function(f) = value.get() {
-                    if f.get_kind() == FunctionKind::Macro {
-                        return EvalInternal::Return(value);
+                if !value.is_nil() {
+                    if let PrimitiveValue::Function(f) = value.get() {
+                        if f.get_kind() == FunctionKind::Macro {
+                            return EvalInternal::Return(value);
+                        }
                     }
                 }
             }
@@ -143,7 +150,7 @@ fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRe
             }
         },
         PrimitiveValue::Cons(_) => {
-            unreachable!("eval_atom received a conscell, but conscells shuld be processed in eval_cons")
+            unreachable!("process_atom received a conscell, but conscells shuld be processed in process_cons")
         },
         PrimitiveValue::Trap(trap) => {
             atom_frame.in_call = true;

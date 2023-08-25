@@ -129,6 +129,31 @@ fn eval_cons() {
 }
 
 #[test]
+fn eval_global() {
+    let mut mem = Memory::new();
+
+    let x = mem.allocate_number(2.71);
+    mem.define_global("g", x);
+
+    let tree  = mem.symbol_for("g");
+    let value = eval_external(&mut mem, tree);
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    assert_eq!(value_str, "2.71");
+}
+
+#[test]
+fn eval_global_nil() {
+    let mut mem = Memory::new();
+
+    mem.define_global("g", GcRef::nil());
+
+    let tree  = mem.symbol_for("g");
+    let value = eval_external(&mut mem, tree);
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    assert_eq!(value_str, "()");
+}
+
+#[test]
 fn eval_list_bad_operator() {
     let mut mem = Memory::new();
 

@@ -1,1 +1,3 @@
-(define abc "cica")
+(define t (quote t))
+
+(define nil ())
