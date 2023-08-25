@@ -225,8 +225,7 @@ fn eval_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) 
     }
     else {
         if list_frame.mode == Mode::MacroExpand {
-            // TODO: vec_to_list should take a reference
-            return EvalInternal::Return(vec_to_list(mem, list_frame.elems.clone()));
+            return EvalInternal::Return(vec_to_list(mem, &list_frame.elems));
         }
         else {
             // already checked at [1]

@@ -43,5 +43,5 @@ pub fn cdr(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 
 
 pub fn list(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    NativeResult::Value(vec_to_list(mem, args.to_vec()))
+    NativeResult::Value(vec_to_list(mem, &args.to_vec()))
 }

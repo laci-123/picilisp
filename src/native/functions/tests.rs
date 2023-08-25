@@ -13,8 +13,8 @@ fn make_lambda() {
 
     // (lambda (x y) y)
     let params = vec![mem.symbol_for("x"), mem.symbol_for("y")];
-    let vec    = vec![lambda, vec_to_list(&mut mem, params), mem.symbol_for("y")];
-    let tree   = vec_to_list(&mut mem, vec);
+    let vec    = vec![lambda, vec_to_list(&mut mem, &params), mem.symbol_for("y")];
+    let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.clone().unwrap().get().as_function().as_normal_function().get_kind(), FunctionKind::Lambda);
@@ -32,7 +32,7 @@ fn make_lambda_bad_params() {
 
     // (lambda x y)
     let vec    = vec![lambda, mem.symbol_for("x"), mem.symbol_for("y")];
-    let tree   = vec_to_list(&mut mem, vec);
+    let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: bad-param-list");
@@ -46,8 +46,8 @@ fn make_lambda_not_enough_args() {
 
     // (lambda (x y))
     let params = vec![mem.symbol_for("x"), mem.symbol_for("y")];
-    let vec    = vec![lambda, vec_to_list(&mut mem, params)];
-    let tree   = vec_to_list(&mut mem, vec);
+    let vec    = vec![lambda, vec_to_list(&mut mem, &params)];
+    let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: wrong-number-of-arguments");
@@ -61,8 +61,8 @@ fn make_lambda_too_many_args() {
 
     // (lambda (x y) x y)
     let params = vec![mem.symbol_for("x"), mem.symbol_for("y")];
-    let vec    = vec![lambda, vec_to_list(&mut mem, params), mem.symbol_for("x"), mem.symbol_for("y")];
-    let tree   = vec_to_list(&mut mem, vec);
+    let vec    = vec![lambda, vec_to_list(&mut mem, &params), mem.symbol_for("x"), mem.symbol_for("y")];
+    let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: wrong-number-of-arguments");
@@ -76,10 +76,10 @@ fn eval_lambda() {
 
     // ((lambda (x y) y) 1 2)
     let params     = vec![mem.symbol_for("x"), mem.symbol_for("y")];
-    let vec        = vec![lambda, vec_to_list(&mut mem, params), mem.symbol_for("y")];
-    let operator   = vec_to_list(&mut mem, vec);
+    let vec        = vec![lambda, vec_to_list(&mut mem, &params), mem.symbol_for("y")];
+    let operator   = vec_to_list(&mut mem, &vec);
     let vec2       = vec![operator, mem.allocate_number(1.0), mem.allocate_number(2.0)];
-    let tree       = vec_to_list(&mut mem, vec2);
+    let tree       = vec_to_list(&mut mem, &vec2);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(*value.unwrap().get().as_number(), 2.0);
@@ -93,10 +93,10 @@ fn eval_not_lambda() {
 
     // ((mu (x y) y) 1 2)
     let params     = vec![mem.symbol_for("x"), mem.symbol_for("y")];
-    let vec        = vec![not_lambda, vec_to_list(&mut mem, params), mem.symbol_for("y")];
-    let operator   = vec_to_list(&mut mem, vec);
+    let vec        = vec![not_lambda, vec_to_list(&mut mem, &params), mem.symbol_for("y")];
+    let operator   = vec_to_list(&mut mem, &vec);
     let vec2       = vec![operator, mem.allocate_number(1.0), mem.allocate_number(2.0)];
-    let tree       = vec_to_list(&mut mem, vec2);
+    let tree       = vec_to_list(&mut mem, &vec2);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: unbound-symbol");

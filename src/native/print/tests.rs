@@ -44,7 +44,7 @@ fn print_print_list() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.allocate_number(2.71), GcRef::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
-    let list = vec_to_list(&mut mem, vec);
+    let list = vec_to_list(&mut mem, &vec);
     let p = print(&mut mem, &[list], GcRef::nil());
     let s = list_to_string(p.unwrap()).unwrap();
     assert_eq!(s, "(2.71 () %$ puppy)");
@@ -55,7 +55,7 @@ fn print_print_singleton_list() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.symbol_for("only-this-one")];
-    let list = vec_to_list(&mut mem, vec);
+    let list = vec_to_list(&mut mem, &vec);
     let p = print(&mut mem, &[list], GcRef::nil());
     let s = list_to_string(p.unwrap()).unwrap();
     assert_eq!(s, "(only-this-one)");
@@ -66,9 +66,9 @@ fn print_print_nested_list() {
     let mut mem = Memory::new();
 
     let vec1 = vec![mem.allocate_number(2.71), GcRef::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
-    let list1 = vec_to_list(&mut mem, vec1);
+    let list1 = vec_to_list(&mut mem, &vec1);
     let vec2 = vec![mem.symbol_for("one"), list1, mem.symbol_for("two")];
-    let list2 = vec_to_list(&mut mem, vec2);
+    let list2 = vec_to_list(&mut mem, &vec2);
     let p = print(&mut mem, &[list2], GcRef::nil());
     let s = list_to_string(p.unwrap()).unwrap();
     assert_eq!(s, "(one (2.71 () %$ puppy) two)");
@@ -89,7 +89,7 @@ fn print_print_almost_string() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.allocate_character('a'), mem.allocate_character('b'), mem.allocate_character('c'), mem.symbol_for("d")];
-    let list = vec_to_list(&mut mem, vec);
+    let list = vec_to_list(&mut mem, &vec);
     let p = print(&mut mem, &[list], GcRef::nil());
     let s = list_to_string(p.unwrap()).unwrap();
     assert_eq!(s, "(%a %b %c d)");
@@ -100,7 +100,7 @@ fn print_print_string_in_list() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.allocate_number(1.0), string_to_list(&mut mem, "two"), mem.allocate_number(3.0)];
-    let list = vec_to_list(&mut mem, vec);
+    let list = vec_to_list(&mut mem, &vec);
     let p = print(&mut mem, &[list], GcRef::nil());
     let s = list_to_string(p.unwrap()).unwrap();
     assert_eq!(s, r#"(1 "two" 3)"#);

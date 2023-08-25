@@ -11,7 +11,7 @@ fn main() {
     load_native_functions(&mut mem);
 
     let vec = vec![mem.symbol_for("repl")];
-    let expression = vec_to_list(&mut mem, vec);
+    let expression = vec_to_list(&mut mem, &vec);
 
     match eval_external(&mut mem, expression) {
         Ok(_)    => println!("Bye!"),

@@ -10,7 +10,7 @@ fn util_vec_to_list_reverse() {
                    mem.allocate_number(2.0),
                    mem.allocate_number(3.0)];
 
-    let list = vec_to_list_reverse(&mut mem, vec);
+    let list = vec_to_list_reverse(&mut mem, &vec);
 
     let mut c = list;
     let c1 = c.get().as_conscell();
@@ -36,7 +36,7 @@ fn util_vec_to_list() {
                    mem.symbol_for("B"),
                    mem.symbol_for("C")];
 
-    let list = vec_to_list(&mut mem, vec);
+    let list = vec_to_list(&mut mem, &vec);
 
     let mut c = list;
     let c1 = c.get().as_conscell();
@@ -76,7 +76,7 @@ fn util_vec_to_list_empty() {
     let mut mem = Memory::new();
     
     let vec = vec![];
-    let list = vec_to_list(&mut mem, vec);
+    let list = vec_to_list(&mut mem, &vec);
     assert!(list.is_nil());
 }
 
@@ -125,9 +125,9 @@ fn util_append_lists() {
     let mut mem = Memory::new();
 
     let vec1  = vec![mem.allocate_number(11.0), mem.allocate_number(12.0), mem.allocate_number(13.0)];
-    let list1 = vec_to_list(&mut mem, vec1);
+    let list1 = vec_to_list(&mut mem, &vec1);
     let vec2  = vec![mem.allocate_number(14.0), mem.allocate_number(15.0), mem.allocate_number(16.0)];
-    let list2 = vec_to_list(&mut mem, vec2);
+    let list2 = vec_to_list(&mut mem, &vec2);
 
     let list3 = append_lists(&mut mem, list1, list2).unwrap();
     let vec3  = list_to_vec(list3).unwrap();

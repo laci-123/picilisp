@@ -1,26 +1,30 @@
 #![allow(dead_code)]
 
 use crate::memory::*;
-// use std::collections::VecDeque;
 
 
 /// Converts a vector of primitive values to a Lisp-style list of primitive values
 ///
 /// For example: [1, 2, 3] -> (cons 1 (cons 2 (cons 3 nil)))
-pub fn vec_to_list(mem: &mut Memory, mut vec: Vec<GcRef>) -> GcRef {
-    vec.reverse();
-    vec_to_list_reverse(mem, vec)
+pub fn vec_to_list(mem: &mut Memory, vec: &Vec<GcRef>) -> GcRef {
+    let mut c = GcRef::nil();
+
+    for v in vec.iter().rev() {
+        c = mem.allocate_cons(v.clone(), c);
+    }
+
+    c
 }
 
 
 /// Converts a vector of primitive values to a Lisp-style list of primitive values, in reverse order
 ///
 /// For example: [3, 2, 1] -> (cons 1 (cons 2 (cons 3 nil)))
-pub fn vec_to_list_reverse(mem: &mut Memory, vec: Vec<GcRef>) -> GcRef {
+pub fn vec_to_list_reverse(mem: &mut Memory, vec: &Vec<GcRef>) -> GcRef {
     let mut c = GcRef::nil();
 
     for v in vec {
-        c = mem.allocate_cons(v, c);
+        c = mem.allocate_cons(v.clone(), c);
     }
 
     c
@@ -29,7 +33,7 @@ pub fn vec_to_list_reverse(mem: &mut Memory, vec: Vec<GcRef>) -> GcRef {
 
 pub fn string_to_list(mem: &mut Memory, string: &str) -> GcRef {
     let char_vec = string.chars().map(|c| mem.allocate_character(c)).collect();
-    vec_to_list(mem, char_vec)
+    vec_to_list(mem, &char_vec)
 }
 
 

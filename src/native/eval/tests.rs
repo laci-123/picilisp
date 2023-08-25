@@ -23,7 +23,7 @@ fn lookup_not_found() {
     let k2 = mem.symbol_for("falcon");
     let v2 = mem.allocate_number(2.0);
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
-    let env = vec_to_list(&mut mem, vec);
+    let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("bird");
     let value = lookup(&mem, key, env);
     assert!(value.is_none());
@@ -38,7 +38,7 @@ fn lookup_found() {
     let k2 = mem.symbol_for("falcon");
     let v2 = mem.allocate_number(2.0);
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
-    let env = vec_to_list(&mut mem, vec);
+    let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("falcon");
     let value = lookup(&mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 2.0);
@@ -56,7 +56,7 @@ fn lookup_global() {
     let k2 = mem.symbol_for("falcon");
     let v2 = mem.allocate_number(2.0);
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
-    let env = vec_to_list(&mut mem, vec);
+    let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
     let value = lookup(&mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 0.0);
@@ -74,7 +74,7 @@ fn lookup_shadowing() {
     let k2 = mem.symbol_for("starling");
     let v2 = mem.allocate_number(2.0);
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
-    let env = vec_to_list(&mut mem, vec);
+    let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
     let value = lookup(&mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 2.0);
@@ -133,7 +133,7 @@ fn eval_list_bad_operator() {
     let mut mem = Memory::new();
 
     let vec   = vec![mem.allocate_number(0.0), mem.allocate_number(-1.0), mem.allocate_number(-2.0), mem.allocate_number(-3.0)];
-    let tree  = vec_to_list(&mut mem, vec);
+    let tree  = vec_to_list(&mut mem, &vec);
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: eval-bad-operator");
 }
@@ -162,7 +162,7 @@ fn eval_call_lambda() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B')];
-    let tree    = vec_to_list(&mut mem, vec);
+    let tree    = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
@@ -179,7 +179,7 @@ fn eval_call_lambda_unbound_params() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.symbol_for("no-value")];
-    let tree    = vec_to_list(&mut mem, vec);
+    let tree    = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: unbound-symbol");
@@ -195,7 +195,7 @@ fn eval_call_special_lambda() {
     let lambda  = mem.allocate_normal_function(FunctionKind::SpecialLambda, body, params, GcRef::nil());
 
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
-    let tree    = vec_to_list(&mut mem, vec);
+    let tree    = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
@@ -224,7 +224,7 @@ fn eval_trap_with_signal() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
 
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
-    let normal  = vec_to_list(&mut mem, vec);
+    let normal  = vec_to_list(&mut mem, &vec);
 
     let trap    = mem.symbol_for("*trapped-signal*");
 
@@ -253,7 +253,7 @@ fn eval_native_function_not_enough_args() {
     let lambda = mem.allocate_native_function(FunctionKind::Lambda, test_native_function, GcRef::nil());
 
     let vec  = vec![lambda, mem.allocate_character('c')];
-    let tree = vec_to_list(&mut mem, vec);
+    let tree = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: wrong-number-of-arguments");
@@ -266,7 +266,7 @@ fn eval_native_function_too_many_args() {
     let lambda = mem.allocate_native_function(FunctionKind::Lambda, test_native_function, GcRef::nil());
 
     let vec  = vec![lambda, mem.allocate_character('a'), mem.allocate_character('b'), mem.allocate_character('c')];
-    let tree = vec_to_list(&mut mem, vec);
+    let tree = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: wrong-number-of-arguments");
@@ -279,7 +279,7 @@ fn eval_native_function() {
     let lambda = mem.allocate_native_function(FunctionKind::Lambda, test_native_function, GcRef::nil());
 
     let vec  = vec![lambda, mem.allocate_number(-1.23), mem.allocate_number(19.0)];
-    let tree = vec_to_list(&mut mem, vec);
+    let tree = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(*value.ok().unwrap().get().as_number(), 19.0);
@@ -292,7 +292,7 @@ fn eval_native_eval() {
     let lambda = mem.allocate_native_function(FunctionKind::Lambda, eval, GcRef::nil());
 
     let vec  = vec![lambda, mem.allocate_number(-1.23)];
-    let tree = vec_to_list(&mut mem, vec);
+    let tree = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(*value.unwrap().get().as_number(), -1.23);
@@ -308,7 +308,7 @@ fn eval_not_enough_args() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A')];
-    let tree    = vec_to_list(&mut mem, vec);
+    let tree    = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: not-enough-arguments");
@@ -324,7 +324,7 @@ fn eval_too_many_args() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B'), mem.allocate_character('C')];
-    let tree    = vec_to_list(&mut mem, vec);
+    let tree    = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: too-many-arguments");

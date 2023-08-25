@@ -24,7 +24,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
     let invalid_sym     = mem.symbol_for("invalid");
     let error_sym       = mem.symbol_for("error");
     let list_sym        = mem.symbol_for("list");
-    let invalid         = vec_to_list(mem, vec![invalid_sym, GcRef::nil(), GcRef::nil(), GcRef::nil()]);
+    let invalid         = vec_to_list(mem, &vec![invalid_sym, GcRef::nil(), GcRef::nil(), GcRef::nil()]);
 
     let mut atom_stack  = vec![];
     let mut list_stack  = vec![];
@@ -59,7 +59,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             },
             (WhiteSpace, ')')  => { 
                 if let Err(error_msg) = build_list(mem, &mut list_stack) {
-                    return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                    return vec_to_list(mem, &vec![error_sym, error_msg, cursor]);
                 }
 
                 if list_stack.len() == 1 {
@@ -81,7 +81,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                 list_stack.push(ListStack::Elem(read_atom(mem, &atom_stack.drain(..).collect::<String>())));
 
                 if let Err(error_msg) = build_list(mem, &mut list_stack) {
-                    return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                    return vec_to_list(mem, &vec![error_sym, error_msg, cursor]);
                 }
 
                 if list_stack.len() == 1 {
@@ -98,7 +98,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                     list_stack.push(ListStack::Elem(atom));
                 }
                 else {
-                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                    return vec_to_list(mem, &vec![ok_sym, atom, cursor]);
                 }
 
                 list_stack.push(ListStack::Separator);
@@ -112,7 +112,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                     list_stack.push(ListStack::Elem(atom));
                 }
                 else {
-                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                    return vec_to_list(mem, &vec![ok_sym, atom, cursor]);
                 }
 
                 list_stack.push(ListStack::Separator);
@@ -126,7 +126,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                     list_stack.push(ListStack::Elem(atom));
                 }
                 else {
-                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                    return vec_to_list(mem, &vec![ok_sym, atom, cursor]);
                 }
 
                 state = Comment;
@@ -138,7 +138,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                     list_stack.push(ListStack::Elem(atom));
                 }
                 else {
-                    return vec_to_list(mem, vec![ok_sym, atom, cursor]);
+                    return vec_to_list(mem, &vec![ok_sym, atom, cursor]);
                 }
 
                 state = WhiteSpace;
@@ -148,7 +148,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             },
             (StringNormal, '"') => {
                 if let Err(error_msg) = build_list(mem, &mut list_stack) {
-                    return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                    return vec_to_list(mem, &vec![error_sym, error_msg, cursor]);
                 }
 
                 state = WhiteSpace;
@@ -169,7 +169,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                     '\\'  => '\\',
                     other => {
                         let error_msg = string_to_list(mem, &format!("'{other}' is not a valid escape character in a string literal"));
-                        return vec_to_list(mem, vec![error_sym, error_msg, cursor]);
+                        return vec_to_list(mem, &vec![error_sym, error_msg, cursor]);
                     },
                 };
                 list_stack.push(ListStack::Elem(mem.allocate_character(escaped)));
@@ -182,19 +182,19 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
 
     if let Some(first) = list_stack.first() {
         if let ListStack::Elem(elem) = first {
-            vec_to_list(mem, vec![ok_sym, elem.clone(), cursor])
+            vec_to_list(mem, &vec![ok_sym, elem.clone(), cursor])
         }
         else {
-            vec_to_list(mem, vec![incomplete_sym, GcRef::nil(), cursor])
+            vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), cursor])
         }
     }
     else {
         if atom_stack.len() > 0 {
             let result = read_atom(mem, &atom_stack.drain(..).collect::<String>());
-            vec_to_list(mem, vec![ok_sym, result, cursor])
+            vec_to_list(mem, &vec![ok_sym, result, cursor])
         }
         else {
-            vec_to_list(mem, vec![incomplete_sym, GcRef::nil(), cursor])
+            vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), cursor])
         }
     }
 }
