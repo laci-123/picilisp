@@ -1,6 +1,7 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::native::print::print;
+use crate::native::read::read;
 
 
 
@@ -411,6 +412,50 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
         NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, &[signal], empty_env).unwrap()).unwrap())),
         NativeResult::Abort(msg)     => Err(msg),
     }
+}
+
+
+pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+    if args.len() != 1 {
+        let signal = mem.symbol_for("wrong-number-of-arguments");
+        return NativeResult::Signal(signal);
+    }
+
+    let ok_symbol         = mem.symbol_for("ok");
+    let incomplete_symbol = mem.symbol_for("incomplete");
+    let error_symbol      = mem.symbol_for("error");
+    let invalid_symbol    = mem.symbol_for("invalid");
+
+    let mut input = args[0].clone();
+
+    while !input.is_nil() {
+        let output     = match read(mem, &[input.clone()], GcRef::nil()) {
+            NativeResult::Value(x) => x,
+            other                  => return other,
+        };
+        let output_vec = list_to_vec(output).unwrap();
+        let status_tmp = output_vec[0].clone();
+        let status     = status_tmp.get().as_symbol();
+        let result     = output_vec[1].clone();
+        let rest       = output_vec[2].clone();
+
+        if status == ok_symbol.get().as_symbol() {
+            eval(mem, &[result], GcRef::nil());
+        }
+        else if status == incomplete_symbol.get().as_symbol() {
+            return NativeResult::Signal(mem.symbol_for("input-incomplete"));
+        }
+        else if status == error_symbol.get().as_symbol() {
+            return NativeResult::Signal(mem.symbol_for("read-error"));
+        }
+        else if status == invalid_symbol.get().as_symbol() {
+            return NativeResult::Signal(mem.symbol_for("input-invalid-string"));
+        }
+
+        input = rest;
+    }
+
+    NativeResult::Value(ok_symbol)
 }
 
 

@@ -9,7 +9,12 @@ fn read_empty() {
 
     let r = read(&mut mem, &[GcRef::nil()], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
-    assert_eq!(status.get().as_symbol(), mem.symbol_for("incomplete").get().as_symbol());
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("nothing").get().as_symbol());
+
+    let input = string_to_list(&mut mem, "   ;comment ");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("nothing").get().as_symbol());
 }
 
 #[test]

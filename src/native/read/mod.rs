@@ -11,9 +11,10 @@ use crate::util::{vec_to_list, string_to_list};
 /// Returns: `(list status result rest)`
 /// where `status` can be one of the following:
 ///  * `ok`:         Success. `result` is the AST.
+///  * `nothing`:    `input` was empty or only contained whitespace. `result` is undefined.
 ///  * `incomplete`: `input` is not a valid AST, but can be the beginning of a valid AST. `result` is undefined.
 ///  * `error`:      `input` is not a valid AST, not even the beginning of one. `result` contains the error details.
-///  * `invalid`:    `input` is not a valid string. `result` and `rest` are is undefined.
+///  * `invalid`:    `input` is not a valid string. `result` and `rest` are undefined.
 /// `result` is the read AST and
 /// `rest` is the unread rest of `input`.
 fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
@@ -21,6 +22,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
     
     let ok_sym          = mem.symbol_for("ok");
     let incomplete_sym  = mem.symbol_for("incomplete");
+    let nothing_sym     = mem.symbol_for("nothing");
     let invalid_sym     = mem.symbol_for("invalid");
     let error_sym       = mem.symbol_for("error");
     let list_sym        = mem.symbol_for("list");
@@ -32,6 +34,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
     let mut cursor      = input;
     let mut next_cursor;
     let mut ch;
+    let mut read_somthing = false;
 
     while !cursor.is_nil() {
         if let Some((head, tail)) = fetch_character(cursor.clone()) {
@@ -47,9 +50,11 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                 state = Comment;
             },
             (WhiteSpace, '(') => {
+                read_somthing = true;
                 list_stack.push(ListStack::Separator);
             },
             (WhiteSpace, '"') => {
+                read_somthing = true;
                 list_stack.push(ListStack::Separator);
                 list_stack.push(ListStack::Elem(list_sym.clone()));
                 state = StringNormal;
@@ -58,6 +63,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                 // do nothing
             },
             (WhiteSpace, ')')  => { 
+                read_somthing = true;
                 if let Err(error_msg) = build_list(mem, &mut list_stack) {
                     return vec_to_list(mem, &vec![error_sym, error_msg, cursor]);
                 }
@@ -68,6 +74,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
                 }
             },
             (WhiteSpace, c) => {
+                read_somthing = true;
                 atom_stack.push(c);
                 state = Atom;
             },
@@ -185,7 +192,12 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             vec_to_list(mem, &vec![ok_sym, elem.clone(), cursor])
         }
         else {
-            vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), cursor])
+            if read_somthing {
+                vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), cursor])
+            }
+            else {
+                vec_to_list(mem, &vec![nothing_sym, GcRef::nil(), cursor])
+            }
         }
     }
     else {
@@ -194,7 +206,12 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             vec_to_list(mem, &vec![ok_sym, result, cursor])
         }
         else {
-            vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), cursor])
+            if read_somthing {
+                vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), cursor])
+            }
+            else {
+                vec_to_list(mem, &vec![nothing_sym, GcRef::nil(), cursor])
+            }
         }
     }
 }

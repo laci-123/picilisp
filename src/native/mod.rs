@@ -20,6 +20,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "read",        read::read,             FunctionKind::Lambda);
     load_native_function(mem, "macroexpand", eval::macroexpand,      FunctionKind::Lambda);
     load_native_function(mem, "eval",        eval::eval,             FunctionKind::Lambda);
+    load_native_function(mem, "load-all",    eval::load_all,         FunctionKind::Lambda);
     load_native_function(mem, "print",       print::print,           FunctionKind::Lambda);
     load_native_function(mem, "add",         numbers::add,           FunctionKind::Lambda);
     load_native_function(mem, "multiply",    numbers::multiply,      FunctionKind::Lambda);
