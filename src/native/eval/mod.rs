@@ -440,7 +440,10 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         let rest       = output_vec[2].clone();
 
         if status == ok_symbol.get().as_symbol() {
-            eval(mem, &[result], GcRef::nil());
+            match eval(mem, &[result], GcRef::nil()) {
+                NativeResult::Value(_) => {/* only interested in side effects */},
+                other                  => return other,
+            }
         }
         else if status == incomplete_symbol.get().as_symbol() {
             return NativeResult::Signal(mem.symbol_for("input-incomplete"));

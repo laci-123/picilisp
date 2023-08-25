@@ -5,24 +5,30 @@ use crate::native::load_native_functions;
 
 
 
-fn main() {
-    println!("Hello, world!");
+fn main() -> Result<(), String> {
+    println!("PiciLisp");
 
     let mut mem = Memory::new();
 
     load_native_functions(&mut mem);
 
-    let input_str = concat!(include_str!("prelude.lisp"),         // load prelude
-                            "\n(repl)");                          // then start REPL (\n needed to end any line-comments)
-    let input     = string_to_proper_list(&mut mem, input_str);
+    println!("Loaded native functions.");
 
-    let vec = vec![mem.symbol_for("load-all"), input];
+    let prelude_str = include_str!("prelude.lisp");  
+    let prelude     = string_to_proper_list(&mut mem, prelude_str);
+    let vec         = vec![mem.symbol_for("load-all"), prelude];
+    let expression  = vec_to_list(&mut mem, &vec);
+    eval_external(&mut mem, expression)?;
+
+    println!("Loaded prelude.");
+
+    let vec        = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, &vec);
-    
-    match eval_external(&mut mem, expression) {
-        Ok(_)    => println!("Bye!"),
-        Err(msg) => println!("ABORTED:\n{}", msg),
-    }
+    eval_external(&mut mem, expression)?;
+
+    println!("Bye!");
+
+    Ok(())
 }
 
 
