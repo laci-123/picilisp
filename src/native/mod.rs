@@ -27,6 +27,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "define",      globals::define,        FunctionKind::SpecialLambda);
     load_native_function(mem, "undefine",    globals::undefine,      FunctionKind::SpecialLambda);
     load_native_function(mem, "type-of",     reflection::type_of,    FunctionKind::Lambda);
+    load_native_function(mem, "load",        io::load,               FunctionKind::Lambda);
     load_native_function(mem, "repl",        repl::repl,             FunctionKind::Lambda);
 }
 
@@ -48,5 +49,6 @@ pub mod list;
 pub mod signal;
 pub mod numbers;
 pub mod globals;
+pub mod io;
 pub mod reflection;
 pub mod misc;

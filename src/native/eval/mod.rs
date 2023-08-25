@@ -197,14 +197,17 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
     // the operator has just been evaluated, now we decide whether to evaluate the arguments
     if list_frame.current == 1 {
         if list_frame.mode == Mode::MacroExpand {
+            // when macroexpanding, expand all elements of all lists regardless of what their first element is
             list_frame.eval_args = true;
         }
         else if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
-            list_frame.eval_args =  f.get_kind() == FunctionKind::Lambda && list_frame.mode == Mode::Eval;
+            // when evaluating, only expand arguments of lambdas
+            list_frame.eval_args =  f.get_kind() == FunctionKind::Lambda;
         }
         else {
             // first element of list is not a function
             if list_frame.mode == Mode::Eval {
+                // cannot evaluate non-functions, but not a problem when macroexpanding
                 return EvalInternal::Signal(mem.symbol_for("eval-bad-operator")); // [1]
             }
         }
@@ -234,10 +237,11 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
         },
         _ => {
             if list_frame.mode == Mode::MacroExpand {
+                // when macroexpanding, if the first element is not a macro then return the whole list
                 return EvalInternal::Return(vec_to_list(mem, &list_frame.elems));
             }
             else {
-                // already checked at [1]
+                // already handled at [1]
                 unreachable!();
             }
         },
