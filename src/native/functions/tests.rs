@@ -25,7 +25,7 @@ fn make_lambda() {
 }
 
 #[test]
-fn make_lambda_bad_params() {
+fn make_lambda_bad_param_list() {
     let mut mem = Memory::new();
 
     let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
@@ -36,6 +36,21 @@ fn make_lambda_bad_params() {
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.err().unwrap(), "Unhandled signal: bad-param-list");
+}
+
+#[test]
+fn make_lambda_bad_param() {
+    let mut mem = Memory::new();
+
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+
+    // (lambda (1) x)
+    let params = vec![mem.allocate_number(1.0)];
+    let vec    = vec![lambda, vec_to_list(&mut mem, &params), mem.symbol_for("x")];
+    let tree   = vec_to_list(&mut mem, &vec);
+
+    let value = eval_external(&mut mem, tree);
+    assert_eq!(value.err().unwrap(), "Unhandled signal: param-is-not-symbol");
 }
 
 #[test]
