@@ -426,10 +426,12 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     let error_symbol      = mem.symbol_for("error");
     let invalid_symbol    = mem.symbol_for("invalid");
 
-    let mut input = args[0].clone();
+    let mut input  = args[0].clone();
+    let mut line   = mem.allocate_number(1);
+    let mut column = mem.allocate_number(1);
 
     while !input.is_nil() {
-        let output     = match read(mem, &[input.clone()], GcRef::nil()) {
+        let output     = match read(mem, &[input.clone(), line.clone(), column.clone()], GcRef::nil()) {
             NativeResult::Value(x) => x,
             other                  => return other,
         };
@@ -438,6 +440,8 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         let status     = status_tmp.get().as_symbol();
         let result     = output_vec[1].clone();
         let rest       = output_vec[2].clone();
+        line           = output_vec[3].clone();
+        column         = output_vec[4].clone();
 
         if status == ok_symbol.get().as_symbol() {
             match eval(mem, &[result], GcRef::nil()) {

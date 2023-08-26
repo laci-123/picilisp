@@ -313,7 +313,7 @@ fn read_bad_parens() {
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
-    assert_eq!(list_to_string(result).unwrap(), "too many closing parentheses");
+    assert_eq!(list_to_string(result.get().as_conscell().get_cdr()).unwrap(), "too many closing parentheses");
 }
 
 
@@ -409,4 +409,70 @@ fn read_error_location() {
     assert_eq!(error_location[0].get().as_symbol().get_name(), "stdin");
     assert_eq!(*error_location[1].get().as_number(), 1);
     assert_eq!(*error_location[2].get().as_number(), 7);
+}
+
+#[test]
+fn read_continue_rest() {
+    let mut mem = Memory::new();
+
+                                       // 123456789
+    let input = string_to_list(&mut mem, "cat mouse");
+    let start_line = mem.allocate_number(1);
+    let start_column = mem.allocate_number(1);
+    let r = list_to_vec(read(&mut mem, &[input, start_line, start_column], GcRef::nil()).unwrap()).unwrap();
+    let status = r[0].clone();
+    let result = r[1].clone();
+    let rest   = r[2].clone();
+    let line   = r[3].clone();
+    let column = r[4].clone();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(result.get().as_symbol().get_name(), "cat");
+    assert_eq!(list_to_string(rest.clone()).unwrap(), " mouse");
+    assert_eq!(*line.get().as_number(), 1);
+    assert_eq!(*column.get().as_number(), 4);
+
+    let r = list_to_vec(read(&mut mem, &[rest, line, column], GcRef::nil()).unwrap()).unwrap();
+    let status = r[0].clone();
+    let result = r[1].clone();
+    let rest   = r[2].clone();
+    let line   = r[3].clone();
+    let column = r[4].clone();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(result.get().as_symbol().get_name(), "mouse");
+    assert_eq!(list_to_string(rest).unwrap(), "");
+    assert_eq!(*line.get().as_number(), 1);
+    assert_eq!(*column.get().as_number(), 10);
+}
+
+#[test]
+fn read_continue_rest_newline() {
+    let mut mem = Memory::new();
+
+                                       // 123456 01234567
+    let input = string_to_list(&mut mem, "  lion\n tiger  ");
+    let start_line = mem.allocate_number(1);
+    let start_column = mem.allocate_number(1);
+    let r = list_to_vec(read(&mut mem, &[input, start_line, start_column], GcRef::nil()).unwrap()).unwrap();
+    let status = r[0].clone();
+    let result = r[1].clone();
+    let rest   = r[2].clone();
+    let line   = r[3].clone();
+    let column = r[4].clone();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(result.get().as_symbol().get_name(), "lion");
+    assert_eq!(list_to_string(rest.clone()).unwrap(), " tiger  ");
+    assert_eq!(*line.get().as_number(), 2);
+    assert_eq!(*column.get().as_number(), 1);
+
+    let r = list_to_vec(read(&mut mem, &[rest, line, column], GcRef::nil()).unwrap()).unwrap();
+    let status = r[0].clone();
+    let result = r[1].clone();
+    let rest   = r[2].clone();
+    let line   = r[3].clone();
+    let column = r[4].clone();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(result.get().as_symbol().get_name(), "tiger");
+    assert_eq!(list_to_string(rest).unwrap(), "  ");
+    assert_eq!(*line.get().as_number(), 2);
+    assert_eq!(*column.get().as_number(), 7);
 }
