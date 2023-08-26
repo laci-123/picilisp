@@ -226,6 +226,10 @@ pub struct Location {
 }
 
 impl Location {
+    pub fn new(file: Option<PathBuf>, line: usize, column: usize) -> Self {
+        Self{ file, line, column } 
+    }
+    
     pub fn in_file(path: &Path, line: usize, column: usize) -> Self {
         Self{ file: Some(path.to_path_buf()), line, column }
     }
