@@ -200,6 +200,7 @@ fn string_token(string: &str, file: Option<PathBuf>, line_count: usize, char_cou
             match ch {
                 '\\' => result.push('\\'),
                 'n'  => result.push('\n'),
+                'r'  => result.push('\r'),
                 't'  => result.push('\t'),
                 '"'  => result.push('"'),
                 _    => {
@@ -329,7 +330,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             },
             TokenKind::LispString(x) => {
                 let y = string_to_proper_list(mem, &x);
-                return vec_to_list(mem, &vec![ok_sym, y, rest]);
+                if let Some(z) = push_or_ok(mem, &mut stack, y) {return z;}
             },
             TokenKind::OpenParen => {
                 stack.push(vec![]);

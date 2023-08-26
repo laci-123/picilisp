@@ -164,6 +164,25 @@ fn read_nested_list() {
 }
 
 #[test]
+fn read_string_in_list() {
+    let mut mem = Memory::new();
+
+    let input = string_to_list(&mut mem, r#"(1 "ab"  2)"#);
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+
+    let vec = list_to_vec(result).unwrap();
+    assert_eq!(*vec[0].get().as_number(), 1.0);
+    let vec2 = list_to_vec(vec[1].clone()).unwrap();
+    assert_eq!(vec2[0].get().as_symbol().get_name(), "list");
+    assert_eq!(*vec2[1].get().as_character(), 'a');
+    assert_eq!(*vec2[2].get().as_character(), 'b');
+    assert_eq!(*vec[2].get().as_number(), 2.0);
+}
+
+#[test]
 fn read_string() {
     let mut mem = Memory::new();
 
