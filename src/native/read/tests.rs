@@ -299,8 +299,9 @@ fn read_bad_escape_char() {
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    let error_msg = list_to_string(result.get().as_conscell().get_cdr()).unwrap();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
-    assert_eq!(list_to_string(result).unwrap(), "'k' is not a valid escape character in a string literal");
+    assert_eq!(error_msg, "'k' is not a valid escape character in a string literal");
 }
 
 #[test]
@@ -390,4 +391,22 @@ fn read_location_list_2() {
     assert_eq!(elems[2].get_metadata().unwrap().location.file, None);
     assert_eq!(elems[2].get_metadata().unwrap().location.line, 2);
     assert_eq!(elems[2].get_metadata().unwrap().location.column, 6);
+}
+
+#[test]
+fn read_error_location() {
+    let mut mem = Memory::new();
+
+                                          //1234567
+    let input = string_to_list(&mut mem, r#" "abc\defg" "#);
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
+    let error_location = list_to_vec(result.get().as_conscell().get_car()).unwrap();
+    let error_msg      = list_to_string(result.get().as_conscell().get_cdr()).unwrap();
+    assert_eq!(error_msg, "'d' is not a valid escape character in a string literal");
+    assert_eq!(error_location[0].get().as_symbol().get_name(), "stdin");
+    assert_eq!(*error_location[1].get().as_number(), 1.0);
+    assert_eq!(*error_location[2].get().as_number(), 7.0);
 }

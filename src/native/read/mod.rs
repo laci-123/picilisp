@@ -36,7 +36,7 @@ enum TokenResult {
 }
 
 
-fn fetch_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_count: &mut usize) -> TokenResult {
+fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_count: &mut usize) -> TokenResult {
     let mut cursor           = input;
     let mut next_cursor;
     let mut start_line_count = 1;
@@ -48,7 +48,7 @@ fn fetch_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_c
     let mut buffer           = String::new();
 
     while !cursor.is_nil() {
-        if let Some((head, tail)) = fetch_character(cursor.clone()) {
+        if let Some((head, tail)) = next_character(cursor.clone()) {
             ch = head;
             next_cursor = tail;
             *char_count += 1;
@@ -287,8 +287,39 @@ fn character_token(string: &str) -> Option<char> {
 }
 
 
+
+fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location) -> Option<GcRef> {
+    let meta = mem.allocate_metadata(elem, Metadata{ location, documentation: "".to_string() });
+    if let Some(top) = stack.last_mut() {
+        top.push(meta);
+        None
+    }
+    else {
+        let ok_sym = mem.symbol_for("ok");
+        let return_value = vec_to_list(mem, &vec![ok_sym, meta, rest.clone()]);
+        Some(return_value)
+    }
+}
+
+
+fn format_error(mem: &mut Memory, location: Location, msg: String, rest: RestOfInput) -> GcRef {
+    let error_sym = mem.symbol_for("error");
+    let error_msg = string_to_proper_list(mem, &msg);
+    let file      = if let Some(f) = location.file {
+        string_to_proper_list(mem, &f.into_os_string().into_string().unwrap())
+    }
+    else {
+        mem.symbol_for("stdin")
+    };
+    let line      = mem.allocate_number(location.line as f64);
+    let column    = mem.allocate_number(location.column as f64);
+    let error_loc = vec_to_list(mem, &vec![file, line, column]);
+    let error     = mem.allocate_cons(error_loc, error_msg);
+    vec_to_list(mem, &vec![error_sym, error, rest])
+}
+
+
 fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
-    let ok_sym          = mem.symbol_for("ok");
     let incomplete_sym  = mem.symbol_for("incomplete");
     let nothing_sym     = mem.symbol_for("nothing");
     let invalid_sym     = mem.symbol_for("invalid");
@@ -297,18 +328,6 @@ fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
     let nothing         = vec_to_list(mem, &vec![nothing_sym, GcRef::nil(), GcRef::nil()]);
     let invalid         = vec_to_list(mem, &vec![invalid_sym, GcRef::nil(), GcRef::nil()]);
 
-    let push_or_ok = |mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location| {
-        let meta = mem.allocate_metadata(elem, Metadata{ location, documentation: "".to_string() });
-        if let Some(top) = stack.last_mut() {
-            top.push(meta);
-            None
-        }
-        else {
-            let return_value = vec_to_list(mem, &vec![ok_sym.clone(), meta, rest.clone()]);
-            Some(return_value)
-        }
-    };
-
     let mut line_count = 1;
     let mut char_count = 0;
     let mut cursor = input;
@@ -316,18 +335,13 @@ fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
 
     loop {
         let (token, rest) =
-        match fetch_token(cursor, file, &mut line_count, &mut char_count) {
-            TokenResult::Ok(t, rest)         => (t, rest),
-            TokenResult::Error(_, msg, rest) => {
-                let error_msg = string_to_proper_list(mem, &msg);
-                return vec_to_list(mem, &vec![error_sym, error_msg, rest])
-            },
-            TokenResult::Incomplete          => return incomplete,
-            TokenResult::Nothing             => return if stack.len() == 0 {nothing} else {incomplete},
-            TokenResult::InvalidString       => return invalid,
+        match next_token(cursor, file, &mut line_count, &mut char_count) {
+            TokenResult::Ok(t, rest)                => (t, rest),
+            TokenResult::Error(location, msg, rest) => return format_error(mem, location, msg, rest),
+            TokenResult::Incomplete                 => return incomplete,
+            TokenResult::Nothing                    => return if stack.len() == 0 {nothing} else {incomplete},
+            TokenResult::InvalidString              => return invalid,
         };
-
-        println!(">>> {line_count}, {char_count}");
 
         match token.token_kind {
             TokenKind::Number(x) => {
@@ -366,7 +380,7 @@ fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
 }
 
 
-fn fetch_character(input: GcRef) -> Option<(char, GcRef)> {
+fn next_character(input: GcRef) -> Option<(char, GcRef)> {
     let cons =
     if let PrimitiveValue::Cons(cons) = input.get() {
         cons
@@ -393,10 +407,10 @@ fn fetch_character(input: GcRef) -> Option<(char, GcRef)> {
 ///  * `ok`:         Success. `result` is the AST.
 ///  * `nothing`:    `input` was empty or only contained whitespace. `result` is undefined.
 ///  * `incomplete`: `input` is not a valid AST, but can be the beginning of a valid AST. `result` is undefined.
-///  * `error`:      `input` is not a valid AST, not even the beginning of one. `result` contains the error details.
+///  * `error`:      `input` is not a valid AST, not even the beginning of one. `result` contains the error details in `(cons error-location error-message)` format.
 ///  * `invalid`:    `input` is not a valid string. `result` and `rest` are undefined.
 /// `result` is the read AST and
-/// `rest` is the unread rest of `input`.
+/// `rest` is the unread rest of `input` (`nil` if all of `input` was read).
 pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
