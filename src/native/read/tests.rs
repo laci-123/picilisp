@@ -314,3 +314,80 @@ fn read_bad_parens() {
     assert_eq!(status.get().as_symbol(), mem.symbol_for("error").get().as_symbol());
     assert_eq!(list_to_string(result).unwrap(), "too many closing parentheses");
 }
+
+
+#[test]
+fn read_location_atom() {
+    let mut mem = Memory::new();
+
+                                       //              123
+    let input = string_to_list(&mut mem, ";first line\n  abc");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(result.get().as_symbol(), mem.symbol_for("abc").get().as_symbol());
+    assert_eq!(result.get_metadata().unwrap().location.file, None);
+    assert_eq!(result.get_metadata().unwrap().location.line, 2);
+    assert_eq!(result.get_metadata().unwrap().location.column, 3);
+}
+
+
+#[test]
+fn read_location_string() {
+    let mut mem = Memory::new();
+
+                                       //                            123 4
+    let input = string_to_list(&mut mem, ";first line\n;second line\n   \"some text\"");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    assert_eq!(result.get_metadata().unwrap().location.file, None);
+    assert_eq!(result.get_metadata().unwrap().location.line, 3);
+    assert_eq!(result.get_metadata().unwrap().location.column, 4);
+}
+
+#[test]
+fn read_location_list() {
+    let mut mem = Memory::new();
+
+                                      //  123 45 6789
+    let input = string_to_list(&mut mem, "(1 \"2\"  three)");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    let elems = list_to_vec(result).unwrap();
+    assert_eq!(elems[0].get_metadata().unwrap().location.file, None);
+    assert_eq!(elems[0].get_metadata().unwrap().location.line, 1);
+    assert_eq!(elems[0].get_metadata().unwrap().location.column, 2);
+    assert_eq!(elems[1].get_metadata().unwrap().location.file, None);
+    assert_eq!(elems[1].get_metadata().unwrap().location.line, 1);
+    assert_eq!(elems[1].get_metadata().unwrap().location.column, 4);
+    assert_eq!(elems[2].get_metadata().unwrap().location.file, None);
+    assert_eq!(elems[2].get_metadata().unwrap().location.line, 1);
+    assert_eq!(elems[2].get_metadata().unwrap().location.column, 9);
+}
+
+#[test]
+fn read_location_list_2() {
+    let mut mem = Memory::new();
+
+                                      //  1234          12345 6 
+    let input = string_to_list(&mut mem, " ( 1;comment\n%2   \"three\")");
+    let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let status = r.get().as_conscell().get_car();
+    let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
+    assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
+    let elems = list_to_vec(result).unwrap();
+    assert_eq!(elems[0].get_metadata().unwrap().location.file, None);
+    assert_eq!(elems[0].get_metadata().unwrap().location.line, 1);
+    assert_eq!(elems[0].get_metadata().unwrap().location.column, 4);
+    assert_eq!(elems[1].get_metadata().unwrap().location.file, None);
+    assert_eq!(elems[1].get_metadata().unwrap().location.line, 2);
+    assert_eq!(elems[1].get_metadata().unwrap().location.column, 1);
+    assert_eq!(elems[2].get_metadata().unwrap().location.file, None);
+    assert_eq!(elems[2].get_metadata().unwrap().location.line, 2);
+    assert_eq!(elems[2].get_metadata().unwrap().location.column, 6);
+}

@@ -218,16 +218,16 @@ impl Trap {
 }
 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Location {
-    file: Option<PathBuf>, // None: reading from stdin
-    line: usize,
-    column: usize,
+    pub file: Option<PathBuf>, // None: reading from stdin
+    pub line: usize,
+    pub column: usize,
 }
 
 impl Location {
-    pub fn new(file: Option<PathBuf>, line: usize, column: usize) -> Self {
-        Self{ file, line, column } 
+    pub fn new(file: Option<&Path>, line: usize, column: usize) -> Self {
+        Self{ file: file.map(|p| p.to_path_buf()), line, column } 
     }
     
     pub fn in_file(path: &Path, line: usize, column: usize) -> Self {
@@ -242,8 +242,8 @@ impl Location {
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Metadata {
-    location: Location,
-    documentation: String,
+    pub location: Location,
+    pub documentation: String,
 }
 
 
@@ -376,7 +376,21 @@ impl GcRef {
     }
 
     pub fn is_nil(&self) -> bool {
-        self.pointer.is_null()
+        if self.pointer.is_null() {
+            return true;
+        }
+
+        let value =
+        unsafe {
+            &(*self.pointer).value
+        };
+
+        if let PrimitiveValue::Meta(meta) = value {
+            return meta.value.is_null();
+        }
+        else {
+            return false;
+        }
     }
 
     pub fn get(&self) -> &PrimitiveValue {

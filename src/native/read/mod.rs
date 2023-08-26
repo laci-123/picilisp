@@ -2,7 +2,7 @@
 
 use crate::memory::*;
 use crate::util::{vec_to_list, string_to_proper_list};
-use std::path::PathBuf;
+use std::path::Path;
 
 
 enum TokenKind {
@@ -36,12 +36,10 @@ enum TokenResult {
 }
 
 
-fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
+fn fetch_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_count: &mut usize) -> TokenResult {
     let mut cursor           = input;
     let mut next_cursor;
-    let mut line_count       = 0;
-    let mut char_count       = 0;
-    let mut start_line_count = 0;
+    let mut start_line_count = 1;
     let mut start_char_count = 0;
     let mut ch;
     let mut in_comment       = false;
@@ -53,12 +51,12 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
         if let Some((head, tail)) = fetch_character(cursor.clone()) {
             ch = head;
             next_cursor = tail;
+            *char_count += 1;
         }
         else {
             return TokenResult::InvalidString;
         }
 
-        char_count += 1;
         match ch {
             '(' => {
                 if in_string {
@@ -66,13 +64,14 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                     string_escape = false;
                 }
                 else if buffer.len() > 0 {
+                    *char_count -= 1;
                     return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
                 }
                 else if in_comment {
                     // do nothing
                 }
                 else {
-                    return TokenResult::Ok(Token::new(TokenKind::OpenParen, Location::new(file, line_count, char_count)), next_cursor);
+                    return TokenResult::Ok(Token::new(TokenKind::OpenParen, Location::new(file, *line_count, *char_count)), next_cursor);
                 }
             },
             ')' => {
@@ -81,13 +80,14 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                     string_escape = false;
                 }
                 else if buffer.len() > 0 {
+                    *char_count -= 1;
                     return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
                 }
                 else if in_comment {
                     // do nothing
                 }
                 else {
-                    return TokenResult::Ok(Token::new(TokenKind::CloseParen, Location::new(file, line_count, char_count)), next_cursor);
+                    return TokenResult::Ok(Token::new(TokenKind::CloseParen, Location::new(file, *line_count, *char_count)), next_cursor);
                 }
             },
             '"' => {
@@ -101,6 +101,7 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                     }
                 }
                 else if buffer.len() > 0 {
+                    *char_count -= 1;
                     return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
                 }
                 else if in_comment {
@@ -108,11 +109,13 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                 }
                 else {
                     in_string = true;
+                    start_line_count = *line_count;
+                    start_char_count = *char_count;
                 }
             },
             '\n' => {
-                line_count += 1;
-                char_count = 0;
+                *line_count += 1;
+                *char_count = 0;
                 if in_string {
                     buffer.push(ch);
                     string_escape = false;
@@ -121,6 +124,7 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                     in_comment = false;
                 }
                 else if buffer.len() > 0 {
+                    *char_count -= 1;
                     return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
                 }
                 else {
@@ -132,6 +136,10 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                     buffer.push(ch);
                     string_escape = false;
                 }
+                else if buffer.len() > 0 {
+                    *char_count -= 1;
+                    return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
+                }
                 else {
                     in_comment = true;
                 }
@@ -141,6 +149,7 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                     buffer.push(ch);
                 }
                 else if buffer.len() > 0 {
+                    *char_count -= 1;
                     return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
                 }
                 else {
@@ -162,8 +171,8 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
                 }
                 else {
                     if buffer.len() == 0 {
-                        start_line_count = line_count;
-                        start_char_count = char_count;
+                        start_line_count = *line_count;
+                        start_char_count = *char_count;
                     }
                     buffer.push(c);
                 }
@@ -185,7 +194,7 @@ fn fetch_token(input: GcRef, file: Option<PathBuf>) -> TokenResult {
 }
 
 
-fn string_token(string: &str, file: Option<PathBuf>, line_count: usize, char_count: usize, rest: RestOfInput) -> TokenResult {
+fn string_token(string: &str, file: Option<&Path>, line_count: usize, char_count: usize, rest: RestOfInput) -> TokenResult {
     let mut escape = false;
     let mut result = String::new();
     let mut lc = 0;
@@ -229,7 +238,7 @@ fn string_token(string: &str, file: Option<PathBuf>, line_count: usize, char_cou
 }
 
 
-fn atom_token(string: &str, file: Option<PathBuf>, line_count: usize, char_count: usize, rest: RestOfInput) -> TokenResult {
+fn atom_token(string: &str, file: Option<&Path>, line_count: usize, char_count: usize, rest: RestOfInput) -> TokenResult {
     if let Some(x) = number_token(string) {
         TokenResult::Ok(Token::new(TokenKind::Number(x), Location::new(file, line_count, char_count)), rest)
     }
@@ -278,7 +287,7 @@ fn character_token(string: &str) -> Option<char> {
 }
 
 
-fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
+fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
     let ok_sym          = mem.symbol_for("ok");
     let incomplete_sym  = mem.symbol_for("incomplete");
     let nothing_sym     = mem.symbol_for("nothing");
@@ -288,12 +297,26 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
     let nothing         = vec_to_list(mem, &vec![nothing_sym, GcRef::nil(), GcRef::nil()]);
     let invalid         = vec_to_list(mem, &vec![invalid_sym, GcRef::nil(), GcRef::nil()]);
 
+    let push_or_ok = |mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location| {
+        let meta = mem.allocate_metadata(elem, Metadata{ location, documentation: "".to_string() });
+        if let Some(top) = stack.last_mut() {
+            top.push(meta);
+            None
+        }
+        else {
+            let return_value = vec_to_list(mem, &vec![ok_sym.clone(), meta, rest.clone()]);
+            Some(return_value)
+        }
+    };
+
+    let mut line_count = 1;
+    let mut char_count = 0;
     let mut cursor = input;
     let mut stack: Vec<Vec<GcRef>>  = vec![];
 
     loop {
         let (token, rest) =
-        match fetch_token(cursor, None) {
+        match fetch_token(cursor, file, &mut line_count, &mut char_count) {
             TokenResult::Ok(t, rest)         => (t, rest),
             TokenResult::Error(_, msg, rest) => {
                 let error_msg = string_to_proper_list(mem, &msg);
@@ -304,33 +327,24 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             TokenResult::InvalidString       => return invalid,
         };
 
-        let push_or_ok = |mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef| {
-            if let Some(top) = stack.last_mut() {
-                top.push(elem);
-                None
-            }
-            else {
-                let return_value = vec_to_list(mem, &vec![ok_sym.clone(), elem, rest.clone()]);
-                Some(return_value)
-            }
-        };
+        println!(">>> {line_count}, {char_count}");
 
         match token.token_kind {
             TokenKind::Number(x) => {
                 let y = mem.allocate_number(x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y) {return z;}
+                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location) {return z;}
             },
             TokenKind::Character(x) => {
                 let y = mem.allocate_character(x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y) {return z;}
+                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location) {return z;}
             },
             TokenKind::Symbol(x) => {
                 let y = mem.symbol_for(&x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y) {return z;}
+                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location) {return z;}
             },
             TokenKind::LispString(x) => {
                 let y = string_to_proper_list(mem, &x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y) {return z;}
+                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location) {return z;}
             },
             TokenKind::OpenParen => {
                 stack.push(vec![]);
@@ -338,7 +352,7 @@ fn read_internal(mem: &mut Memory, input: GcRef) -> GcRef {
             TokenKind::CloseParen => {
                 if let Some(vec) = stack.pop() {
                     let y = vec_to_list(mem, &vec);
-                    if let Some(z) = push_or_ok(mem, &mut stack, y) {return z;}
+                    if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location) {return z;}
                 }
                 else {
                     let error_msg = string_to_proper_list(mem, "too many closing parentheses");
@@ -387,7 +401,7 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
-    NativeResult::Value(read_internal(mem, args[0].clone()))
+    NativeResult::Value(read_internal(mem, args[0].clone(), None))
 }
 
 
