@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::memory::*;
 
 
@@ -10,20 +8,6 @@ pub fn vec_to_list(mem: &mut Memory, vec: &Vec<GcRef>) -> GcRef {
     let mut c = GcRef::nil();
 
     for v in vec.iter().rev() {
-        c = mem.allocate_cons(v.clone(), c);
-    }
-
-    c
-}
-
-
-/// Converts a vector of primitive values to a Lisp-style list of primitive values, in reverse order
-///
-/// For example: [3, 2, 1] -> (cons 1 (cons 2 (cons 3 nil)))
-pub fn vec_to_list_reverse(mem: &mut Memory, vec: &Vec<GcRef>) -> GcRef {
-    let mut c = GcRef::nil();
-
-    for v in vec {
         c = mem.allocate_cons(v.clone(), c);
     }
 
@@ -106,32 +90,6 @@ pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRe
     Some(c)
 }
 
-
-pub enum FoldOutput {
-    Return(GcRef),
-    Call(GcRef, GcRef),
-    Signal(GcRef),
-}
-
-impl FoldOutput {
-    pub fn as_value(self) -> GcRef {
-        if let Self::Return(x) = self {
-            x
-        }
-        else {
-            panic!("attempted to get return value from a non-Return FoldOutput")
-        }
-    }
-
-    pub fn as_signal(self) -> GcRef {
-        if let Self::Signal(x) = self {
-            x
-        }
-        else {
-            panic!("attempted to get signal from a non-Signal FoldOutput")
-        }
-    }
-}
 
 #[cfg(test)]
 mod tests;

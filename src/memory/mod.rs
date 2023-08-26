@@ -236,9 +236,16 @@ impl Location {
 }
 
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Metadata {
+    location: Location,
+    documentation: String,
+}
+
+
 pub struct Meta {
     value: *mut CellContent,
-    metadata: Location,
+    metadata: Metadata,
 }
 
 impl Meta {
@@ -246,7 +253,7 @@ impl Meta {
         GcRef::new(self.value)
     }
 
-    pub fn get_metadata(&self) -> &Location {
+    pub fn get_metadata(&self) -> &Metadata {
         &self.metadata
     }
 }
@@ -388,7 +395,7 @@ impl GcRef {
         }
     }
 
-    pub fn get_metadata(&self) -> Option<&Location> {
+    pub fn get_metadata(&self) -> Option<&Metadata> {
         let value =
         unsafe {
             &(*self.pointer).value
@@ -540,7 +547,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_metadata(&mut self, value: GcRef, metadata: Location) -> GcRef {
+    pub fn allocate_metadata(&mut self, value: GcRef, metadata: Metadata) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Meta(Meta{ value: value.pointer, metadata }));
         GcRef::new(ptr)
     }

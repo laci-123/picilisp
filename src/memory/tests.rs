@@ -227,21 +227,25 @@ fn mem_allocate_meta() {
     {
         let x1   = mem.allocate_number(137.0);
         let loc1 = Location::in_stdin(23, 24);
-        let m1   = mem.allocate_metadata(x1, loc1);
+        let md1  = Metadata{ location: loc1, documentation: "".to_string() };
+        let m1   = mem.allocate_metadata(x1, md1);
 
         let x2   = mem.allocate_character(' ');
         let loc2 = Location::in_file(Path::new("~/the/input/file.lisp"), 41, 42);
-        let m2   = mem.allocate_metadata(x2, loc2);
+        let md2  = Metadata{ location: loc2, documentation: "Very important information".to_string() };
+        let m2   = mem.allocate_metadata(x2, md2);
 
         let y    = mem.symbol_for("thing");
 
         assert_eq!(*m1.get().as_number(),    137.0);
         assert_eq!(*m2.get().as_character(), ' ');
 
-        assert_eq!(m1.get_metadata().unwrap().file, None);
-        assert_eq!(m1.get_metadata().unwrap().line, 23);
-        assert_eq!(m2.get_metadata().unwrap().file.as_ref().unwrap(), Path::new("~/the/input/file.lisp"));
-        assert_eq!(m2.get_metadata().unwrap().column, 42);
+        assert_eq!(m1.get_metadata().unwrap().location.file, None);
+        assert_eq!(m1.get_metadata().unwrap().location.line, 23);
+        assert_eq!(m1.get_metadata().unwrap().documentation, "");
+        assert_eq!(m2.get_metadata().unwrap().location.file.as_ref().unwrap(), Path::new("~/the/input/file.lisp"));
+        assert_eq!(m2.get_metadata().unwrap().location.column, 42);
+        assert_eq!(m2.get_metadata().unwrap().documentation, "Very important information");
 
         assert_eq!(y.get_metadata(), None);
     }

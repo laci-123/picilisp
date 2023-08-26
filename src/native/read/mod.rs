@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::memory::*;
 use crate::util::{vec_to_list, string_to_list};
 
