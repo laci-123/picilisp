@@ -45,7 +45,7 @@ fn make_lambda_bad_param() {
     let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
 
     // (lambda (1) x)
-    let params = vec![mem.allocate_number(1.0)];
+    let params = vec![mem.allocate_number(10)];
     let vec    = vec![lambda, vec_to_list(&mut mem, &params), mem.symbol_for("x")];
     let tree   = vec_to_list(&mut mem, &vec);
 
@@ -93,11 +93,11 @@ fn eval_lambda() {
     let params     = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let vec        = vec![lambda, vec_to_list(&mut mem, &params), mem.symbol_for("y")];
     let operator   = vec_to_list(&mut mem, &vec);
-    let vec2       = vec![operator, mem.allocate_number(1.0), mem.allocate_number(2.0)];
+    let vec2       = vec![operator, mem.allocate_number(10), mem.allocate_number(20)];
     let tree       = vec_to_list(&mut mem, &vec2);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.unwrap().get().as_number(), 2.0);
+    assert_eq!(*value.unwrap().get().as_number(), 20);
 }
 
 #[test]
@@ -110,7 +110,7 @@ fn eval_not_lambda() {
     let params     = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let vec        = vec![not_lambda, vec_to_list(&mut mem, &params), mem.symbol_for("y")];
     let operator   = vec_to_list(&mut mem, &vec);
-    let vec2       = vec![operator, mem.allocate_number(1.0), mem.allocate_number(2.0)];
+    let vec2       = vec![operator, mem.allocate_number(10), mem.allocate_number(20)];
     let tree       = vec_to_list(&mut mem, &vec2);
 
     let value = eval_external(&mut mem, tree);

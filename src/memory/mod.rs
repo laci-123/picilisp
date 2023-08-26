@@ -266,7 +266,7 @@ impl Meta {
 pub enum PrimitiveValue {
     #[default]
     Nil,
-    Number(f64),
+    Number(i64),
     Character(char),
     Cons(ConsCell),
     Symbol(Symbol),
@@ -299,7 +299,7 @@ impl PrimitiveValue {
         }
     }
 
-    pub fn as_number(&self) -> &f64 {
+    pub fn as_number(&self) -> &i64 {
         if let Self::Number(x) = self {
             x
         }
@@ -527,7 +527,7 @@ impl Memory {
         GcRef::new(sym_ptr)
     }
 
-    pub fn allocate_number(&mut self, number: f64) -> GcRef {
+    pub fn allocate_number(&mut self, number: i64) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Number(number));
         GcRef::new(ptr)
     }

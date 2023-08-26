@@ -66,14 +66,14 @@ fn util_list_to_vec() {
     // non-empty list
     let mut list = GcRef::nil();
     for i in (0 .. 5).rev() {
-        let x = mem.allocate_number(i as f64);
+        let x = mem.allocate_number(i as i64);
         list = mem.allocate_cons(x, list);
     }
 
     let vec = list_to_vec(list);
 
     for (i, x) in vec.unwrap().iter().enumerate() {
-        assert_eq!(*x.get().as_number(), i as f64);
+        assert_eq!(*x.get().as_number(), i as i64);
     }
 }
 
@@ -86,9 +86,9 @@ fn util_list_to_vec_fail() {
     assert!(list_to_vec(not_list).is_none());
 
     // not valid list
-    let x1 = mem.allocate_number(10.0);
-    let x2 = mem.allocate_number(20.0);
-    let x3 = mem.allocate_number(30.0);
+    let x1 = mem.allocate_number(100);
+    let x2 = mem.allocate_number(200);
+    let x3 = mem.allocate_number(300);
     let c1 = mem.allocate_cons(x2, x3);
     let c2 = mem.allocate_cons(x1, c1);
     assert!(list_to_vec(c2).is_none());
@@ -98,14 +98,14 @@ fn util_list_to_vec_fail() {
 fn util_append_lists() {
     let mut mem = Memory::new();
 
-    let vec1  = vec![mem.allocate_number(11.0), mem.allocate_number(12.0), mem.allocate_number(13.0)];
+    let vec1  = vec![mem.allocate_number(110), mem.allocate_number(120), mem.allocate_number(130)];
     let list1 = vec_to_list(&mut mem, &vec1);
-    let vec2  = vec![mem.allocate_number(14.0), mem.allocate_number(15.0), mem.allocate_number(16.0)];
+    let vec2  = vec![mem.allocate_number(140), mem.allocate_number(150), mem.allocate_number(160)];
     let list2 = vec_to_list(&mut mem, &vec2);
 
     let list3 = append_lists(&mut mem, list1, list2).unwrap();
     let vec3  = list_to_vec(list3).unwrap();
-    assert_eq!(vec3.iter().map(|x| *x.get().as_number()).collect::<Vec<f64>>(), vec![11.0, 12.0, 13.0, 14.0, 15.0, 16.0]);
+    assert_eq!(vec3.iter().map(|x| *x.get().as_number()).collect::<Vec<i64>>(), vec![110, 120, 130, 140, 150, 160]);
 }
 
 

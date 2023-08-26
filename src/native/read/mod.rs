@@ -6,7 +6,7 @@ use std::path::Path;
 
 
 enum TokenKind {
-    Number(f64),
+    Number(i64),
     Character(char),
     Symbol(String),
     OpenParen,
@@ -251,7 +251,7 @@ fn atom_token(string: &str, file: Option<&Path>, line_count: usize, char_count: 
 }
 
 
-fn number_token(string: &str) -> Option<f64> {
+fn number_token(string: &str) -> Option<i64> {
     string.parse().ok()
 }
 
@@ -311,15 +311,15 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: RestOfI
     else {
         mem.symbol_for("stdin")
     };
-    let line      = mem.allocate_number(location.line as f64);
-    let column    = mem.allocate_number(location.column as f64);
+    let line      = mem.allocate_number(location.line as i64);
+    let column    = mem.allocate_number(location.column as i64);
     let error_loc = vec_to_list(mem, &vec![file, line, column]);
     let error     = mem.allocate_cons(error_loc, error_msg);
     vec_to_list(mem, &vec![error_sym, error, rest])
 }
 
 
-fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
+fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>, start_line_count: usize, start_char_count: usize) -> GcRef {
     let incomplete_sym  = mem.symbol_for("incomplete");
     let nothing_sym     = mem.symbol_for("nothing");
     let invalid_sym     = mem.symbol_for("invalid");
@@ -328,8 +328,8 @@ fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>) -> GcRef {
     let nothing         = vec_to_list(mem, &vec![nothing_sym, GcRef::nil(), GcRef::nil()]);
     let invalid         = vec_to_list(mem, &vec![invalid_sym, GcRef::nil(), GcRef::nil()]);
 
-    let mut line_count = 1;
-    let mut char_count = 0;
+    let mut line_count = start_line_count;
+    let mut char_count = start_char_count - 1;
     let mut cursor = input;
     let mut stack: Vec<Vec<GcRef>>  = vec![];
 
@@ -415,7 +415,7 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
-    NativeResult::Value(read_internal(mem, args[0].clone(), None))
+    NativeResult::Value(read_internal(mem, args[0].clone(), None, 1, 1))
 }
 
 

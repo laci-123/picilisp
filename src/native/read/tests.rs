@@ -21,13 +21,13 @@ fn read_empty() {
 fn read_number() {
     let mut mem = Memory::new();
 
-    let input = string_to_list(&mut mem, "-123.5");
+    let input = string_to_list(&mut mem, "-1235");
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
-    assert_eq!(*result.get().as_number(), -123.5);
+    assert_eq!(*result.get().as_number(), -1235);
     assert_eq!(list_to_string(rest).unwrap(), "");
 }
 
@@ -98,7 +98,7 @@ fn read_comment() {
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
-    assert_eq!(*result.get().as_number(), 10.0);
+    assert_eq!(*result.get().as_number(), 10);
     assert_eq!(list_to_string(rest).unwrap(), "");
 }
 
@@ -126,7 +126,7 @@ fn read_list() {
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
-    assert_eq!(list_to_vec(result).unwrap().iter().map(|x| *x.get().as_number()).collect::<Vec<f64>>(), vec![1.0, 2.0, 3.0]);
+    assert_eq!(list_to_vec(result).unwrap().iter().map(|x| *x.get().as_number()).collect::<Vec<i64>>(), vec![1, 2, 3]);
     assert_eq!(list_to_string(rest).unwrap(), "");
 }
 
@@ -156,11 +156,11 @@ fn read_nested_list() {
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
 
     let vec = list_to_vec(result).unwrap();
-    assert_eq!(*vec[0].get().as_number(), 1.0);
+    assert_eq!(*vec[0].get().as_number(), 1);
     let vec2 = list_to_vec(vec[1].clone()).unwrap();
     assert_eq!(*vec2[0].get().as_character(), 'a');
     assert_eq!(*vec2[1].get().as_character(), 'b');
-    assert_eq!(*vec[2].get().as_number(), 2.0);
+    assert_eq!(*vec[2].get().as_number(), 2);
 }
 
 #[test]
@@ -174,12 +174,12 @@ fn read_string_in_list() {
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
 
     let vec = list_to_vec(result).unwrap();
-    assert_eq!(*vec[0].get().as_number(), 1.0);
+    assert_eq!(*vec[0].get().as_number(), 1);
     let vec2 = list_to_vec(vec[1].clone()).unwrap();
     assert_eq!(vec2[0].get().as_symbol().get_name(), "list");
     assert_eq!(*vec2[1].get().as_character(), 'a');
     assert_eq!(*vec2[2].get().as_character(), 'b');
-    assert_eq!(*vec[2].get().as_number(), 2.0);
+    assert_eq!(*vec[2].get().as_number(), 2);
 }
 
 #[test]
@@ -228,13 +228,13 @@ fn read_string_with_special_chars() {
 fn read_with_remainder() {
     let mut mem = Memory::new();
 
-    let input = string_to_list(&mut mem, "1.0(a b c)");
+    let input = string_to_list(&mut mem, "10(a b c)");
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
-    assert_eq!(*result.get().as_number(), 1.0);
+    assert_eq!(*result.get().as_number(), 10);
     assert_eq!(list_to_string(rest).unwrap(), "(a b c)");
 }
 
@@ -242,28 +242,28 @@ fn read_with_remainder() {
 fn read_with_remainder_2() {
     let mut mem = Memory::new();
 
-    let input = string_to_list(&mut mem, "(a b c) 1.0");
+    let input = string_to_list(&mut mem, "(a b c) 10");
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
     assert_eq!(list_to_vec(result).unwrap().len(), 3);
-    assert_eq!(list_to_string(rest).unwrap(), " 1.0");
+    assert_eq!(list_to_string(rest).unwrap(), " 10");
 }
 
 #[test]
 fn read_with_remainder_3() {
     let mut mem = Memory::new();
 
-    let input = string_to_list(&mut mem, "(a b c ) 1.0");
+    let input = string_to_list(&mut mem, "(a b c ) 10");
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();
     let rest = r.get().as_conscell().get_cdr().get().as_conscell().get_cdr().get().as_conscell().get_car();
     assert_eq!(status.get().as_symbol(), mem.symbol_for("ok").get().as_symbol());
     assert_eq!(list_to_vec(result).unwrap().len(), 3);
-    assert_eq!(list_to_string(rest).unwrap(), " 1.0");
+    assert_eq!(list_to_string(rest).unwrap(), " 10");
 }
 
 #[test]
@@ -407,6 +407,6 @@ fn read_error_location() {
     let error_msg      = list_to_string(result.get().as_conscell().get_cdr()).unwrap();
     assert_eq!(error_msg, "'d' is not a valid escape character in a string literal");
     assert_eq!(error_location[0].get().as_symbol().get_name(), "stdin");
-    assert_eq!(*error_location[1].get().as_number(), 1.0);
-    assert_eq!(*error_location[2].get().as_number(), 7.0);
+    assert_eq!(*error_location[1].get().as_number(), 1);
+    assert_eq!(*error_location[2].get().as_number(), 7);
 }
