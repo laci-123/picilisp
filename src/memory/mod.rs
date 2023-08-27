@@ -237,10 +237,14 @@ impl Location {
     pub fn in_stdin(line: usize, column: usize) -> Self {
         Self{ file: None, line, column }
     }
+
+    pub fn to_string(&self) -> String {
+        format!("{}:{}:{}", self.file.as_ref().map_or("<stdin>".to_string(), |f| f.clone().into_os_string().into_string().unwrap()), self.line, self.column)
+    }
 }
 
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Metadata {
     pub location: Location,
     pub documentation: String,
@@ -413,6 +417,20 @@ impl GcRef {
         }
     }
 
+    pub fn without_metadata(&self) -> GcRef {
+        let value =
+        unsafe {
+            &(*self.pointer).value
+        };
+
+        if let PrimitiveValue::Meta(meta) = value {
+            GcRef::new(meta.value)
+        }
+        else {
+            GcRef::new(self.pointer)
+        }
+    }
+
     pub fn get_metadata(&self) -> Option<&Metadata> {
         let value =
         unsafe {
@@ -566,7 +584,14 @@ impl Memory {
     }
 
     pub fn allocate_metadata(&mut self, value: GcRef, metadata: Metadata) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Meta(Meta{ value: value.pointer, metadata }));
+        let true_value =
+        if value.is_nil() {
+            value
+        }
+        else {
+            value.without_metadata()
+        };
+        let ptr = self.allocate_internal(PrimitiveValue::Meta(Meta{ value: true_value.pointer, metadata }));
         GcRef::new(ptr)
     }
 

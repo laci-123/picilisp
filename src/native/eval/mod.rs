@@ -3,9 +3,11 @@ use crate::util::*;
 use crate::native::print::print;
 use crate::native::read::read;
 
+use super::signal::get_signal_name;
 
 
-fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
+
+fn lookup_internal(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
     let mut cursor = environment;
 
     while !cursor.is_nil() {
@@ -24,6 +26,21 @@ fn lookup(mem: &Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
     }
     else {
         mem.get_global(&key.get().as_symbol().get_name())
+    }
+}
+
+
+fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
+    if let Some(value) = lookup_internal(mem, key.clone(), environment) {
+        if let Some(meta) = key.get_metadata() {
+            Some(mem.allocate_metadata(value, meta.clone()))
+        }
+        else {
+            Some(value)
+        }
+    }
+    else {
+        None
     }
 }
 
@@ -97,6 +114,44 @@ impl StackFrame {
             Self::Atom(atom_frame) => atom_frame.mode,
             Self::Cons(cons_frame) => cons_frame.mode,
             Self::List(list_frame) => list_frame.mode,
+        }
+    }
+
+    fn get_stack_trace_entry(&self, mem: &mut Memory) -> GcRef {
+        match self {
+            Self::Atom(atom_frame) => {
+                let name    = print(mem, &[atom_frame.value.clone()], GcRef::nil()).unwrap();
+                let mut vec = vec![name];
+                if let Some(meta) = atom_frame.value.get_metadata() {
+                    vec.push(mem.allocate_number(meta.location.line   as i64));
+                    vec.push(mem.allocate_number(meta.location.column as i64));
+                }
+                vec_to_list(mem, &vec)
+            },
+            Self::Cons(cons_frame) => {
+                let cons    = mem.allocate_cons(cons_frame.car.clone(), cons_frame.cdr.clone());
+                let name    = print(mem, &[cons], GcRef::nil()).unwrap();
+                let mut vec = vec![name];
+                if let Some(meta) = cons_frame.car.get_metadata() {
+                    vec.push(mem.allocate_number(meta.location.line   as i64));
+                    vec.push(mem.allocate_number(meta.location.column as i64));
+                }
+                vec_to_list(mem, &vec)
+            },
+            Self::List(list_frame) => {
+                if let Some(elem) = list_frame.elems.first() {
+                    let name    = print(mem, &[elem.clone()], GcRef::nil()).unwrap();
+                    let mut vec = vec![name];
+                    if let Some(meta) = elem.get_metadata() {
+                        vec.push(mem.allocate_number(meta.location.line   as i64));
+                        vec.push(mem.allocate_number(meta.location.column as i64));
+                    }
+                    vec_to_list(mem, &vec)
+                }
+                else {
+                    vec_to_list(mem, &vec![GcRef::nil()])
+                }
+            },
         }
     }
 }
@@ -300,21 +355,26 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -
 }
 
 
-fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Option<StackFrame> {
+fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Result<StackFrame, GcRef> {
+    let mut stack_trace = mem.allocate_cons(signal, GcRef::nil());
+
     while let Some(old_frame) = stack.pop() {
+        let entry   = old_frame.get_stack_trace_entry(mem);
+        stack_trace = mem.allocate_cons(entry, stack_trace);
+
         if let StackFrame::Atom(old_atom_frame) = old_frame {
             if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
                 let trap_body          = trap.get_trap_body();
                 let mut trap_env       = old_atom_frame.environment;
                 let trapped_signal_sym = mem.symbol_for("*trapped-signal*");
-                let key_value          = mem.allocate_cons(trapped_signal_sym, signal);
+                let key_value          = mem.allocate_cons(trapped_signal_sym, stack_trace);
                 trap_env               = mem.allocate_cons(key_value, trap_env);
-                return Some(StackFrame::new(trap_body, trap_env, Mode::Eval));
+                return Ok(StackFrame::new(trap_body, trap_env, Mode::Eval));
             }
         }
     }
 
-    None
+    Err(stack_trace)
 }
 
 
@@ -349,12 +409,14 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
                 continue;
             },
             EvalInternal::Signal(signal) => {
-                if let Some(trap_frame) = unwind_stack(mem, &mut stack, signal.clone()) {
-                    stack.push(trap_frame);
-                    continue;
-                }
-                else {
-                    return NativeResult::Signal(signal);
+                match unwind_stack(mem, &mut stack, signal) {
+                    Ok(trap_frame) => {
+                        stack.push(trap_frame);
+                        continue;
+                    }
+                    Err(stack_trace) => {
+                        return NativeResult::Signal(stack_trace);
+                    },
                 }
             },
             EvalInternal::Abort(msg) => {
@@ -408,7 +470,7 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     
     match eval(mem, &[tree], empty_env.clone()) {
         NativeResult::Value(x)       => Ok(x),
-        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(print(mem, &[signal], empty_env).unwrap()).unwrap())),
+        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", get_signal_name(signal).unwrap_or("<unknown signal>".to_string()))),
         NativeResult::Abort(msg)     => Err(msg),
     }
 }

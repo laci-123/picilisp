@@ -10,7 +10,7 @@ fn lookup_empty() {
 
     let env = GcRef::nil();
     let key = mem.symbol_for("bird");
-    let value = lookup(&mem, key, env);
+    let value = lookup(&mut mem, key, env);
     assert!(value.is_none());
 }
 
@@ -25,7 +25,7 @@ fn lookup_not_found() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("bird");
-    let value = lookup(&mem, key, env);
+    let value = lookup(&mut mem, key, env);
     assert!(value.is_none());
 }
 
@@ -40,7 +40,7 @@ fn lookup_found() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("falcon");
-    let value = lookup(&mem, key, env);
+    let value = lookup(&mut mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 20);
 }
 
@@ -58,7 +58,7 @@ fn lookup_global() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
-    let value = lookup(&mem, key, env);
+    let value = lookup(&mut mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 00);
 }
 
@@ -76,7 +76,7 @@ fn lookup_shadowing() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
-    let value = lookup(&mem, key, env);
+    let value = lookup(&mut mem, key, env);
     assert_eq!(*value.unwrap().get().as_number(), 20);
 }
 
@@ -257,7 +257,7 @@ fn eval_trap_with_signal() {
 
     let value = eval_external(&mut mem, tree);
     let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
-    assert_eq!(value_str, "unbound-symbol");
+    assert!(value_str.contains("unbound-symbol"));
 }
 
 // receives two arguments, returns the second one

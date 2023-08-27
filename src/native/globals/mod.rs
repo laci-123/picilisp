@@ -7,8 +7,18 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     if args.len() != 2 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
-    
-    let name = args[0].get().as_symbol().get_name();
+
+    if args[0].is_nil() {
+        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
+    }
+
+    let name =
+    if let PrimitiveValue::Symbol(symbol) = args[0].get() {
+        symbol.get_name()
+    }
+    else {
+        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
+    };
 
     let value = 
     match eval(mem, &[args[1].clone()], env) {
@@ -31,7 +41,17 @@ pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
 
-    let name = args[0].get().as_symbol().get_name();
+    if args[0].is_nil() {
+        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
+    }
+
+    let name =
+    if let PrimitiveValue::Symbol(symbol) = args[0].get() {
+        symbol.get_name()
+    }
+    else {
+        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
+    };
 
     mem.undefine_global(&name);
 
