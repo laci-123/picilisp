@@ -1,5 +1,5 @@
 use crate::memory::*;
-use crate::util::{string_to_list, list_to_string};
+use crate::util::*;
 use crate::native::read::read;
 use crate::native::eval::eval;
 use crate::native::print::print;
@@ -10,6 +10,7 @@ use std::io::prelude::*;
 pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
     let ok_symbol         = mem.symbol_for("ok");
     let incomplete_symbol = mem.symbol_for("incomplete");
+    let nothing_symbol    = mem.symbol_for("nothing");
     let error_symbol      = mem.symbol_for("error");
     let invalid_symbol    = mem.symbol_for("invalid");
 
@@ -46,8 +47,12 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
             let ast    = result;
             let evaled =
             match eval(mem, &[ast], env.clone()) {
-                NativeResult::Value(x) => x,
-                other                  => return other,
+                NativeResult::Value(x)       => x,
+                NativeResult::Signal(signal) => {
+                    println!("UNHANDLED-SIGNAL:");
+                    signal
+                },
+                NativeResult::Abort(msg)     => return NativeResult::Abort(msg),
             };
 
             let output =
@@ -62,11 +67,19 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
             incomplete = true;
         }
         else if status == error_symbol.get().as_symbol() {
-            println!("SYNTAX ERROR");
+            let error_location = list_to_vec(result.get().as_conscell().get_car()).unwrap();
+            let line           = *error_location[1].get().as_number();
+            let column         = *error_location[2].get().as_number();
+            let error_message  = list_to_string(result.get().as_conscell().get_cdr()).unwrap();
+            println!("SYNTAX-ERROR: {error_message}");
+            println!("       at <stdin>:{line}:{column}");
             input.clear();
         }
         else if status == invalid_symbol.get().as_symbol() {
             return NativeResult::Signal(mem.symbol_for("invalid-string"));
+        }
+        else if status == nothing_symbol.get().as_symbol() {
+            // do nothing
         }
         else {
             unreachable!();
