@@ -77,7 +77,7 @@ fn read_symbol() {
 fn read_whitespace() {
     let mut mem = Memory::new();
 
-    let input = string_to_list(&mut mem, "   %A   ");
+    let input = string_to_list(&mut mem, " , \n   %A   ");
     let r = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status = r.get().as_conscell().get_car();
     let result = r.get().as_conscell().get_cdr().get().as_conscell().get_car();

@@ -143,7 +143,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
                     in_comment = true;
                 }
             }
-            c if c.is_whitespace() => {
+            c if c.is_whitespace() || c == ',' => {
                 if in_string {
                     buffer.push(ch);
                 }
