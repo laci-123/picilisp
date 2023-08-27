@@ -10,7 +10,17 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
     match atom.get() {
         PrimitiveValue::Nil          => string_to_list(mem, "()"),
         PrimitiveValue::Number(x)    => string_to_list(mem, &format!("{x}")),
-        PrimitiveValue::Character(x) => string_to_list(mem, &format!("%{x}")),
+        PrimitiveValue::Character(x) => {
+            let y =
+            match x {
+                '\t'  => "\\t".to_string(),
+                '\n'  => "\\n".to_string(),
+                '\r'  => "\\r".to_string(),
+                '\\' => "\\\\".to_string(),
+                _    => format!("{x}"),
+            };
+            string_to_list(mem, &format!("%{y}"))
+        },
         PrimitiveValue::Symbol(x)    => string_to_list(mem, &format!("{}", x.get_name())),
         PrimitiveValue::Function(_)  => string_to_list(mem, &format!("#<function>")),
         PrimitiveValue::Trap(_)      => string_to_list(mem, &format!("#<trap>")),
