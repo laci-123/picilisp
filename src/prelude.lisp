@@ -8,13 +8,15 @@
 (defmacro defun (name params body)
   (list (quote define) name (list (quote lambda) params body)))
 
-(defun unzip-lists (lists)
-  (if lists
+(defun unzip-list (pairs)
+  (if pairs
       ((lambda (fsts-snds)
          (cons
-          (cons (car      (car lists))  (car fsts-snds))
-          (cons (car (cdr (car lists))) (cdr fsts-snds))))
-       (unzip-lists (cdr lists)))
+          (cons (car      pairs)  (car fsts-snds))
+          (cons (car (cdr pairs)) (cdr fsts-snds))))
+       (unzip-list (cdr (if (cdr pairs)
+                            (cdr pairs)
+                            (signal (quote odd-number-of-elements))))))
       (cons nil nil)))
 
 (defmacro let (bindings body)
@@ -23,4 +25,4 @@
         (cons (list (quote lambda) params body) args))
       (car params-args)
       (cdr params-args)))
-   (unzip-lists bindings)))
+   (unzip-list bindings)))
