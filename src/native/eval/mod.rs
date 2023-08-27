@@ -354,8 +354,7 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
                     continue;
                 }
                 else {
-                    let abort_msg = format!("Unhandled signal: {}", list_to_string(print(mem, &[signal], env.clone()).unwrap()).unwrap());
-                    return NativeResult::Abort(abort_msg);
+                    return NativeResult::Signal(signal);
                 }
             },
             EvalInternal::Abort(msg) => {
