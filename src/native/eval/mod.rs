@@ -1,6 +1,5 @@
 use crate::memory::*;
 use crate::util::*;
-use crate::native::print::print;
 use crate::native::read::read;
 use super::signal::get_signal_name;
 
@@ -82,7 +81,6 @@ struct ListFrame {
     current: usize,
     environment: GcRef,
     in_call: bool,
-    operator_name: String,
 }
 
 
@@ -96,7 +94,7 @@ impl StackFrame {
     fn new(tree: GcRef, environment: GcRef, mode: Mode) -> Self {
         if let Some(vec) = list_to_vec(tree.clone()) {
             // tree is a list
-            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false, operator_name: "".to_string() })
+            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false })
         }
         else if let PrimitiveValue::Cons(cons) = tree.get() {
             // tree is a conscell but not a list
@@ -114,44 +112,6 @@ impl StackFrame {
             Self::Atom(atom_frame) => atom_frame.mode,
             Self::Cons(cons_frame) => cons_frame.mode,
             Self::List(list_frame) => list_frame.mode,
-        }
-    }
-
-    fn get_stack_trace_entry(&self, mem: &mut Memory) -> GcRef {
-        match self {
-            Self::Atom(atom_frame) => {
-                let name    = print(mem, &[atom_frame.value.clone()], GcRef::nil()).unwrap();
-                let mut vec = vec![name];
-                if let Some(meta) = atom_frame.value.get_metadata() {
-                    vec.push(mem.allocate_number(meta.location.line   as i64));
-                    vec.push(mem.allocate_number(meta.location.column as i64));
-                }
-                vec_to_list(mem, &vec)
-            },
-            Self::Cons(cons_frame) => {
-                let cons    = mem.allocate_cons(cons_frame.car.clone(), cons_frame.cdr.clone());
-                let name    = print(mem, &[cons], GcRef::nil()).unwrap();
-                let mut vec = vec![name];
-                if let Some(meta) = cons_frame.car.get_metadata() {
-                    vec.push(mem.allocate_number(meta.location.line   as i64));
-                    vec.push(mem.allocate_number(meta.location.column as i64));
-                }
-                vec_to_list(mem, &vec)
-            },
-            Self::List(list_frame) => {
-                if let Some(elem) = list_frame.elems.first() {
-                    let name    = string_to_list(mem, &list_frame.operator_name);
-                    let mut vec = vec![name];
-                    if let Some(meta) = elem.get_metadata() {
-                        vec.push(mem.allocate_number(meta.location.line   as i64));
-                        vec.push(mem.allocate_number(meta.location.column as i64));
-                    }
-                    vec_to_list(mem, &vec)
-                }
-                else {
-                    vec_to_list(mem, &vec![GcRef::nil()])
-                }
-            },
         }
     }
 }
@@ -257,13 +217,6 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
         list_frame.in_call = false;
     }
 
-    // save the name of the operator (if any)
-    if list_frame.current == 0 {
-        if let Some(meta) = list_frame.elems[0].get_metadata() {
-            list_frame.operator_name = meta.read_name.clone();
-        }
-    }
-
     // the operator has just been evaluated, now we decide whether to evaluate the arguments
     if list_frame.current == 1 {
         if list_frame.mode == Mode::MacroExpand {
@@ -299,15 +252,6 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
         let env            = list_frame.environment.clone();
         return EvalInternal::Call(x, env, list_frame.mode);
     }
-
-    let metadata;
-    if let Some(old_metadata) = list_frame.elems[0].get_metadata() {
-        metadata = Metadata{ read_name: list_frame.operator_name.clone(), location: old_metadata.location.clone(), documentation: old_metadata.documentation.clone() };
-    }
-    else {
-        metadata = Metadata{ read_name: list_frame.operator_name.clone(), location: Location::in_stdin(0, 0), documentation: "".to_string() };
-    }
-    list_frame.elems[0] = mem.allocate_metadata(list_frame.elems[0].clone(), metadata);
 
     let operator;
     match list_frame.elems[0].get() {
@@ -371,26 +315,21 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -
 }
 
 
-fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Result<StackFrame, GcRef> {
-    let mut stack_trace = mem.allocate_cons(signal, GcRef::nil());
-
+fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Option<StackFrame> {
     while let Some(old_frame) = stack.pop() {
-        let entry   = old_frame.get_stack_trace_entry(mem);
-        stack_trace = mem.allocate_cons(entry, stack_trace);
-
         if let StackFrame::Atom(old_atom_frame) = old_frame {
             if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
                 let trap_body          = trap.get_trap_body();
                 let mut trap_env       = old_atom_frame.environment;
                 let trapped_signal_sym = mem.symbol_for("*trapped-signal*");
-                let key_value          = mem.allocate_cons(trapped_signal_sym, stack_trace);
+                let key_value          = mem.allocate_cons(trapped_signal_sym, signal);
                 trap_env               = mem.allocate_cons(key_value, trap_env);
-                return Ok(StackFrame::new(trap_body, trap_env, Mode::Eval));
+                return Some(StackFrame::new(trap_body, trap_env, Mode::Eval));
             }
         }
     }
 
-    Err(stack_trace)
+    None
 }
 
 
@@ -425,13 +364,13 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
                 continue;
             },
             EvalInternal::Signal(signal) => {
-                match unwind_stack(mem, &mut stack, signal) {
-                    Ok(trap_frame) => {
+                match unwind_stack(mem, &mut stack, signal.clone()) {
+                    Some(trap_frame) => {
                         stack.push(trap_frame);
                         continue;
                     }
-                    Err(stack_trace) => {
-                        return NativeResult::Signal(stack_trace);
+                    None => {
+                        return NativeResult::Signal(signal);
                     },
                 }
             },
