@@ -27,13 +27,13 @@ pub fn get_signal_name(stack_trace: GcRef) -> Option<String> {
         return None;
     }
     
-    if let PrimitiveValue::Symbol(symbol) = stack_trace.get() {
+    if let Some(PrimitiveValue::Symbol(symbol)) = stack_trace.get() {
         return Some(symbol.get_name());
     }
 
     if let Some(entries) = list_to_vec(stack_trace) {
         if let Some(last_entry) = entries.last() {
-            if let PrimitiveValue::Symbol(symbol) = last_entry.get() {
+            if let Some(PrimitiveValue::Symbol(symbol)) = last_entry.get() {
                 return Some(symbol.get_name());
             }
         }

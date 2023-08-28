@@ -6,7 +6,7 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) ->
     if args.len() == 2 {
         if let Some(params) = list_to_vec(args[0].clone()) {
             for param in params.iter() {
-                if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
+                if !matches!(param.get(), Some(PrimitiveValue::Symbol(_))) {
                     return NativeResult::Signal(mem.symbol_for("param-is-not-symbol"));
                 }
             }

@@ -13,14 +13,14 @@ fn util_vec_to_list() {
     let list = vec_to_list(&mut mem, &vec);
 
     let mut c = list;
-    let c1 = c.get().as_conscell();
-    assert_eq!(c1.get_car().get().as_symbol(), mem.symbol_for("A").get().as_symbol());
+    let c1 = c.get().unwrap().as_conscell();
+    assert_eq!(c1.get_car().get().unwrap().as_symbol(), mem.symbol_for("A").get().unwrap().as_symbol());
     c = c1.get_cdr();
-    let c2 = c.get().as_conscell();
-    assert_eq!(c2.get_car().get().as_symbol(), mem.symbol_for("B").get().as_symbol());
+    let c2 = c.get().unwrap().as_conscell();
+    assert_eq!(c2.get_car().get().unwrap().as_symbol(), mem.symbol_for("B").get().unwrap().as_symbol());
     c = c2.get_cdr();
-    let c3 = c.get().as_conscell();
-    assert_eq!(c3.get_car().get().as_symbol(), mem.symbol_for("C").get().as_symbol());
+    let c3 = c.get().unwrap().as_conscell();
+    assert_eq!(c3.get_car().get().unwrap().as_symbol(), mem.symbol_for("C").get().unwrap().as_symbol());
     c = c3.get_cdr();
     assert!(c.is_nil());
 }
@@ -32,14 +32,14 @@ fn util_string_to_list() {
     let list = string_to_list(&mut mem, "cat");
 
     let mut c = list;
-    let c1 = c.get().as_conscell();
-    assert_eq!(*c1.get_car().get().as_character(), 'c');
+    let c1 = c.get().unwrap().as_conscell();
+    assert_eq!(*c1.get_car().get().unwrap().as_character(), 'c');
     c = c1.get_cdr();                             
-    let c2 = c.get().as_conscell();
-    assert_eq!(*c2.get_car().get().as_character(), 'a');
+    let c2 = c.get().unwrap().as_conscell();
+    assert_eq!(*c2.get_car().get().unwrap().as_character(), 'a');
     c = c2.get_cdr();
-    let c3 = c.get().as_conscell();
-    assert_eq!(*c3.get_car().get().as_character(), 't');
+    let c3 = c.get().unwrap().as_conscell();
+    assert_eq!(*c3.get_car().get().unwrap().as_character(), 't');
     c = c3.get_cdr();
     assert!(c.is_nil());
 }
@@ -73,7 +73,7 @@ fn util_list_to_vec() {
     let vec = list_to_vec(list);
 
     for (i, x) in vec.unwrap().iter().enumerate() {
-        assert_eq!(*x.get().as_number(), i as i64);
+        assert_eq!(*x.get().unwrap().as_number(), i as i64);
     }
 }
 
@@ -105,7 +105,7 @@ fn util_append_lists() {
 
     let list3 = append_lists(&mut mem, list1, list2).unwrap();
     let vec3  = list_to_vec(list3).unwrap();
-    assert_eq!(vec3.iter().map(|x| *x.get().as_number()).collect::<Vec<i64>>(), vec![110, 120, 130, 140, 150, 160]);
+    assert_eq!(vec3.iter().map(|x| *x.get().unwrap().as_number()).collect::<Vec<i64>>(), vec![110, 120, 130, 140, 150, 160]);
 }
 
 

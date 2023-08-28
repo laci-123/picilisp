@@ -7,7 +7,7 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
         return string_to_list(mem, "()");
     }
     
-    match atom.get() {
+    match atom.get().unwrap() {
         PrimitiveValue::Nil          => string_to_list(mem, "()"),
         PrimitiveValue::Number(x)    => string_to_list(mem, &format!("{x}")),
         PrimitiveValue::Character(x) => {
@@ -99,7 +99,7 @@ fn print_internal(mem: &mut Memory, tree: GcRef) -> GcRef {
                     list_frame.in_call = false;
                 }
 
-                if list_frame.elems.len() > 0 && list_frame.elems.iter().all(|x| !x.is_nil() && matches!(x.get(), PrimitiveValue::Character(_))) {
+                if list_frame.elems.len() > 0 && list_frame.elems.iter().all(|x| matches!(x.get(), Some(PrimitiveValue::Character(_)))) {
                     return_value = print_string(mem, list_frame.elems.clone());
                 }
                 else {

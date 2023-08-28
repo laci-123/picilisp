@@ -289,10 +289,8 @@ fn character_token(string: &str) -> Option<char> {
 
 fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location, rest_line: usize, rest_column: usize) -> Option<GcRef> {
     let mut read_name = "".to_string();
-    if !elem.is_nil() {
-        if let PrimitiveValue::Symbol(symbol) = elem.get() {
-            read_name = symbol.get_name();
-        }
+    if let Some(PrimitiveValue::Symbol(symbol)) = elem.get() {
+        read_name = symbol.get_name();
     }
 
     let meta = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string() });
@@ -392,14 +390,14 @@ fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>, start_line
 
 fn next_character(input: GcRef) -> Option<(char, GcRef)> {
     let cons =
-    if let PrimitiveValue::Cons(cons) = input.get() {
+    if let Some(PrimitiveValue::Cons(cons)) = input.get() {
         cons
     }
     else {
         return None;
     };
 
-    if let PrimitiveValue::Character(ch) = cons.get_car().get() {
+    if let Some(PrimitiveValue::Character(ch)) = cons.get_car().get() {
         Some((*ch, cons.get_cdr()))
     }
     else {
@@ -431,13 +429,13 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     let start_line;
     let start_column;
     if args.len() == 3 {
-        if let PrimitiveValue::Number(x) = args[1].get() {
+        if let Some(PrimitiveValue::Number(x)) = args[1].get() {
             start_line = *x as usize;
         }
         else {
             return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
         }
-        if let PrimitiveValue::Number(x) = args[2].get() {
+        if let Some(PrimitiveValue::Number(x)) = args[2].get() {
             start_column = *x as usize;
         }
         else {

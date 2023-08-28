@@ -52,8 +52,8 @@ fn externalreference_deref() {
     let reference1 = mem.allocate_number(31416);
     let reference2 = mem.allocate_character('Q');
 
-    assert_eq!(*reference1.get().as_number(), 31416);
-    assert_eq!(*reference2.get().as_character(), 'Q');
+    assert_eq!(*reference1.get().unwrap().as_number(), 31416);
+    assert_eq!(*reference2.get().unwrap().as_character(), 'Q');
 }
 
 #[test]
@@ -67,10 +67,10 @@ fn externalreference_clone() {
         let r3 = mem.allocate_character('1');
         r4 = r3.clone();
 
-        assert_eq!(*r2.get().as_number(), -12);
+        assert_eq!(*r2.get().unwrap().as_number(), -12);
         assert_eq!(mem.used_count(), 2);
     }
-    assert_eq!(*r4.get().as_character(), '1');
+    assert_eq!(*r4.get().unwrap().as_character(), '1');
 
     mem.collect();
 
@@ -94,9 +94,9 @@ fn memory_allocate_cons() {
         let mut i = length;
         while !c.is_nil() {
             i -= 1;
-            assert_eq!(*c.get().as_conscell().get_car().get().as_number(), i as i64);
+            assert_eq!(*c.get().unwrap().as_conscell().get_car().get().unwrap().as_number(), i as i64);
 
-            c = c.get().as_conscell().get_cdr();
+            c = c.get().unwrap().as_conscell().get_cdr();
         }
 
         assert_eq!(mem.used_count(), 2 * length + 1);
@@ -105,7 +105,7 @@ fn memory_allocate_cons() {
     mem.collect();
 
     assert_eq!(mem.used_count(), 1);
-    assert_eq!(*remain.get().as_number(), 99);
+    assert_eq!(*remain.get().unwrap().as_number(), 99);
 }
 
 #[test]
@@ -116,9 +116,9 @@ fn memory_allocate_symbol() {
     let sym2 = mem.symbol_for("mamoth");
     let sym3 = mem.symbol_for("elephant");
 
-    assert_eq!(sym1.get().as_symbol(), sym3.get().as_symbol());
-    assert_ne!(sym1.get().as_symbol(), sym2.get().as_symbol());
-    assert_ne!(sym3.get().as_symbol(), sym2.get().as_symbol());
+    assert_eq!(sym1.get().unwrap().as_symbol(), sym3.get().unwrap().as_symbol());
+    assert_ne!(sym1.get().unwrap().as_symbol(), sym2.get().unwrap().as_symbol());
+    assert_ne!(sym3.get().unwrap().as_symbol(), sym2.get().unwrap().as_symbol());
 
     assert_eq!(mem.used_count(), 2);
 }
@@ -131,9 +131,9 @@ fn memory_allocate_unique_symbol() {
     let sym2 = mem.symbol_for("whale");
     let sym3 = mem.unique_symbol();
 
-    assert_ne!(sym1.get().as_symbol(), sym2.get().as_symbol());
-    assert_ne!(sym1.get().as_symbol(), sym3.get().as_symbol());
-    assert_ne!(sym2.get().as_symbol(), sym3.get().as_symbol());
+    assert_ne!(sym1.get().unwrap().as_symbol(), sym2.get().unwrap().as_symbol());
+    assert_ne!(sym1.get().unwrap().as_symbol(), sym3.get().unwrap().as_symbol());
+    assert_ne!(sym2.get().unwrap().as_symbol(), sym3.get().unwrap().as_symbol());
 
     assert_eq!(mem.used_count(), 3);
 }
@@ -153,7 +153,7 @@ fn gc_collect_symbols() {
 
     mem.collect();
 
-    assert_eq!(sym1.get().as_symbol(), sym2.get().as_symbol());
+    assert_eq!(sym1.get().unwrap().as_symbol(), sym2.get().unwrap().as_symbol());
 
     assert_eq!(mem.used_count(), 1);
     assert_eq!(mem.symbols.len(), 1);
@@ -169,13 +169,13 @@ fn mem_allocate_function() {
     let body = mem.allocate_character('ß');
 
     let fun = mem.allocate_normal_function(FunctionKind::Lambda, body, vec![p1, p2, p3], GcRef::nil());
-    assert_eq!(*fun.get().as_function().as_normal_function().get_body().get().as_character(), 'ß');
-    let mut params = fun.get().as_function().as_normal_function().params();
-    assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("oak").get().as_symbol());
-    assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("pine").get().as_symbol());
-    assert_eq!(params.next().unwrap().get().as_symbol(), mem.symbol_for("elm").get().as_symbol());
+    assert_eq!(*fun.get().unwrap().as_function().as_normal_function().get_body().get().unwrap().as_character(), 'ß');
+    let mut params = fun.get().unwrap().as_function().as_normal_function().params();
+    assert_eq!(params.next().unwrap().get().unwrap().as_symbol(), mem.symbol_for("oak").get().unwrap().as_symbol());
+    assert_eq!(params.next().unwrap().get().unwrap().as_symbol(), mem.symbol_for("pine").get().unwrap().as_symbol());
+    assert_eq!(params.next().unwrap().get().unwrap().as_symbol(), mem.symbol_for("elm").get().unwrap().as_symbol());
     assert!(params.next().is_none());
-    assert_eq!(fun.get().as_function().as_normal_function().kind, FunctionKind::Lambda);
+    assert_eq!(fun.get().unwrap().as_function().as_normal_function().kind, FunctionKind::Lambda);
 }
 
 #[test]
@@ -194,7 +194,7 @@ fn gc_collect_functions() {
 
         mem.symbol_for("tulip");
 
-        assert_eq!(fun.get().as_function().as_normal_function().params().collect::<Vec<_>>().len(), 3);
+        assert_eq!(fun.get().unwrap().as_function().as_normal_function().params().collect::<Vec<_>>().len(), 3);
     }
 
     mem.collect();
@@ -211,8 +211,8 @@ fn mem_allocate_trap() {
         let y = mem.allocate_character('a');
         let trap = mem.allocate_trap(x, y);
 
-        assert_eq!(*trap.get().as_trap().get_normal_body().get().as_number(), 1002);
-        assert_eq!(*trap.get().as_trap().get_trap_body().get().as_character(), 'a');
+        assert_eq!(*trap.get().unwrap().as_trap().get_normal_body().get().unwrap().as_number(), 1002);
+        assert_eq!(*trap.get().unwrap().as_trap().get_trap_body().get().unwrap().as_character(), 'a');
     }
 
     mem.collect();
@@ -237,8 +237,8 @@ fn mem_allocate_meta() {
 
         let y    = mem.symbol_for("thing");
 
-        assert_eq!(*m1.get().as_number(),    1370);
-        assert_eq!(*m2.get().as_character(), ' ');
+        assert_eq!(*m1.get().unwrap().as_number(),    1370);
+        assert_eq!(*m2.get().unwrap().as_character(), ' ');
 
         assert_eq!(m1.get_metadata().unwrap().location.file, None);
         assert_eq!(m1.get_metadata().unwrap().location.line, 23);
@@ -264,7 +264,7 @@ fn mem_globals() {
     let y = mem.symbol_for("thing");
     mem.define_global("y", y);
 
-    assert_eq!(*mem.get_global("x").unwrap().get().as_number(), 140);
+    assert_eq!(*mem.get_global("x").unwrap().get().unwrap().as_number(), 140);
     assert!(mem.get_global("z").is_none());
 
     mem.undefine_global("x");
@@ -272,5 +272,5 @@ fn mem_globals() {
 
     mem.collect();
 
-    assert_eq!(mem.get_global("y").unwrap().get().as_symbol(), mem.symbol_for("thing").get().as_symbol());
+    assert_eq!(mem.get_global("y").unwrap().get().unwrap().as_symbol(), mem.symbol_for("thing").get().unwrap().as_symbol());
 }

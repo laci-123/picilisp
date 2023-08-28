@@ -13,7 +13,7 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     }
 
     let name =
-    if let PrimitiveValue::Symbol(symbol) = args[0].get() {
+    if let Some(PrimitiveValue::Symbol(symbol)) = args[0].get() {
         symbol.get_name()
     }
     else {
@@ -46,7 +46,7 @@ pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     }
 
     let name =
-    if let PrimitiveValue::Symbol(symbol) = args[0].get() {
+    if let Some(PrimitiveValue::Symbol(symbol)) = args[0].get() {
         symbol.get_name()
     }
     else {

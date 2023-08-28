@@ -33,14 +33,14 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
             other                  => return other,
         };
 
-        let cons1  = read_output.get().as_conscell();
+        let cons1  = read_output.get().unwrap().as_conscell();
         let car1   = cons1.get_car();
-        let status = car1.get().as_symbol();
+        let status = car1.get().unwrap().as_symbol();
         let cons2  = cons1.get_cdr();
-        let result = cons2.get().as_conscell().get_car();
+        let result = cons2.get().unwrap().as_conscell().get_car();
         // ignore rest of input
 
-        if status == ok_symbol.get().as_symbol() {
+        if status == ok_symbol.get().unwrap().as_symbol() {
             incomplete = false;
             input.clear();
 
@@ -63,22 +63,22 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
 
             println!("{}", list_to_string(output).unwrap());
         }
-        else if status == incomplete_symbol.get().as_symbol() {
+        else if status == incomplete_symbol.get().unwrap().as_symbol() {
             incomplete = true;
         }
-        else if status == error_symbol.get().as_symbol() {
-            let error_location = list_to_vec(result.get().as_conscell().get_car()).unwrap();
-            let line           = *error_location[1].get().as_number();
-            let column         = *error_location[2].get().as_number();
-            let error_message  = list_to_string(result.get().as_conscell().get_cdr()).unwrap();
+        else if status == error_symbol.get().unwrap().as_symbol() {
+            let error_location = list_to_vec(result.get().unwrap().as_conscell().get_car()).unwrap();
+            let line           = *error_location[1].get().unwrap().as_number();
+            let column         = *error_location[2].get().unwrap().as_number();
+            let error_message  = list_to_string(result.get().unwrap().as_conscell().get_cdr()).unwrap();
             println!("SYNTAX-ERROR: {error_message}");
             println!("       at <stdin>:{line}:{column}");
             input.clear();
         }
-        else if status == invalid_symbol.get().as_symbol() {
+        else if status == invalid_symbol.get().unwrap().as_symbol() {
             return NativeResult::Signal(mem.symbol_for("invalid-string"));
         }
-        else if status == nothing_symbol.get().as_symbol() {
+        else if status == nothing_symbol.get().unwrap().as_symbol() {
             // do nothing
         }
         else {

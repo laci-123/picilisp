@@ -8,23 +8,18 @@ use super::signal::get_signal_name;
 fn lookup_internal(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
     let mut cursor = environment;
 
-    while !cursor.is_nil() {
-        let cons = cursor.get().as_conscell();
+    while let Some(c) = cursor.get() {
+        let cons = c.as_conscell();
         let key_value = cons.get_car();
 
-        if key_value.get().as_conscell().get_car().get().as_symbol() == key.get().as_symbol() {
-            return Some(key_value.get().as_conscell().get_cdr());
+        if key_value.get().unwrap().as_conscell().get_car().get().unwrap().as_symbol() == key.get().unwrap().as_symbol() {
+            return Some(key_value.get().unwrap().as_conscell().get_cdr());
         }
 
         cursor = cons.get_cdr();
     }
 
-    if key.is_nil() {
-        Some(GcRef::nil())
-    }
-    else {
-        mem.get_global(&key.get().as_symbol().get_name())
-    }
+    mem.get_global(&key.get().unwrap().as_symbol().get_name())
 }
 
 
@@ -96,7 +91,7 @@ impl StackFrame {
             // tree is a list
             Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false })
         }
-        else if let PrimitiveValue::Cons(cons) = tree.get() {
+        else if let Some(PrimitiveValue::Cons(cons)) = tree.get() {
             // tree is a conscell but not a list
             // (a conscell is a list if its cdr is either a list or nil)
             Self::Cons(ConsFrame{ mode, car: cons.get_car(), cdr: cons.get_cdr(), progress: ConsProgress::NotStartedYet, environment })
@@ -133,10 +128,10 @@ fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRe
     // MACROEXPAND
 
     if atom_frame.mode == Mode::MacroExpand {
-        if let PrimitiveValue::Symbol(_) = atom.get() {
+        if let Some(PrimitiveValue::Symbol(_)) = atom.get() {
             if let Some(value) = lookup(mem, atom.clone(), env) {
                 if !value.is_nil() {
-                    if let PrimitiveValue::Function(f) = value.get() {
+                    if let Some(PrimitiveValue::Function(f)) = value.get() {
                         if f.get_kind() == FunctionKind::Macro {
                             return EvalInternal::Return(value);
                         }
@@ -156,7 +151,7 @@ fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRe
         return EvalInternal::Return(return_value);
     }
     
-    match atom.get() {
+    match atom.get().unwrap_or(&PrimitiveValue::Nil) {
         PrimitiveValue::Symbol(_) => {
             if let Some(value) = lookup(mem, atom, env) {
                 EvalInternal::Return(value)
@@ -223,7 +218,7 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
             // when macroexpanding, expand all elements of all lists regardless of what their first element is
             list_frame.eval_args = true;
         }
-        else if let PrimitiveValue::Function(f) = list_frame.elems[0].get() {
+        else if let Some(PrimitiveValue::Function(f)) = list_frame.elems[0].get() {
             // when evaluating, only expand arguments of lambdas
             list_frame.eval_args =  f.get_kind() == FunctionKind::Lambda;
         }
@@ -254,7 +249,7 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
     }
 
     let operator;
-    match list_frame.elems[0].get() {
+    match list_frame.elems[0].get().unwrap_or(&PrimitiveValue::Nil) {
         PrimitiveValue::Function(f) if (f.get_kind() == FunctionKind::Macro) == (list_frame.mode == Mode::MacroExpand) => {
             operator = f;
         },
@@ -318,7 +313,7 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -
 fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) -> Option<StackFrame> {
     while let Some(old_frame) = stack.pop() {
         if let StackFrame::Atom(old_atom_frame) = old_frame {
-            if let PrimitiveValue::Trap(trap) = old_atom_frame.value.get() {
+            if let Some(PrimitiveValue::Trap(trap)) = old_atom_frame.value.get() {
                 let trap_body          = trap.get_trap_body();
                 let mut trap_env       = old_atom_frame.environment;
                 let trapped_signal_sym = mem.symbol_for("*trapped-signal*");
@@ -383,7 +378,7 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
 
         if !return_value.is_nil() {
             if last_frame.is_some_and(|lf| lf.get_mode() == Mode::Eval) {
-                if let PrimitiveValue::Trap(_) = return_value.get() {
+                if let Some(PrimitiveValue::Trap(_)) = return_value.get() {
                     stack.push(StackFrame::new(return_value.clone(), env.clone(), Mode::Eval));
                 }
             }
@@ -453,25 +448,25 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         };
         let output_vec = list_to_vec(output).unwrap();
         let status_tmp = output_vec[0].clone();
-        let status     = status_tmp.get().as_symbol();
+        let status     = status_tmp.get().unwrap().as_symbol();
         let result     = output_vec[1].clone();
         let rest       = output_vec[2].clone();
         line           = output_vec[3].clone();
         column         = output_vec[4].clone();
 
-        if status == ok_symbol.get().as_symbol() {
+        if status == ok_symbol.get().unwrap().as_symbol(){
             match eval(mem, &[result], GcRef::nil()) {
                 NativeResult::Value(_) => {/* only interested in side effects */},
                 other                  => return other,
             }
         }
-        else if status == incomplete_symbol.get().as_symbol() {
+        else if status == incomplete_symbol.get().unwrap().as_symbol(){
             return NativeResult::Signal(mem.symbol_for("input-incomplete"));
         }
-        else if status == error_symbol.get().as_symbol() {
+        else if status == error_symbol.get().unwrap().as_symbol(){
             return NativeResult::Signal(mem.symbol_for("read-error"));
         }
-        else if status == invalid_symbol.get().as_symbol() {
+        else if status == invalid_symbol.get().unwrap().as_symbol(){
             return NativeResult::Signal(mem.symbol_for("input-invalid-string"));
         }
 

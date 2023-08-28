@@ -398,9 +398,9 @@ impl GcRef {
         }
     }
 
-    pub fn get(&self) -> &PrimitiveValue {
+    pub fn get(&self) -> Option<&PrimitiveValue> {
         if self.pointer.is_null() {
-            panic!("attempted to dereference a NULL GcRef");
+            return None;
         }
         
         let value =
@@ -410,15 +410,19 @@ impl GcRef {
 
         if let PrimitiveValue::Meta(meta) = value {
             unsafe {
-                &(*meta.value).value
+                Some(&(*meta.value).value)
             }
         }
         else {
-            value
+            Some(value)
         }
     }
 
     pub fn without_metadata(&self) -> GcRef {
+        if self.pointer.is_null() {
+            return GcRef::nil();
+        }
+            
         let value =
         unsafe {
             &(*self.pointer).value
@@ -433,6 +437,10 @@ impl GcRef {
     }
 
     pub fn get_metadata(&self) -> Option<&Metadata> {
+        if self.pointer.is_null() {
+            return None;
+        }
+        
         let value =
         unsafe {
             &(*self.pointer).value
@@ -564,7 +572,7 @@ impl Memory {
     pub fn allocate_normal_function(&mut self, kind: FunctionKind, body: GcRef, params: Vec<GcRef>, environment: GcRef) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
-            if !matches!(param.get(), PrimitiveValue::Symbol(_)) {
+            if !matches!(param.get().unwrap_or(&PrimitiveValue::Nil), PrimitiveValue::Symbol(_)) {
                 panic!("Function parameter is not a Symbol");
             }
             param_ptrs.push(param.pointer);

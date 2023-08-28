@@ -41,7 +41,7 @@ fn lookup_found() {
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("falcon");
     let value = lookup(&mut mem, key, env);
-    assert_eq!(*value.unwrap().get().as_number(), 20);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), 20);
 }
 
 #[test]
@@ -59,7 +59,7 @@ fn lookup_global() {
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
     let value = lookup(&mut mem, key, env);
-    assert_eq!(*value.unwrap().get().as_number(), 00);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), 00);
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn lookup_shadowing() {
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
     let value = lookup(&mut mem, key, env);
-    assert_eq!(*value.unwrap().get().as_number(), 20);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), 20);
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn eval_number() {
 
     let tree  = mem.allocate_number(3650);
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.unwrap().get().as_number(), 3650);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), 3650);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn eval_character() {
 
     let tree  = mem.allocate_character('Đ');
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.unwrap().get().as_character(), 'Đ');
+    assert_eq!(*value.unwrap().get().unwrap().as_character(), 'Đ');
 }
 
 #[test]
@@ -124,8 +124,8 @@ fn eval_cons() {
     let y     = mem.allocate_number(20);
     let tree  = mem.allocate_cons(x, y);
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.clone().unwrap().get().as_conscell().get_car().get().as_number(), 10);
-    assert_eq!(*value.unwrap().get().as_conscell().get_cdr().get().as_number(), 20);
+    assert_eq!(*value.clone().unwrap().get().unwrap().as_conscell().get_car().get().unwrap().as_number(), 10);
+    assert_eq!(*value.unwrap().get().unwrap().as_conscell().get_cdr().get().unwrap().as_number(), 20);
 }
 
 #[test]
@@ -236,7 +236,7 @@ fn eval_trap_without_signal() {
     let tree        = mem.allocate_trap(normal_body, trap_body);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.unwrap().get().as_number(), 100);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), 100);
 }
 
 #[test]
@@ -307,7 +307,7 @@ fn eval_native_function() {
     let tree = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.ok().unwrap().get().as_number(), 190);
+    assert_eq!(*value.ok().unwrap().get().unwrap().as_number(), 190);
 }
 
 #[test]
@@ -320,7 +320,7 @@ fn eval_native_eval() {
     let tree = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.unwrap().get().as_number(), -123);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), -123);
 }
 
 #[test]

@@ -23,7 +23,7 @@ pub fn car(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
     }
 
-    if let PrimitiveValue::Cons(cons) = args[0].get() {
+    if let Some(PrimitiveValue::Cons(cons)) = args[0].get() {
         NativeResult::Value(cons.get_car())
     }
     else {
@@ -41,7 +41,7 @@ pub fn cdr(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
     }
 
-    if let PrimitiveValue::Cons(cons) = args[0].get() {
+    if let Some(PrimitiveValue::Cons(cons)) = args[0].get() {
         NativeResult::Value(cons.get_cdr())
     }
     else {

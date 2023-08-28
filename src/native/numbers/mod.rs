@@ -7,8 +7,8 @@ pub fn add(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
 
-    if let PrimitiveValue::Number(x) = args[0].get() {
-        if let PrimitiveValue::Number(y) = args[1].get() {
+    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
+        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
             if let Some(z) = x.checked_add(*y) {
                 NativeResult::Value(mem.allocate_number(z))
             }
@@ -31,8 +31,8 @@ pub fn multiply(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
 
-    if let PrimitiveValue::Number(x) = args[0].get() {
-        if let PrimitiveValue::Number(y) = args[1].get() {
+    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
+        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
             if let Some(z) = x.checked_mul(*y) {
                 NativeResult::Value(mem.allocate_number(z))
             }
@@ -55,8 +55,8 @@ pub fn divide(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
     }
 
-    if let PrimitiveValue::Number(x) = args[0].get() {
-        if let PrimitiveValue::Number(y) = args[1].get() {
+    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
+        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
             if *y == 0 {
                 NativeResult::Signal(mem.symbol_for("divide-by-zero"))
             }

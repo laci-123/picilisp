@@ -17,11 +17,11 @@ fn make_lambda() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.clone().unwrap().get().as_function().as_normal_function().get_kind(), FunctionKind::Lambda);
-    assert_eq!(value.clone().unwrap().get().as_function().as_normal_function().get_body().get().as_symbol(), mem.symbol_for("y").get().as_symbol());
-    let p = value.clone().unwrap().get().as_function().as_normal_function().params().collect::<Vec<GcRef>>();
-    assert_eq!(p[0].get().as_symbol(), mem.symbol_for("x").get().as_symbol());
-    assert_eq!(p[1].get().as_symbol(), mem.symbol_for("y").get().as_symbol());
+    assert_eq!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_kind(), FunctionKind::Lambda);
+    assert_eq!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_body().get().unwrap().as_symbol(), mem.symbol_for("y").get().unwrap().as_symbol());
+    let p = value.clone().unwrap().get().unwrap().as_function().as_normal_function().params().collect::<Vec<GcRef>>();
+    assert_eq!(p[0].get().unwrap().as_symbol(), mem.symbol_for("x").get().unwrap().as_symbol());
+    assert_eq!(p[1].get().unwrap().as_symbol(), mem.symbol_for("y").get().unwrap().as_symbol());
 }
 
 #[test]
@@ -97,7 +97,7 @@ fn eval_lambda() {
     let tree       = vec_to_list(&mut mem, &vec2);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(*value.unwrap().get().as_number(), 20);
+    assert_eq!(*value.unwrap().get().unwrap().as_number(), 20);
 }
 
 #[test]

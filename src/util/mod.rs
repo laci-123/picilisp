@@ -34,7 +34,7 @@ pub fn list_to_string(list: GcRef) -> Option<String> {
 
         let mut from = 0;
         if let Some(x) = vec.first() {
-            if let PrimitiveValue::Symbol(sym) = x.get() {
+            if let Some(PrimitiveValue::Symbol(sym)) = x.get() {
                 if sym.get_name() == "list" {
                     from = 1;
                 }
@@ -42,7 +42,12 @@ pub fn list_to_string(list: GcRef) -> Option<String> {
         }
 
         for x in &vec[from..] {
-            string.push(*x.get().as_character());
+            if let Some(PrimitiveValue::Character(c)) = x.get() {
+                string.push(*c);
+            }
+            else {
+                return None;
+            }
         }
 
         Some(string)
@@ -68,7 +73,7 @@ pub fn list_to_vec(list: GcRef) -> Option<Vec<GcRef>> {
             break;
         }
 
-        if let PrimitiveValue::Cons(cons) = cursor.get() {
+        if let Some(PrimitiveValue::Cons(cons)) = cursor.get() {
             vec.push(cons.get_car());
             cursor = cons.get_cdr();
         }
