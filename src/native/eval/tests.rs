@@ -170,7 +170,8 @@ fn eval_lambda() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let value = eval_external(&mut mem, lambda);
     let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
@@ -184,7 +185,8 @@ fn eval_call_lambda() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B')];
     let tree    = vec_to_list(&mut mem, &vec);
@@ -201,7 +203,8 @@ fn eval_call_lambda_unbound_params() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.symbol_for("no-value")];
     let tree    = vec_to_list(&mut mem, &vec);
@@ -217,7 +220,8 @@ fn eval_call_special_lambda() {
     // a special-lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::SpecialLambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::SpecialLambda, has_rest_params, body,&params, GcRef::nil());
 
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
     let tree    = vec_to_list(&mut mem, &vec);
@@ -246,7 +250,8 @@ fn eval_trap_with_signal() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
     let normal  = vec_to_list(&mut mem, &vec);
@@ -330,7 +335,8 @@ fn eval_not_enough_args() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A')];
     let tree    = vec_to_list(&mut mem, &vec);
@@ -346,7 +352,8 @@ fn eval_too_many_args() {
     // a lambda that returns its second parameter
     let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
     let body    = mem.symbol_for("y");
-    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, body, params, GcRef::nil());
+    let has_rest_params = false;
+    let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let vec     = vec![lambda, mem.allocate_character('A'), mem.allocate_character('B'), mem.allocate_character('C')];
     let tree    = vec_to_list(&mut mem, &vec);

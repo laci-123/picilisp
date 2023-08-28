@@ -274,8 +274,9 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
 
 fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -> EvalInternal {
     let mut new_env = nf.get_env();
+
     let mut i = 0;
-    for param in nf.params() {
+    for param in nf.non_rest_params() {
         let arg; 
         if let Some(a) = args.get(i) {
             arg = a.clone();
@@ -289,7 +290,12 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -
         i += 1;
     }
 
-    if i < args.len() {
+    if let Some(rest_param) = nf.rest_param() {
+        let rest_args = vec_to_list(mem, &args[i..]);
+        let param_arg = mem.allocate_cons(rest_param, rest_args);
+        new_env       = mem.allocate_cons(param_arg, new_env);
+    }
+    else if i < args.len() {
         return EvalInternal::Signal(mem.symbol_for("too-many-arguments"));
     }
 

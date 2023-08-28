@@ -19,7 +19,7 @@ fn make_lambda() {
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_kind(), FunctionKind::Lambda);
     assert_eq!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_body().get().unwrap().as_symbol(), mem.symbol_for("y").get().unwrap().as_symbol());
-    let p = value.clone().unwrap().get().unwrap().as_function().as_normal_function().params().collect::<Vec<GcRef>>();
+    let p = value.clone().unwrap().get().unwrap().as_function().as_normal_function().non_rest_params().collect::<Vec<GcRef>>();
     assert_eq!(p[0].get().unwrap().as_symbol(), mem.symbol_for("x").get().unwrap().as_symbol());
     assert_eq!(p[1].get().unwrap().as_symbol(), mem.symbol_for("y").get().unwrap().as_symbol());
 }

@@ -4,7 +4,7 @@ use crate::memory::*;
 /// Converts a vector of primitive values to a Lisp-style list of primitive values
 ///
 /// For example: [1, 2, 3] -> (cons 1 (cons 2 (cons 3 nil)))
-pub fn vec_to_list(mem: &mut Memory, vec: &Vec<GcRef>) -> GcRef {
+pub fn vec_to_list(mem: &mut Memory, vec: &[GcRef]) -> GcRef {
     let mut c = GcRef::nil();
 
     for v in vec.iter().rev() {
@@ -16,7 +16,7 @@ pub fn vec_to_list(mem: &mut Memory, vec: &Vec<GcRef>) -> GcRef {
 
 
 pub fn string_to_list(mem: &mut Memory, string: &str) -> GcRef {
-    let char_vec = string.chars().map(|c| mem.allocate_character(c)).collect();
+    let char_vec = string.chars().map(|c| mem.allocate_character(c)).collect::<Vec<GcRef>>();
     vec_to_list(mem, &char_vec)
 }
 

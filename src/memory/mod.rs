@@ -94,6 +94,7 @@ pub enum FunctionKind {
 
 pub struct NormalFunction {
     kind: FunctionKind,
+    has_rest_params: bool,
     parameters: Vec<*mut CellContent>,
     body: *mut CellContent,
     environment: *mut CellContent,
@@ -104,8 +105,18 @@ impl NormalFunction {
         GcRef::new(self.body)
     }
 
-    pub fn params(&self) -> ParameterIterator {
+    pub fn non_rest_params(&self) -> ParameterIterator {
         ParameterIterator{ function: self, index: 0 }
+    }
+
+    pub fn rest_param(&self) -> Option<GcRef> {
+        if self.has_rest_params {
+            let p = self.parameters.last().unwrap();
+            Some(GcRef::new(*p))
+        }
+        else {
+            None
+        }
     }
 
     pub fn get_kind(&self) -> FunctionKind {
@@ -126,7 +137,15 @@ impl<'a> Iterator for ParameterIterator<'a> {
     type Item = GcRef;
 
     fn next(&mut self) -> Option<GcRef> {
-        if self.index < self.function.parameters.len() {
+        let n =
+        if self.function.has_rest_params {
+            self.function.parameters.len() - 1
+        }
+        else {
+            self.function.parameters.len()
+        };
+
+        if self.index < n {
             let er = GcRef::new(self.function.parameters[self.index]);
             self.index += 1;
             Some(er)
@@ -574,7 +593,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_normal_function(&mut self, kind: FunctionKind, body: GcRef, params: Vec<GcRef>, environment: GcRef) -> GcRef {
+    pub fn allocate_normal_function(&mut self, kind: FunctionKind, has_rest_params: bool, body: GcRef, params: &[GcRef], environment: GcRef) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
             if !matches!(param.get().unwrap_or(&PrimitiveValue::Nil), PrimitiveValue::Symbol(_)) {
@@ -583,7 +602,7 @@ impl Memory {
             param_ptrs.push(param.pointer);
         }
 
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind, body: body.pointer, parameters: param_ptrs, environment: environment.pointer })));
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind, has_rest_params, body: body.pointer, parameters: param_ptrs, environment: environment.pointer })));
         GcRef::new(ptr)
     }
 

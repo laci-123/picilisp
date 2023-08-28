@@ -5,13 +5,62 @@ use crate::util::list_to_vec;
 fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) -> NativeResult {
     if args.len() == 2 {
         if let Some(params) = list_to_vec(args[0].clone()) {
-            for param in params.iter() {
-                if !matches!(param.get(), Some(PrimitiveValue::Symbol(_))) {
+            let mut actual_params   = vec![];
+            let mut has_rest_params = false;
+            let rest_param_symbol   = mem.symbol_for("&");
+
+            let param_count = params.len();
+            let mut i = 0;
+
+            for param in params {
+                if let Some(PrimitiveValue::Symbol(symbol)) = param.get() {
+                    if has_rest_params {
+                        actual_params.push(param.clone());
+                        break;
+                    }
+
+                    if symbol == rest_param_symbol.get().unwrap().as_symbol() {
+                        // i == param_count - 2  (rearranged to avoid underflow when param_count == 0)
+                        if i + 2 == param_count {
+                            //          ---4---
+                            //          0 1 2 3
+                            // (lambda (x y & z) ...
+                            //              ^
+                            //              4 - 2
+                            has_rest_params = true;
+                        }
+                        //      i > param_count - 2
+                        else if i + 2 > param_count {
+                            //          ---4---
+                            //          0 1 2 3
+                            // (lambda (x y z &) ...
+                            //                ^
+                            //                3 > 4 - 2
+                            return NativeResult::Signal(mem.symbol_for("missing-rest-parameter"));
+                        }
+                        // i < param_count - 2
+                        else {
+                            //          ---4---
+                            //          0 1 2 3
+                            // (lambda (x & y z) ...
+                            //            ^
+                            //            1 < 4 - 2
+                            return NativeResult::Signal(mem.symbol_for("multiple-rest-parameters"));
+                        }
+                    }
+                    else {
+                        actual_params.push(param.clone());
+                    }
+                }
+                else {
                     return NativeResult::Signal(mem.symbol_for("param-is-not-symbol"));
                 }
+
+                i += 1;
             }
+
             let body     = args[1].clone();
-            let function = mem.allocate_normal_function(kind, body, params, env);
+            let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env);
             NativeResult::Value(function)
         }
         else {
