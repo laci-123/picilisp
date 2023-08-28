@@ -5,7 +5,7 @@ use super::signal::get_signal_name;
 
 
 
-fn lookup_internal(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
+fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
     let mut cursor = environment;
 
     while let Some(c) = cursor.get() {
@@ -20,21 +20,6 @@ fn lookup_internal(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<G
     }
 
     mem.get_global(&key.get().unwrap().as_symbol().get_name())
-}
-
-
-fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
-    if let Some(value) = lookup_internal(mem, key.clone(), environment) {
-        if let Some(meta) = key.get_metadata() {
-            Some(mem.allocate_metadata(value, meta.clone()))
-        }
-        else {
-            Some(value)
-        }
-    }
-    else {
-        None
-    }
 }
 
 
