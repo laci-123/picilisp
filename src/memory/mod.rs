@@ -246,6 +246,7 @@ impl Location {
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Metadata {
+    pub read_name: String,
     pub location: Location,
     pub documentation: String,
 }

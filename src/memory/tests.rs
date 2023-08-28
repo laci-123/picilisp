@@ -227,12 +227,12 @@ fn mem_allocate_meta() {
     {
         let x1   = mem.allocate_number(1370);
         let loc1 = Location::in_stdin(23, 24);
-        let md1  = Metadata{ location: loc1, documentation: "".to_string() };
+        let md1  = Metadata{ read_name: "".to_string(), location: loc1, documentation: "".to_string() };
         let m1   = mem.allocate_metadata(x1, md1);
 
         let x2   = mem.allocate_character(' ');
         let loc2 = Location::in_file(Path::new("~/the/input/file.lisp"), 41, 42);
-        let md2  = Metadata{ location: loc2, documentation: "Very important information".to_string() };
+        let md2  = Metadata{ read_name: "".to_string(), location: loc2, documentation: "Very important information".to_string() };
         let m2   = mem.allocate_metadata(x2, md2);
 
         let y    = mem.symbol_for("thing");

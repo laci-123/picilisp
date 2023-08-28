@@ -288,7 +288,15 @@ fn character_token(string: &str) -> Option<char> {
 
 
 fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location, rest_line: usize, rest_column: usize) -> Option<GcRef> {
-    let meta = mem.allocate_metadata(elem, Metadata{ location, documentation: "".to_string() });
+    let mut read_name = "".to_string();
+    if !elem.is_nil() {
+        if let PrimitiveValue::Symbol(symbol) = elem.get() {
+            read_name = symbol.get_name();
+        }
+    }
+
+    let meta = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string() });
+
     if let Some(top) = stack.last_mut() {
         top.push(meta);
         None

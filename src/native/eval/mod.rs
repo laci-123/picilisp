@@ -2,7 +2,6 @@ use crate::memory::*;
 use crate::util::*;
 use crate::native::print::print;
 use crate::native::read::read;
-
 use super::signal::get_signal_name;
 
 
@@ -83,6 +82,7 @@ struct ListFrame {
     current: usize,
     environment: GcRef,
     in_call: bool,
+    operator_name: String,
 }
 
 
@@ -96,7 +96,7 @@ impl StackFrame {
     fn new(tree: GcRef, environment: GcRef, mode: Mode) -> Self {
         if let Some(vec) = list_to_vec(tree.clone()) {
             // tree is a list
-            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false })
+            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false, operator_name: "".to_string() })
         }
         else if let PrimitiveValue::Cons(cons) = tree.get() {
             // tree is a conscell but not a list
@@ -140,7 +140,7 @@ impl StackFrame {
             },
             Self::List(list_frame) => {
                 if let Some(elem) = list_frame.elems.first() {
-                    let name    = print(mem, &[elem.clone()], GcRef::nil()).unwrap();
+                    let name    = string_to_list(mem, &list_frame.operator_name);
                     let mut vec = vec![name];
                     if let Some(meta) = elem.get_metadata() {
                         vec.push(mem.allocate_number(meta.location.line   as i64));
@@ -257,6 +257,13 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
         list_frame.in_call = false;
     }
 
+    // save the name of the operator (if any)
+    if list_frame.current == 0 {
+        if let Some(meta) = list_frame.elems[0].get_metadata() {
+            list_frame.operator_name = meta.read_name.clone();
+        }
+    }
+
     // the operator has just been evaluated, now we decide whether to evaluate the arguments
     if list_frame.current == 1 {
         if list_frame.mode == Mode::MacroExpand {
@@ -292,6 +299,15 @@ fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRe
         let env            = list_frame.environment.clone();
         return EvalInternal::Call(x, env, list_frame.mode);
     }
+
+    let metadata;
+    if let Some(old_metadata) = list_frame.elems[0].get_metadata() {
+        metadata = Metadata{ read_name: list_frame.operator_name.clone(), location: old_metadata.location.clone(), documentation: old_metadata.documentation.clone() };
+    }
+    else {
+        metadata = Metadata{ read_name: list_frame.operator_name.clone(), location: Location::in_stdin(0, 0), documentation: "".to_string() };
+    }
+    list_frame.elems[0] = mem.allocate_metadata(list_frame.elems[0].clone(), metadata);
 
     let operator;
     match list_frame.elems[0].get() {
