@@ -26,3 +26,10 @@
       (car params-args)
       (cdr params-args)))
    (unzip-list bindings)))
+
+(defun last (things)
+  (if things
+      (if (cdr things)
+          (last (cdr things))
+          (car things))
+      (signal (quote empty-list))))
