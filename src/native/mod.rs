@@ -29,6 +29,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "undefine",       globals::undefine,         FunctionKind::SpecialLambda);
     load_native_function(mem, "type-of",        reflection::type_of,       FunctionKind::Lambda);
     load_native_function(mem, "load",           io::load,                  FunctionKind::Lambda);
+    load_native_function(mem, "message",        io::message,               FunctionKind::Lambda);
     load_native_function(mem, "repl",           repl::repl,                FunctionKind::Lambda);
 }
 
