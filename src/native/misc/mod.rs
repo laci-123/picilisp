@@ -122,7 +122,7 @@ fn equal_internal(a: GcRef, b: GcRef) -> bool {
         }
     }
     else {
-        false
+        a.is_nil() && b.is_nil()
     }
 }
 
@@ -139,3 +139,7 @@ pub fn abort(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         None      => NativeResult::Abort("#<invalid-string>".to_string()),
     }
 }
+
+
+#[cfg(test)]
+mod tests;
