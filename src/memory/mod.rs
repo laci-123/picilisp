@@ -409,8 +409,13 @@ impl GcRef {
         };
 
         if let PrimitiveValue::Meta(meta) = value {
-            unsafe {
-                Some(&(*meta.value).value)
+            if meta.value.is_null() {
+                None
+            }
+            else {
+                unsafe {
+                    Some(&(*meta.value).value)
+                }
             }
         }
         else {

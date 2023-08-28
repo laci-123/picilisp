@@ -120,21 +120,30 @@ enum EvalInternal {
     Abort(String),
 }
 
+impl EvalInternal {
+    fn from_nativeresult(nr: NativeResult) -> Self {
+        match nr {
+            NativeResult::Value(x)       => Self::Return(x),
+            NativeResult::Signal(signal) => Self::Signal(signal),
+            NativeResult::Abort(msg)     => Self::Abort(msg),
+        }
+    }
+}
 
-fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRef) -> EvalInternal {
-    let atom = atom_frame.value.clone();
-    let env  = atom_frame.environment.clone();
+
+fn process_atom(mem: &mut Memory, frame: &mut AtomFrame, return_value: GcRef) -> EvalInternal {
+    let atom = frame.value.clone();
+    let env  = frame.environment.clone();
 
     // MACROEXPAND
 
-    if atom_frame.mode == Mode::MacroExpand {
+    // if a macro is bound to atom then return that, otherwise just return the atom itself
+    if frame.mode == Mode::MacroExpand {
         if let Some(PrimitiveValue::Symbol(_)) = atom.get() {
             if let Some(value) = lookup(mem, atom.clone(), env) {
-                if !value.is_nil() {
-                    if let Some(PrimitiveValue::Function(f)) = value.get() {
-                        if f.get_kind() == FunctionKind::Macro {
-                            return EvalInternal::Return(value);
-                        }
+                if let Some(PrimitiveValue::Function(f)) = value.get() {
+                    if f.get_kind() == FunctionKind::Macro {
+                        return EvalInternal::Return(value);
                     }
                 }
             }
@@ -145,7 +154,7 @@ fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRe
 
     // EVAL
     
-    if atom_frame.in_call {
+    if frame.in_call {
         // The callee was the normal body of a trap.
         // It has already set the return value, here we just forward it.
         return EvalInternal::Return(return_value);
@@ -160,122 +169,115 @@ fn process_atom(mem: &mut Memory, atom_frame: &mut AtomFrame, return_value: GcRe
                 EvalInternal::Signal(mem.symbol_for("unbound-symbol"))
             }
         },
-        PrimitiveValue::Cons(_) => {
-            unreachable!("process_atom received a conscell, but conscells shuld be processed in process_cons")
-        },
         PrimitiveValue::Trap(trap) => {
-            atom_frame.in_call = true;
-            EvalInternal::Call(trap.get_normal_body(), env, atom_frame.mode)
+            frame.in_call = true;
+            EvalInternal::Call(trap.get_normal_body(), env, frame.mode)
         },
         _ => {
             // numbers, characters and functions in non-call position don't get evaluated
+            // and conscells are evaluated in process_cons
             EvalInternal::Return(atom)
         },
     }
 }
 
 
-fn process_cons(mem: &mut Memory, cons_frame: &mut ConsFrame, return_value: GcRef) -> EvalInternal {
-    match cons_frame.progress {
+fn process_cons(mem: &mut Memory, frame: &mut ConsFrame, return_value: GcRef) -> EvalInternal {
+    match frame.progress {
         ConsProgress::NotStartedYet => {
-            let car = cons_frame.car.clone();
-            let env = cons_frame.environment.clone();
-            cons_frame.progress = ConsProgress::EvalingCar;
-            EvalInternal::Call(car, env, cons_frame.mode)
+            let car = frame.car.clone();
+            let env = frame.environment.clone();
+            frame.progress = ConsProgress::EvalingCar;
+            EvalInternal::Call(car, env, frame.mode)
         },
         ConsProgress::EvalingCar => {
-            cons_frame.car = return_value.clone();
+            frame.car = return_value.clone();
 
-            let cdr = cons_frame.cdr.clone();
-            let env = cons_frame.environment.clone();
-            cons_frame.progress = ConsProgress::EvalingCdr;
-            EvalInternal::Call(cdr, env, cons_frame.mode)
+            let cdr = frame.cdr.clone();
+            let env = frame.environment.clone();
+            frame.progress = ConsProgress::EvalingCdr;
+            EvalInternal::Call(cdr, env, frame.mode)
         },
         ConsProgress::EvalingCdr => {
-            cons_frame.cdr = return_value.clone();
-            EvalInternal::Return(mem.allocate_cons(cons_frame.car.clone(), cons_frame.cdr.clone()))
+            frame.cdr = return_value.clone();
+            EvalInternal::Return(mem.allocate_cons(frame.car.clone(), frame.cdr.clone()))
         },
     }
 }
 
 
-fn process_list(mem: &mut Memory, list_frame: &mut ListFrame, return_value: GcRef) -> EvalInternal {
+fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) -> EvalInternal {
     // empty list evaluates to nil
-    if list_frame.elems.len() == 0 {
+    if frame.elems.len() == 0 {
         return EvalInternal::Return(GcRef::nil());
     }
 
     // receive the evaluated element and step to the next one
-    if list_frame.in_call {
-        list_frame.elems[list_frame.current] = return_value.clone();
-        list_frame.current += 1;
-        list_frame.in_call = false;
+    if frame.in_call {
+        frame.elems[frame.current] = return_value.clone();
+        frame.current += 1;
+        frame.in_call = false;
     }
 
     // the operator has just been evaluated, now we decide whether to evaluate the arguments
-    if list_frame.current == 1 {
-        if list_frame.mode == Mode::MacroExpand {
-            // when macroexpanding, expand all elements of all lists regardless of what their first element is
-            list_frame.eval_args = true;
-        }
-        else if let Some(PrimitiveValue::Function(f)) = list_frame.elems[0].get() {
-            // when evaluating, only expand arguments of lambdas
-            list_frame.eval_args =  f.get_kind() == FunctionKind::Lambda;
-        }
-        else {
-            // first element of list is not a function
-            if list_frame.mode == Mode::Eval {
-                // cannot evaluate non-functions, but not a problem when macroexpanding
-                return EvalInternal::Signal(mem.symbol_for("eval-bad-operator")); // [1]
-            }
+    if frame.current == 1 {
+        match frame.mode {
+            Mode::MacroExpand => {
+                // when macroexpanding, expand every element of all lists regardless of what their first element is
+                frame.eval_args = true;
+            },
+            Mode::Eval => {
+                // when evaluating, only expand arguments of lambdas
+                if let Some(PrimitiveValue::Function(f)) = frame.elems[0].get() {
+                    frame.eval_args =  f.get_kind() == FunctionKind::Lambda;
+                }
+                else {
+                    // first element of list is not a function.
+                    // cannot evaluate non-functions
+                    // (it also would be an error if we found an un-expanded macro when evaluating,
+                    // but we assume this cannot happen because eval always calls macroexpand first)
+                    return EvalInternal::Signal(mem.symbol_for("eval-bad-operator")); // (*)
+                }
+            },
         }
     }
-
-    let top =
-    if list_frame.eval_args {
-        list_frame.elems.len()
-    }
-    else {
-        1
-    };
 
     // evaluate the operator and maybe the operands
-    let i = list_frame.current;
-    if i < top {
-        let x              = list_frame.elems[i].clone();
-        list_frame.in_call = true;
-        let env            = list_frame.environment.clone();
-        return EvalInternal::Call(x, env, list_frame.mode);
+    let i = frame.current;
+    if i < (if frame.eval_args {frame.elems.len()} else {1}) {
+        let x         = frame.elems[i].clone();
+        frame.in_call = true;
+        let env       = frame.environment.clone();
+        return EvalInternal::Call(x, env, frame.mode);
     }
 
+    // when evaluating:     get operator
+    // when macroexpanding: get operator or return whole list
     let operator;
-    match list_frame.elems[0].get().unwrap_or(&PrimitiveValue::Nil) {
-        PrimitiveValue::Function(f) if (f.get_kind() == FunctionKind::Macro) == (list_frame.mode == Mode::MacroExpand) => {
+    match frame.elems[0].get().unwrap_or(&PrimitiveValue::Nil) {
+        // if f is macro     && mode is macroexpand => go ahead with f
+        // if f is macro     && mode is evaluate    => return whole list
+        // if f is not macro && mode is macroexpand => we assume this cannot happen because eval always calls macroexpand first
+        // if f is not macro && mode is evaluate    => go ahead with f
+        PrimitiveValue::Function(f) if (f.get_kind() == FunctionKind::Macro) == (frame.mode == Mode::MacroExpand) => {
             operator = f;
         },
         _ => {
-            if list_frame.mode == Mode::MacroExpand {
-                // when macroexpanding, if the first element is not a macro then return the whole list
-                return EvalInternal::Return(vec_to_list(mem, &list_frame.elems));
-            }
-            else {
-                // already handled at [1]
-                unreachable!();
-            }
+            // when macroexpanding, if the first element is not a macro then return the whole list
+            // (if evaluating and the first element is not a function, we already returned at (*))
+            return EvalInternal::Return(vec_to_list(mem, &frame.elems));
         },
     }
 
+    // call operator
     match operator {
         Function::NativeFunction(nf) => {
-            match nf.call(mem, &list_frame.elems[1..], list_frame.environment.clone()) {
-                NativeResult::Value(x)       => return EvalInternal::Return(x),
-                NativeResult::Signal(signal) => return EvalInternal::Signal(signal),
-                NativeResult::Abort(msg)     => return EvalInternal::Abort(msg),
-            };
+            EvalInternal::from_nativeresult(nf.call(mem, &frame.elems[1..], frame.environment.clone()))
         },
         Function::NormalFunction(nf) => {
             let new_tree = nf.get_body();
-            let new_env  = match pair_params_and_args(mem, nf, &list_frame.elems[1..]) {
+            let new_env  =
+            match pair_params_and_args(mem, nf, &frame.elems[1..]) {
                 EvalInternal::Return(ne) => ne,
                 other                    => return other,
             };
@@ -376,11 +378,9 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
 
         let last_frame = stack.pop();
 
-        if !return_value.is_nil() {
-            if last_frame.is_some_and(|lf| lf.get_mode() == Mode::Eval) {
-                if let Some(PrimitiveValue::Trap(_)) = return_value.get() {
-                    stack.push(StackFrame::new(return_value.clone(), env.clone(), Mode::Eval));
-                }
+        if last_frame.is_some_and(|lf| lf.get_mode() == Mode::Eval) {
+            if let Some(PrimitiveValue::Trap(_)) = return_value.get() {
+                stack.push(StackFrame::new(return_value.clone(), env.clone(), Mode::Eval));
             }
         }
     }
