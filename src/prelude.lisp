@@ -33,3 +33,6 @@
           (last (cdr things))
           (car things))
       (signal (quote empty-list))))
+
+(defmacro block (& body)
+  (list (quote last) (cons (quote list) body)))
