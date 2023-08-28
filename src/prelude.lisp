@@ -36,3 +36,35 @@
 
 (defmacro block (& body)
   (list (quote last) (cons (quote list) body)))
+
+(defun fold (f init things)
+  (if things
+      (f init (fold f (car things) (cdr things)))
+      init))
+
+(defun substract (x y)
+  (add x (multiply -1 y)))
+
+(defun + (& numbers)
+  (fold add 0 numbers))
+
+(defun * (& numbers)
+  (fold multiply 1 numbers))
+
+(defun - (& numbers)
+  (if numbers
+      (let (first (car numbers)
+            rest  (cdr numbers))
+        (if rest
+            (substract first (fold add 0 rest))
+            (multiply -1 first)))
+      0))
+
+(defun / (& numbers)
+  (if numbers
+      (let (first (car numbers)
+            rest  (cdr numbers))
+        (if rest
+            (divide first (fold multiply 1 rest))
+            (divide 1 first)))
+      1))
