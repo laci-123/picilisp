@@ -514,14 +514,14 @@ pub struct Memory {
 }
 
 /// number of free cells when the [Memory] is constructed
-const INITIAL_FREE_CELLS: usize = 8;
+const INITIAL_FREE_CELLS: usize = 256;
 /// maximum ratio of the number of free cells after garbage collection, compared to the number of used cells
 const MAXIMUM_FREE_RATIO: f32   = 0.75;
 /// when removing free cells after garbage collection, keep as many that the ratio of their number and the number
 /// of used cells is at least this big
 const MINIMUM_FREE_RATIO: f32   = 0.1;
 /// when there are no more free cells (not even after garbage collection), allocate this many
-const ALLOCATION_INCREMENT: usize = 8;
+const ALLOCATION_INCREMENT: usize = 128;
 
 impl Memory {
     pub fn new() -> Self {
