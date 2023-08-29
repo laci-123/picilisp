@@ -3,6 +3,16 @@ use crate::native::eval::eval;
 use crate::util::{list_to_vec, list_to_string};
 
 
+
+pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+    if args.len() != 0 {
+        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    }
+    
+    NativeResult::Value(mem.unique_symbol())
+}
+
+
 pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
