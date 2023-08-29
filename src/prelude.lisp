@@ -48,7 +48,10 @@
       (signal (quote empty-list))))
 
 (defmacro block (& body)
-  (list (quote last) (cons (quote list) body)))
+  (if body
+      (let (params (map (lambda (_) (gensym)) body))
+        (cons (list (quote lambda) params (last params)) body))
+      nil))
 
 (defmacro and (x y)
   (list (quote if) x y nil))
