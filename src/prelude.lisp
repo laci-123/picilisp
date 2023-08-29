@@ -8,6 +8,9 @@
 (defmacro defun (name params body)
   (list (quote define) name (list (quote lambda) params body)))
 
+(defmacro defspecial (name params body)
+  (list (quote define) name (list (quote special-lambda) params body)))
+
 (defun unzip-list (pairs)
   (if pairs
       ((lambda (fsts-snds)
@@ -36,6 +39,15 @@
 
 (defmacro block (& body)
   (list (quote last) (cons (quote list) body)))
+
+(defmacro and (x y)
+  (list (quote if) x y nil))
+
+(defmacro or (x y)
+  (list (quote if) x x y))
+
+(defmacro not (x)
+  (list (quote if) x nil t))
 
 (defun fold (f init things)
   (if things
@@ -68,3 +80,13 @@
             (divide first (fold multiply 1 rest))
             (divide 1 first)))
       1))
+
+(defun get-property (key plist)
+  (if plist
+      (let (first  (car plist)
+            second (car (cdr plist))
+            rest   (cdr (cdr plist)))
+        (if (= key first)
+            second
+            (get-property key rest)))
+      nil))
