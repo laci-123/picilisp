@@ -30,6 +30,16 @@
       (cdr params-args)))
    (unzip-list bindings)))
 
+(defun fold (f init things)
+  (if things
+      (f init (fold f (car things) (cdr things)))
+      init))
+
+(defun map (f things)
+  (if things
+      (cons (f (car things)) (map f (cdr things)))
+      nil))
+
 (defun last (things)
   (if things
       (if (cdr things)
@@ -48,11 +58,6 @@
 
 (defmacro not (x)
   (list (quote if) x nil t))
-
-(defun fold (f init things)
-  (if things
-      (f init (fold f (car things) (cdr things)))
-      init))
 
 (defun substract (x y)
   (add x (multiply -1 y)))
