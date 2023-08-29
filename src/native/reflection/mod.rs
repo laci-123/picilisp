@@ -54,7 +54,7 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
     let line       = mem.allocate_number(metadata.location.line as i64);
     let column_sym = mem.symbol_for("column");
     let column     = mem.allocate_number(metadata.location.column as i64);
-    let vec        = vec![mem.allocate_cons(doc_sym, doc), mem.allocate_cons(file_sym, file), mem.allocate_cons(line_sym, line), mem.allocate_cons(column_sym, column)];
+    let vec        = vec![doc_sym, doc, file_sym, file, line_sym, line, column_sym, column];
 
     NativeResult::Value(vec_to_list(mem, &vec))
 }
