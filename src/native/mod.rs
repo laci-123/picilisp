@@ -24,6 +24,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "load-all",       eval::load_all,            FunctionKind::Lambda);
     load_native_function(mem, "print",          print::print,              FunctionKind::Lambda);
     load_native_function(mem, "add",            numbers::add,              FunctionKind::Lambda);
+    load_native_function(mem, "substract",      numbers::substract,        FunctionKind::Lambda);
     load_native_function(mem, "multiply",       numbers::multiply,         FunctionKind::Lambda);
     load_native_function(mem, "divide",         numbers::divide,           FunctionKind::Lambda);
     load_native_function(mem, "define",         globals::define,           FunctionKind::SpecialLambda);

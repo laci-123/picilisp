@@ -26,6 +26,30 @@ pub fn add(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
+pub fn substract(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+    if args.len() != 2 {
+        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    }
+
+    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
+        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
+            if let Some(z) = x.checked_sub(*y) {
+                NativeResult::Value(mem.allocate_number(z))
+            }
+            else {
+                NativeResult::Signal(mem.symbol_for("substraction-overflow"))
+            }
+        }
+        else {
+            NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
+        }
+    }
+    else {
+        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
+    }
+}
+
+
 pub fn multiply(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 2 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));

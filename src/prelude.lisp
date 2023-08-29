@@ -76,10 +76,6 @@ If `things` is empty then just return `init`."
   "Logical not."
   (list (quote if) x nil t))
 
-(defun substract (x y)
-  "Substract `y` from `x`"
-  (add x (multiply -1 y)))
-
 (defun + (& numbers)
   "Add all numbers together. Return 0 if called whith 0 arguments."
   (fold add 0 numbers))
