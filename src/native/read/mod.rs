@@ -244,6 +244,9 @@ fn atom_token(string: &str, file: Option<&Path>, line_count: usize, char_count: 
     else if let Some(x) = character_token(string) {
         TokenResult::Ok(Token::new(TokenKind::Character(x), Location::new(file, line_count, char_count)), rest)
     }
+    else if string.starts_with("#<") {
+        TokenResult::Error(Location::new(file, line_count, char_count), format!("unreadable symbol: {string}"), rest)
+    }
     else {
         TokenResult::Ok(Token::new(TokenKind::Symbol(string.to_string()), Location::new(file, line_count, char_count)), rest)
     }
