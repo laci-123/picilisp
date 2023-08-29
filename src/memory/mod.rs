@@ -256,10 +256,6 @@ impl Location {
     pub fn in_stdin(line: usize, column: usize) -> Self {
         Self{ file: None, line, column }
     }
-
-    pub fn to_string(&self) -> String {
-        format!("{}:{}:{}", self.file.as_ref().map_or("<stdin>".to_string(), |f| f.clone().into_os_string().into_string().unwrap()), self.line, self.column)
-    }
 }
 
 

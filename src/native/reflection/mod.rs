@@ -1,5 +1,6 @@
 use crate::memory::*;
 use crate::util::*;
+use crate::native::list::make_plist;
 
 pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
@@ -46,15 +47,11 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
         return NativeResult::Value(GcRef::nil());
     }
 
-    let doc_sym    = mem.symbol_for("documentation");
-    let doc        = string_to_list(mem, &metadata.documentation);
-    let file_sym   = mem.symbol_for("file");
-    let file       = metadata.location.file.as_ref().map_or(mem.symbol_for("<stdin>"), |f| string_to_list(mem, &f.clone().into_os_string().into_string().unwrap()));
-    let line_sym   = mem.symbol_for("line");
-    let line       = mem.allocate_number(metadata.location.line as i64);
-    let column_sym = mem.symbol_for("column");
-    let column     = mem.allocate_number(metadata.location.column as i64);
-    let vec        = vec![doc_sym, doc, file_sym, file, line_sym, line, column_sym, column];
+    let doc    = string_to_list(mem, &metadata.documentation);
+    let file   = metadata.location.file.as_ref().map_or(mem.symbol_for("<stdin>"), |f| string_to_list(mem, &f.clone().into_os_string().into_string().unwrap()));
+    let line   = mem.allocate_number(metadata.location.line as i64);
+    let column = mem.allocate_number(metadata.location.column as i64);
+    let vec    = vec![("documentation", doc), ("file", file), ("line", line), ("column", column)];
 
-    NativeResult::Value(vec_to_list(mem, &vec))
+    NativeResult::Value(make_plist(mem, &vec))
 }

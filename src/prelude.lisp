@@ -107,14 +107,3 @@ Otherwise substract all but the first argument from the first one."
             (divide first (fold multiply 1 rest))
             (divide 1 first)))
       1))
-
-(defun get-property (key plist)
-  "Get the value corresponding to `key` in `plist`"
-  (if plist
-      (let (first  (car plist)
-            second (car (cdr plist))
-            rest   (cdr (cdr plist)))
-        (if (= key first)
-            second
-            (get-property key rest)))
-      nil))
