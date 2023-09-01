@@ -49,6 +49,10 @@ If `things` is empty then just return `init`."
       (cons (f (car things)) (map f (cdr things)))
       nil))
 
+(defmacro apply (f args-list)
+  "Apply `f` to `args-list`, as if each element of `args-list` were a parameter of `f`."
+  (cons f args-list))
+
 (defun last (things)
   "Return the last element of `things`"
   (if things
@@ -107,3 +111,10 @@ Otherwise substract all but the first argument from the first one."
             (divide first (fold multiply 1 rest))
             (divide 1 first)))
       1))
+
+(defun append (list1 list2)
+  "Append `list1` to the beginning of `list2`."
+  (if list1
+      (cons (car list1)
+            (append (cdr list1) list2))
+      list2))

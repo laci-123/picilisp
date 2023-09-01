@@ -52,7 +52,7 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
             let mut vec = vec![("documentation", doc), ("file", file), ("line", line), ("column", column)];
 
             if let Some(pn) = param_names {
-                vec.push(("parameters", pn));
+                vec.insert(0, ("parameters", pn));
             }
             
             NativeResult::Value(make_plist(mem, &vec))
