@@ -97,4 +97,16 @@ pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRe
 
 
 #[cfg(test)]
+macro_rules! assert_eq_symbol {
+    ($x:expr, $y:expr) => {
+        assert_eq!($x.get().unwrap().as_symbol(), $y.get().unwrap().as_symbol())
+    };
+}
+
+#[cfg(test)]
+pub(crate) use assert_eq_symbol;
+
+
+
+#[cfg(test)]
 mod tests;

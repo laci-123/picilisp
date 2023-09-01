@@ -1,6 +1,6 @@
 use pretty_assertions::assert_eq;
 use crate::native::eval::eval_external;
-use crate::util::vec_to_list;
+use crate::util::*;
 use super::*;
 
 
@@ -18,10 +18,10 @@ fn make_lambda() {
 
     let value = eval_external(&mut mem, tree);
     assert_eq!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_kind(), FunctionKind::Lambda);
-    assert_eq!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_body().get().unwrap().as_symbol(), mem.symbol_for("y").get().unwrap().as_symbol());
+    assert_eq_symbol!(value.clone().unwrap().get().unwrap().as_function().as_normal_function().get_body(), mem.symbol_for("y"));
     let p = value.clone().unwrap().get().unwrap().as_function().as_normal_function().non_rest_params().collect::<Vec<GcRef>>();
-    assert_eq!(p[0].get().unwrap().as_symbol(), mem.symbol_for("x").get().unwrap().as_symbol());
-    assert_eq!(p[1].get().unwrap().as_symbol(), mem.symbol_for("y").get().unwrap().as_symbol());
+    assert_eq_symbol!(p[0], mem.symbol_for("x"));
+    assert_eq_symbol!(p[1], mem.symbol_for("y"));
 }
 
 #[test]
