@@ -65,10 +65,10 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
         }
         else if status == error_symbol.get().unwrap().as_symbol() {
             let error          = property(mem, "error", output.clone()).unwrap();
-            let error_location = list_to_vec(error.get().unwrap().as_conscell().get_car()).unwrap();
+            let error_location = list_to_vec(property(mem, "location", error.clone()).unwrap()).unwrap();
             let line           = *error_location[1].get().unwrap().as_number();
             let column         = *error_location[2].get().unwrap().as_number();
-            let error_message  = list_to_string(error.get().unwrap().as_conscell().get_cdr()).unwrap();
+            let error_message  = list_to_string(property(mem, "message", error).unwrap()).unwrap();
             println!("SYNTAX-ERROR: {error_message}");
             println!("       at <stdin>:{line}:{column}");
             input.clear();

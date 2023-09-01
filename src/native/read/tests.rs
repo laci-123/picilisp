@@ -300,7 +300,7 @@ fn read_bad_escape_char() {
     let r         = read(&mut mem, &[input], GcRef::nil()).unwrap();
     let status    = property(&mut mem, "status", r.clone()).unwrap();
     let error     = property(&mut mem, "error", r).unwrap();
-    let error_msg = list_to_string(error.get().unwrap().as_conscell().get_cdr()).unwrap();
+    let error_msg = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
     assert_eq!(status.get().unwrap().as_symbol(), mem.symbol_for("error").get().unwrap().as_symbol());
     assert_eq!(error_msg, "'k' is not a valid escape character in a string literal");
 }
@@ -314,7 +314,7 @@ fn read_bad_parens() {
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let error = property(&mut mem, "error", r).unwrap();
     assert_eq!(status.get().unwrap().as_symbol(), mem.symbol_for("error").get().unwrap().as_symbol());
-    assert_eq!(list_to_string(error.get().unwrap().as_conscell().get_cdr()).unwrap(), "too many closing parentheses");
+    assert_eq!(list_to_string(property(&mut mem, "message", error).unwrap()).unwrap(), "too many closing parentheses");
 }
 
 
@@ -404,8 +404,8 @@ fn read_error_location() {
     let status         = property(&mut mem, "status", r.clone()).unwrap();
     let error          = property(&mut mem, "error", r.clone()).unwrap();
     assert_eq!(status.get().unwrap().as_symbol(), mem.symbol_for("error").get().unwrap().as_symbol());
-    let error_location = list_to_vec(error.get().unwrap().as_conscell().get_car()).unwrap();
-    let error_msg      = list_to_string(error.get().unwrap().as_conscell().get_cdr()).unwrap();
+    let error_location = list_to_vec(property(&mut mem, "location", error.clone()).unwrap()).unwrap();
+    let error_msg      = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
     assert_eq!(error_msg, "'d' is not a valid escape character in a string literal");
     assert_eq!(error_location[0].get().unwrap().as_symbol().get_name(), "stdin");
     assert_eq!(*error_location[1].get().unwrap().as_number(), 1);
