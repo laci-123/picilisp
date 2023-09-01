@@ -47,7 +47,7 @@ pub fn list(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
-pub fn property(key: &Symbol, plist: &[GcRef]) -> Option<GcRef> {
+fn get_property_internal(key: &Symbol, plist: &[GcRef]) -> Option<GcRef> {
     for x in plist.chunks(2) {
         if let Some(PrimitiveValue::Symbol(symbol)) = x[0].get() {
             if symbol == key {
@@ -65,6 +65,11 @@ pub fn property(key: &Symbol, plist: &[GcRef]) -> Option<GcRef> {
     }
     
     Some(GcRef::nil())
+}
+
+
+pub fn property(mem: &mut Memory, key: &str, plist: GcRef) -> Option<GcRef> {
+    list_to_vec(plist).and_then(|v| get_property_internal(&mem.symbol_for(key).get().unwrap().as_symbol(), &v))
 }
 
 
@@ -89,7 +94,7 @@ pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
         return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
     }
 
-    if let Some(result) = property(key, &plist) {
+    if let Some(result) = get_property_internal(key, &plist) {
         NativeResult::Value(result)
     }
     else {

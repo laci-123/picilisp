@@ -2,6 +2,7 @@
 
 use crate::memory::*;
 use crate::util::{vec_to_list, string_to_proper_list};
+use crate::native::list::make_plist;
 use std::path::Path;
 
 
@@ -289,25 +290,23 @@ fn character_token(string: &str) -> Option<char> {
 }
 
 
-
 fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location, rest_line: usize, rest_column: usize) -> Option<GcRef> {
     let mut read_name = "".to_string();
     if let Some(PrimitiveValue::Symbol(symbol)) = elem.get() {
         read_name = symbol.get_name();
     }
 
-    let meta = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string() });
+    let result = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string() });
 
     if let Some(top) = stack.last_mut() {
-        top.push(meta);
+        top.push(result);
         None
     }
     else {
         let ok_sym = mem.symbol_for("ok");
         let ln     = mem.allocate_number(rest_line as i64);
         let cn     = mem.allocate_number((rest_column + 1) as i64);
-        let return_value = vec_to_list(mem, &vec![ok_sym, meta, rest.clone(), ln, cn]);
-        Some(return_value)
+        Some(make_plist(mem, &vec![("status", ok_sym), ("result", result), ("rest", rest.clone()), ("line", ln), ("column", cn)]))
     }
 }
 
@@ -327,7 +326,7 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: RestOfI
     let error     = mem.allocate_cons(error_loc, error_msg);
     let ln        = mem.allocate_number(rest_line as i64);
     let cn        = mem.allocate_number(rest_column as i64);
-    vec_to_list(mem, &vec![error_sym, error, rest, ln, cn])
+    make_plist(mem, &vec![("status", error_sym), ("error", error), ("rest", rest), ("line", ln), ("column", cn)])
 }
 
 
@@ -335,10 +334,9 @@ fn read_internal(mem: &mut Memory, input: GcRef, file: Option<&Path>, start_line
     let incomplete_sym  = mem.symbol_for("incomplete");
     let nothing_sym     = mem.symbol_for("nothing");
     let invalid_sym     = mem.symbol_for("invalid");
-                                              // status          result        rest          line          column
-    let incomplete      = vec_to_list(mem, &vec![incomplete_sym, GcRef::nil(), GcRef::nil(), GcRef::nil(), GcRef::nil()]);
-    let nothing         = vec_to_list(mem, &vec![nothing_sym,    GcRef::nil(), GcRef::nil(), GcRef::nil(), GcRef::nil()]);
-    let invalid         = vec_to_list(mem, &vec![invalid_sym,    GcRef::nil(), GcRef::nil(), GcRef::nil(), GcRef::nil()]);
+    let incomplete      = make_plist(mem, &vec![("status", incomplete_sym)]);
+    let nothing         = make_plist(mem, &vec![("status", nothing_sym)]);
+    let invalid         = make_plist(mem, &vec![("status", invalid_sym)]);
 
     let mut line_count = start_line_count;
     let mut char_count = start_char_count - 1;
@@ -411,19 +409,18 @@ fn next_character(input: GcRef) -> Option<(char, GcRef)> {
 
 /// Converts a Lisp-style string to an AST
 ///
-/// Only reads the shortest prefix of `input` that is a valid AST
+/// Only reads the shortest prefix of the input string that is a valid AST
 ///
-/// Returns: `(list status result rest line column)`
-/// where `status` can be one of the following:
-///  * `ok`:         Success. `result` is the AST.
-///  * `nothing`:    `input` was empty or only contained whitespace. `result` is undefined.
-///  * `incomplete`: `input` is not a valid AST, but can be the beginning of a valid AST. `result` is undefined.
-///  * `error`:      `input` is not a valid AST, not even the beginning of one. `result` contains the error details in `(cons error-location error-message)` format.
-///  * `invalid`:    `input` is not a valid string. `result`, `rest`, `line` and `column` are undefined.
-///  * `line`:       The starting line number of `rest`
-///  * `column`:     The starting column number of `rest`
-/// `result` is the read AST and
-/// `rest` is the unread rest of `input` (`nil` if all of `input` was read).
+/// Returns a property list which always contains at least a `status` key.
+/// The `status` key can have one of the following values:
+///  * `ok`:         Success. The key `result` is the AST.
+///  * `nothing`:    The input was empty or only contained whitespace.
+///  * `incomplete`: The input is not a valid AST, but can be the beginning of a valid AST.
+///  * `error`:      The input is not a valid AST, not even the beginning of one. The `error` key contains the error details.
+///  * `invalid`:    The input is not a valid string.
+///
+/// Whenever there is a `rest` key, the `line` and `column` keys are also present,
+/// whose values are respectively the first line and column of the rest of the input.
 pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 && args.len() != 3 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));

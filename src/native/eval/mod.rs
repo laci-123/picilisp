@@ -1,6 +1,7 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
+use crate::native::list::property;
 use super::signal::get_signal_name;
 
 
@@ -437,13 +438,12 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
             NativeResult::Value(x) => x,
             other                  => return other,
         };
-        let output_vec = list_to_vec(output).unwrap();
-        let status_tmp = output_vec[0].clone();
+        let status_tmp = property(mem, "status", output.clone()).unwrap();
         let status     = status_tmp.get().unwrap().as_symbol();
-        let result     = output_vec[1].clone();
-        let rest       = output_vec[2].clone();
-        line           = output_vec[3].clone();
-        column         = output_vec[4].clone();
+        let result     = property(mem, "result", output.clone()).unwrap();
+        let rest       = property(mem, "rest", output.clone()).unwrap();
+        line           = property(mem, "line", output.clone()).unwrap();
+        column         = property(mem, "column", output).unwrap();
 
         if status == ok_symbol.get().unwrap().as_symbol(){
             match eval(mem, &[result], GcRef::nil()) {
