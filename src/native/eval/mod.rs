@@ -438,26 +438,25 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
             NativeResult::Value(x) => x,
             other                  => return other,
         };
-        let status_tmp = property(mem, "status", output.clone()).unwrap();
-        let status     = status_tmp.get().unwrap().as_symbol();
-        let result     = property(mem, "result", output.clone()).unwrap();
-        let rest       = property(mem, "rest", output.clone()).unwrap();
-        line           = property(mem, "line", output.clone()).unwrap();
-        column         = property(mem, "column", output).unwrap();
+        let status = property(mem, "status", output.clone()).unwrap();
+        let result = property(mem, "result", output.clone()).unwrap();
+        let rest   = property(mem, "rest",   output.clone()).unwrap();
+        line       = property(mem, "line",   output.clone()).unwrap();
+        column     = property(mem, "column", output).unwrap();
 
-        if status == ok_symbol.get().unwrap().as_symbol(){
+        if symbol_eq!(status, ok_symbol) {
             match eval(mem, &[result], GcRef::nil()) {
                 NativeResult::Value(_) => {/* only interested in side effects */},
                 other                  => return other,
             }
         }
-        else if status == incomplete_symbol.get().unwrap().as_symbol(){
+        else if symbol_eq!(status, incomplete_symbol) {
             return NativeResult::Signal(mem.symbol_for("input-incomplete"));
         }
-        else if status == error_symbol.get().unwrap().as_symbol(){
+        else if symbol_eq!(status, error_symbol) {
             return NativeResult::Signal(mem.symbol_for("read-error"));
         }
-        else if status == invalid_symbol.get().unwrap().as_symbol(){
+        else if symbol_eq!(status, invalid_symbol) {
             return NativeResult::Signal(mem.symbol_for("input-invalid-string"));
         }
 

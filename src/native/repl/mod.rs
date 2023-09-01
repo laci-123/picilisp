@@ -34,10 +34,9 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
             other                  => return other,
         };
 
-        let status_tmp = property(mem, "status", output.clone()).unwrap();
-        let status     = status_tmp.get().unwrap().as_symbol();
+        let status = property(mem, "status", output.clone()).unwrap();
 
-        if status == ok_symbol.get().unwrap().as_symbol() {
+        if symbol_eq!(status, ok_symbol) {
             incomplete = false;
             input.clear();
 
@@ -60,10 +59,10 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
 
             println!("{}", list_to_string(output).unwrap());
         }
-        else if status == incomplete_symbol.get().unwrap().as_symbol() {
+        else if symbol_eq!(status, incomplete_symbol) {
             incomplete = true;
         }
-        else if status == error_symbol.get().unwrap().as_symbol() {
+        else if symbol_eq!(status, error_symbol) {
             let error          = property(mem, "error", output.clone()).unwrap();
             let error_location = list_to_vec(property(mem, "location", error.clone()).unwrap()).unwrap();
             let line           = *error_location[1].get().unwrap().as_number();
@@ -73,10 +72,10 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
             println!("       at <stdin>:{line}:{column}");
             input.clear();
         }
-        else if status == invalid_symbol.get().unwrap().as_symbol() {
+        else if symbol_eq!(status, invalid_symbol) {
             return NativeResult::Signal(mem.symbol_for("invalid-string"));
         }
-        else if status == nothing_symbol.get().unwrap().as_symbol() {
+        else if symbol_eq!(status, nothing_symbol) {
             // do nothing
         }
         else {

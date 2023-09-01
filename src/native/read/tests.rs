@@ -178,6 +178,7 @@ fn read_string_in_list() {
     assert_eq!(*vec[0].get().unwrap().as_number(), 1);
     let vec2 = list_to_vec(vec[1].clone()).unwrap();
     assert_eq!(vec2[0].get().unwrap().as_symbol().get_name(), "list");
+    assert_eq_symbol!(vec2[0], mem.symbol_for("list"));
     assert_eq!(*vec2[1].get().unwrap().as_character(), 'a');
     assert_eq!(*vec2[2].get().unwrap().as_character(), 'b');
     assert_eq!(*vec[2].get().unwrap().as_number(), 2);
@@ -407,7 +408,7 @@ fn read_error_location() {
     let error_location = list_to_vec(property(&mut mem, "location", error.clone()).unwrap()).unwrap();
     let error_msg      = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
     assert_eq!(error_msg, "'d' is not a valid escape character in a string literal");
-    assert_eq!(error_location[0].get().unwrap().as_symbol().get_name(), "stdin");
+    assert_eq_symbol!(error_location[0], mem.symbol_for("stdin"));
     assert_eq!(*error_location[1].get().unwrap().as_number(), 1);
     assert_eq!(*error_location[2].get().unwrap().as_number(), 7);
 }
@@ -427,7 +428,7 @@ fn read_continue_rest() {
     let line         = property(&mut mem, "line", r.clone()).unwrap();
     let column       = property(&mut mem, "column", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq!(result.get().unwrap().as_symbol().get_name(), "cat");
+    assert_eq_symbol!(result, mem.symbol_for("cat"));
     assert_eq!(list_to_string(rest.clone()).unwrap(), " mouse");
     assert_eq!(*line.get().unwrap().as_number(), 1);
     assert_eq!(*column.get().unwrap().as_number(), 4);
@@ -439,7 +440,7 @@ fn read_continue_rest() {
     let line   = property(&mut mem, "line", r.clone()).unwrap();
     let column = property(&mut mem, "column", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq!(result.get().unwrap().as_symbol().get_name(), "mouse");
+    assert_eq_symbol!(result, mem.symbol_for("mouse"));
     assert_eq!(list_to_string(rest).unwrap(), "");
     assert_eq!(*line.get().unwrap().as_number(), 1);
     assert_eq!(*column.get().unwrap().as_number(), 10);
@@ -460,7 +461,7 @@ fn read_continue_rest_newline() {
     let line         = property(&mut mem, "line", r.clone()).unwrap();
     let column       = property(&mut mem, "column", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq!(result.get().unwrap().as_symbol().get_name(), "lion");
+    assert_eq_symbol!(result, mem.symbol_for("lion"));
     assert_eq!(list_to_string(rest.clone()).unwrap(), " tiger  ");
     assert_eq!(*line.get().unwrap().as_number(), 2);
     assert_eq!(*column.get().unwrap().as_number(), 1);
@@ -472,7 +473,7 @@ fn read_continue_rest_newline() {
     let line   = property(&mut mem, "line", r.clone()).unwrap();
     let column = property(&mut mem, "column", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq!(result.get().unwrap().as_symbol().get_name(), "tiger");
+    assert_eq_symbol!(result, mem.symbol_for("tiger"));
     assert_eq!(list_to_string(rest).unwrap(), "  ");
     assert_eq!(*line.get().unwrap().as_number(), 2);
     assert_eq!(*column.get().unwrap().as_number(), 7);

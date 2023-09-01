@@ -96,6 +96,25 @@ pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRe
 }
 
 
+macro_rules! symbol_eq {
+    ($x:expr, $y:expr) => {
+        if let Some(PrimitiveValue::Symbol(s1)) = $x.get() {
+            if let Some(PrimitiveValue::Symbol(s2)) = $y.get() {
+                s1 == s2
+            }
+            else {
+                false
+            }
+        }
+        else {
+            false
+        }
+    };
+}
+
+pub(crate) use symbol_eq;
+
+
 #[cfg(test)]
 macro_rules! assert_eq_symbol {
     ($x:expr, $y:expr) => {

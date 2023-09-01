@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use crate::util::vec_to_list;
+use crate::util::{vec_to_list, assert_eq_symbol};
 use super::*;
 
 
@@ -12,7 +12,7 @@ fn euqal_same_type() {
     let y = mem.allocate_number(100);
 
     let e = equal(&mut mem, &[x, y], GcRef::nil()).unwrap();
-    assert_eq!(e.get().unwrap().as_symbol().get_name(), "t");
+    assert_eq_symbol!(e, mem.symbol_for("t"));
 
     let x = mem.allocate_number(100);
     let y = mem.allocate_number(200);
@@ -24,7 +24,7 @@ fn euqal_same_type() {
     let y = mem.allocate_character('a');
 
     let e = equal(&mut mem, &[x, y], GcRef::nil()).unwrap();
-    assert_eq!(e.get().unwrap().as_symbol().get_name(), "t");
+    assert_eq_symbol!(e, mem.symbol_for("t"));
 
     let x = mem.allocate_character('a');
     let y = mem.allocate_character('b');
@@ -40,7 +40,7 @@ fn euqal_same_type() {
     let z2 = mem.allocate_cons(x2, y2);
 
     let e = equal(&mut mem, &[z1, z2], GcRef::nil()).unwrap();
-    assert_eq!(e.get().unwrap().as_symbol().get_name(), "t");
+    assert_eq_symbol!(e, mem.symbol_for("t"));
 
     let x1 = mem.allocate_number(-1);
     let y1 = mem.allocate_number(-2);
@@ -101,7 +101,7 @@ fn euqal_nil_with_nil() {
     let y = GcRef::nil();
 
     let e = equal(&mut mem, &[x, y], GcRef::nil()).unwrap();
-    assert_eq!(e.get().unwrap().as_symbol().get_name(), "t");
+    assert_eq_symbol!(e, mem.symbol_for("t"));
 }
 
 #[test]
@@ -114,7 +114,7 @@ fn euqal_list() {
     let y = vec_to_list(&mut mem, &v2);
 
     let e = equal(&mut mem, &[x, y], GcRef::nil()).unwrap();
-    assert_eq!(e.get().unwrap().as_symbol().get_name(), "t");
+    assert_eq_symbol!(e, mem.symbol_for("t"));
 
     let v1 = vec![mem.allocate_number(1), mem.allocate_number(2), mem.allocate_number(3)];
     let x = vec_to_list(&mut mem, &v1);
