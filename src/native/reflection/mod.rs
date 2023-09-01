@@ -34,24 +34,50 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     }
 }
 
+
 pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-number-of-arguments"));
     }
 
-    let metadata;
-    if let Some(x) = args[0].get_metadata() {
-        metadata = x;
+    let metadata    = args[0].get_metadata();
+    let param_names = get_param_names(mem, args[0].clone());
+
+    match (metadata, param_names.clone()) {
+        (Some(md), _) => {
+            let doc     = string_to_list(mem, &md.documentation);
+            let file    = md.location.file.as_ref().map_or(mem.symbol_for("<stdin>"), |f| string_to_list(mem, &f.clone().into_os_string().into_string().unwrap()));
+            let line    = mem.allocate_number(md.location.line as i64);
+            let column  = mem.allocate_number(md.location.column as i64);
+            let mut vec = vec![("documentation", doc), ("file", file), ("line", line), ("column", column)];
+
+            if let Some(pn) = param_names {
+                vec.push(("parameters", pn));
+            }
+            
+            NativeResult::Value(make_plist(mem, &vec))
+        },
+        (None, Some(pn)) => {
+            NativeResult::Value(make_plist(mem, &vec![("parameters", pn)]))
+        },
+        (None, None) => {
+            NativeResult::Value(GcRef::nil())
+        },
+    }
+}
+
+
+fn get_param_names(mem: &mut Memory, x: GcRef) -> Option<GcRef> {
+    if let Some(PrimitiveValue::Function(Function::NormalFunction(nf))) = x.get() {
+        let mut param_names = nf.non_rest_params().collect::<Vec<GcRef>>();
+        if let Some(rp) = nf.rest_param() {
+            param_names.push(mem.symbol_for("&"));
+            param_names.push(rp);
+        }
+
+        Some(vec_to_list(mem, &param_names))
     }
     else {
-        return NativeResult::Value(GcRef::nil());
+        None
     }
-
-    let doc    = string_to_list(mem, &metadata.documentation);
-    let file   = metadata.location.file.as_ref().map_or(mem.symbol_for("<stdin>"), |f| string_to_list(mem, &f.clone().into_os_string().into_string().unwrap()));
-    let line   = mem.allocate_number(metadata.location.line as i64);
-    let column = mem.allocate_number(metadata.location.column as i64);
-    let vec    = vec![("documentation", doc), ("file", file), ("line", line), ("column", column)];
-
-    NativeResult::Value(make_plist(mem, &vec))
 }
