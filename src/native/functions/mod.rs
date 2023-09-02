@@ -1,5 +1,7 @@
 use crate::memory::*;
 use crate::util::list_to_vec;
+use crate::native::signal::{make_error, fit_to_number};
+
 
 
 fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) -> NativeResult {
@@ -36,7 +38,8 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) ->
                             // (lambda (x y z &) ...
                             //                ^
                             //                3 > 4 - 2
-                            return NativeResult::Signal(mem.symbol_for("missing-rest-parameter"));
+                            let error = make_error(mem, "missing-rest-parameter", "function", &vec![]);
+                            return NativeResult::Signal(error);
                         }
                         // i < param_count - 2
                         else {
@@ -45,7 +48,8 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) ->
                             // (lambda (x & y z) ...
                             //            ^
                             //            1 < 4 - 2
-                            return NativeResult::Signal(mem.symbol_for("multiple-rest-parameters"));
+                            let error = make_error(mem, "multiple-rest-parameters", "function", &vec![]);
+                            return NativeResult::Signal(error);
                         }
                     }
                     else {
@@ -53,7 +57,9 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) ->
                     }
                 }
                 else {
-                    return NativeResult::Signal(mem.symbol_for("param-is-not-symbol"));
+                    let error_details = vec![("param", param)];
+                    let error = make_error(mem, "param-is-not-symbol", "function", &error_details);
+                    return NativeResult::Signal(error);
                 }
 
                 i += 1;
@@ -64,12 +70,14 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, kind: FunctionKind) ->
             NativeResult::Value(function)
         }
         else {
-            NativeResult::Signal(mem.symbol_for("bad-param-list"))
+            let error = make_error(mem, "bad-param-list", "function", &vec![]);
+            NativeResult::Signal(error)
         }
     }
     else {
-        let signal = mem.symbol_for("wrong-number-of-arguments");
-        NativeResult::Signal(signal)
+        let error_details = vec![("expected", mem.allocate_number(2)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "wrong-number-of-arguments", "function", &error_details);
+        NativeResult::Signal(error)
     }
 }
 

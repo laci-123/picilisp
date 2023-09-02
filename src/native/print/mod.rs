@@ -1,5 +1,6 @@
 use crate::util::*;
 use crate::memory::*;
+use crate::native::signal::{make_error, fit_to_number};
 
 
 fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
@@ -125,7 +126,9 @@ fn print_internal(mem: &mut Memory, tree: GcRef) -> GcRef {
 
 pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "wrong-number-of-arguments", "print", &error_details);
+        return NativeResult::Signal(error);
     }
     NativeResult::Value(print_internal(mem, args[0].clone()))
 }

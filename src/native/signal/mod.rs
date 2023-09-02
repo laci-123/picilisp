@@ -1,4 +1,6 @@
-use crate::{memory::*, util::list_to_vec};
+use crate::{memory::*, native::list::make_plist};
+
+use super::list::property;
 
 
 
@@ -22,22 +24,33 @@ pub fn trap(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
-pub fn get_signal_name(stack_trace: GcRef) -> Option<String> {
-    if stack_trace.is_nil() {
-        return None;
-    }
-    
-    if let Some(PrimitiveValue::Symbol(symbol)) = stack_trace.get() {
-        return Some(symbol.get_name());
-    }
+pub fn make_error(mem: &mut Memory, kind: &str, source: &str, details: &[(&str, GcRef)]) -> GcRef {
+    let mut vec = vec![("kind", mem.symbol_for(kind)), ("source", mem.symbol_for(source))];
+    vec.extend_from_slice(details);
+    make_plist(mem, &vec)
+}
 
-    if let Some(entries) = list_to_vec(stack_trace) {
-        if let Some(last_entry) = entries.last() {
-            if let Some(PrimitiveValue::Symbol(symbol)) = last_entry.get() {
-                return Some(symbol.get_name());
-            }
+
+pub fn fit_to_number(mem: &mut Memory, x: usize) -> GcRef {
+    if let Ok(y) = i64::try_from(x) {
+        mem.allocate_number(y)
+    }
+    else {
+        mem.symbol_for("more-than-number-type-maximum")
+    }
+}
+
+
+pub fn get_error_kind(mem: &mut Memory, error: GcRef) -> Option<String> {
+    if let Some(x) = property(mem, "kind", error) {
+        if let Some(PrimitiveValue::Symbol(symbol)) = x.get() {
+            Some(symbol.get_name())
+        }
+        else {
+            None
         }
     }
-
-    None
+    else {
+        None
+    }
 }

@@ -2,7 +2,7 @@ use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
 use crate::native::list::property;
-use super::signal::get_signal_name;
+use super::signal::*;
 
 
 
@@ -148,11 +148,13 @@ fn process_atom(mem: &mut Memory, frame: &mut AtomFrame, return_value: GcRef) ->
     
     match atom.get().unwrap_or(&PrimitiveValue::Nil) {
         PrimitiveValue::Symbol(_) => {
-            if let Some(value) = lookup(mem, atom, env) {
+            if let Some(value) = lookup(mem, atom.clone(), env) {
                 EvalInternal::Return(value)
             }
             else {
-                EvalInternal::Signal(mem.symbol_for("unbound-symbol"))
+                let error_details = vec![("symbol", atom)];
+                let error = make_error(mem, "unbound-symbol", "eval", &error_details);
+                EvalInternal::Signal(error)
             }
         },
         PrimitiveValue::Trap(trap) => {
@@ -222,7 +224,9 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
                     // cannot evaluate non-functions
                     // (it also would be an error if we found an un-expanded macro when evaluating,
                     // but we assume this cannot happen because eval always calls macroexpand first)
-                    return EvalInternal::Signal(mem.symbol_for("eval-bad-operator")); // (*)
+                    let error_details = vec![("symbol", frame.elems[0].clone())];
+                    let error = make_error(mem, "eval-bad-operator", "eval", &error_details);
+                    return EvalInternal::Signal(error); // (*)
                 }
             },
         }
@@ -261,9 +265,17 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
             EvalInternal::from_nativeresult(nf.call(mem, &frame.elems[1..], frame.environment.clone()))
         },
         Function::NormalFunction(nf) => {
+            let nf_name =
+            if let Some(md) = frame.elems[0].get_metadata() {
+                Some(&md.read_name)
+            }
+            else {
+                None
+            };
+
             let new_tree = nf.get_body();
             let new_env  =
-            match pair_params_and_args(mem, nf, &frame.elems[1..]) {
+            match pair_params_and_args(mem, nf, nf_name, &frame.elems[1..]) {
                 EvalInternal::Return(ne) => ne,
                 other                    => return other,
             };
@@ -273,8 +285,15 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
 }
 
 
-fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -> EvalInternal {
+fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<&String>, args: &[GcRef]) -> EvalInternal {
     let mut new_env = nf.get_env();
+
+    let source = if let Some(name) = nf_name {
+        name
+    }
+    else {
+        "#<function>"
+    };
 
     let mut i = 0;
     for param in nf.non_rest_params() {
@@ -283,7 +302,9 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -
             arg = a.clone();
         }
         else {
-            return EvalInternal::Signal(mem.symbol_for("not-enough-arguments"));
+            let error_details = vec![("expected", fit_to_number(mem, i + 1)), ("actual", fit_to_number(mem, args.len()))];
+            let error = make_error(mem, "not-enough-arguments", source, &error_details);
+            return EvalInternal::Signal(error);
         };
         let param_arg = mem.allocate_cons(param, arg);
         new_env       = mem.allocate_cons(param_arg, new_env);
@@ -297,7 +318,9 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, args: &[GcRef]) -
         new_env       = mem.allocate_cons(param_arg, new_env);
     }
     else if i < args.len() {
-        return EvalInternal::Signal(mem.symbol_for("too-many-arguments"));
+        let error_details = vec![("expected", fit_to_number(mem, i)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "too-many-arguments", source, &error_details);
+        return EvalInternal::Signal(error);
     }
 
     EvalInternal::Return(new_env)
@@ -383,8 +406,9 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
 
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     if args.len() != 1 {
-        let signal = mem.symbol_for("wrong-number-of-arguments");
-        return NativeResult::Signal(signal);
+        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "wrong-number-of-arguments", "eval", &error_details);
+        return NativeResult::Signal(error);
     }
 
     let expanded =
@@ -399,8 +423,9 @@ pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
 
 pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     if args.len() != 1 {
-        let signal = mem.symbol_for("wrong-number-of-arguments");
-        return NativeResult::Signal(signal);
+        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "wrong-number-of-arguments", "macroexpand", &error_details);
+        return NativeResult::Signal(error);
     }
 
     process(mem, args[0].clone(), env, Mode::MacroExpand)
@@ -412,7 +437,7 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     
     match eval(mem, &[tree], empty_env.clone()) {
         NativeResult::Value(x)       => Ok(x),
-        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", get_signal_name(signal).unwrap_or("<unknown signal>".to_string()))),
+        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", get_error_kind(mem, signal).unwrap_or("<unkown signal>".to_string()))),
         NativeResult::Abort(msg)     => Err(msg),
     }
 }
@@ -420,8 +445,9 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
 
 pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
-        let signal = mem.symbol_for("wrong-number-of-arguments");
-        return NativeResult::Signal(signal);
+        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "wrong-number-of-arguments", "load-all", &error_details);
+        return NativeResult::Signal(error);
     }
 
     let ok_symbol         = mem.symbol_for("ok");

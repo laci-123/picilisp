@@ -271,8 +271,8 @@ fn test_native_function(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> Native
         NativeResult::Value(args[1].clone())
     }
     else {
-        let signal = mem.symbol_for("wrong-number-of-arguments");
-        NativeResult::Signal(signal)
+        let error = make_error(mem, "wrong-number-of-arguments", "test_native_function", &vec![]);
+        NativeResult::Signal(error)
     }
 }
 
