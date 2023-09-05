@@ -96,6 +96,99 @@ pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRe
 }
 
 
+pub fn list_iter(list: GcRef) -> ListIterator {
+    ListIterator { cursor: list.clone() }
+}
+
+
+pub struct ListIterator {
+    cursor: GcRef,
+}
+
+impl Iterator for ListIterator {
+    type Item = Option<GcRef>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(thing) = self.cursor.get() {
+            if let PrimitiveValue::Cons(cons) = thing {
+                let car     = cons.get_car();
+                self.cursor = cons.get_cdr();
+
+                // next element
+                Some(Some(car))
+            }
+            else {
+                // invalid list
+                Some(None)
+            }
+        }
+        else {
+            // end of list
+            None
+        }
+    }
+}
+
+
+pub fn string_iter(string: GcRef) -> StringIterator {
+    StringIterator { cursor: string.clone() }
+}
+
+
+pub struct StringIterator {
+    cursor: GcRef,
+}
+
+impl Iterator for StringIterator {
+    type Item = Option<(char, ConsInGcRef)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if let Some(thing) = self.cursor.get() {
+            if let PrimitiveValue::Cons(cons) = thing {
+                let old_cur = self.cursor.clone();
+                let car     = cons.get_car();
+                self.cursor = cons.get_cdr();
+
+                if let Some(PrimitiveValue::Character(ch)) = car.get() {
+                    // next element
+                    Some(Some((*ch, ConsInGcRef{ content: old_cur })))
+                }
+                else {
+                    Some(None)
+                }
+            }
+            else {
+                // invalid list
+                Some(None)
+            }
+        }
+        else {
+            // end of list
+            None
+        }
+    }
+}
+
+
+pub struct ConsInGcRef {
+    content: GcRef,
+}
+
+impl ConsInGcRef {
+    pub fn get_gcref(&self) -> GcRef {
+        self.content.clone()
+    }
+    
+    pub fn get_car(&self) -> GcRef {
+        self.content.get().unwrap().as_conscell().get_car()
+    }
+
+    pub fn get_cdr(&self) -> GcRef {
+        self.content.get().unwrap().as_conscell().get_cdr()
+    }
+}
+
+
 macro_rules! symbol_eq {
     ($x:expr, $y:expr) => {
         if let Some(PrimitiveValue::Symbol(s1)) = $x.get() {

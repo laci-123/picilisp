@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::memory::*;
-use crate::util::{vec_to_list, string_to_proper_list};
+use crate::util::{vec_to_list, string_to_proper_list, string_iter};
 use crate::native::list::make_plist;
 use std::path::Path;
 
@@ -38,21 +38,22 @@ enum TokenResult {
 
 
 fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_count: &mut usize) -> TokenResult {
-    let mut cursor           = input;
-    let mut next_cursor;
+    let mut cursor           = input.clone();
     let mut start_line_count = 1;
     let mut start_char_count = 0;
-    let mut ch;
     let mut in_comment       = false;
     let mut in_string        = false;
     let mut string_escape    = false;
     let mut buffer           = String::new();
 
-    while !cursor.is_nil() {
-        if let Some((head, tail)) = next_character(cursor.clone()) {
-            ch = head;
-            next_cursor = tail;
-            *char_count += 1;
+    for maybe_char_and_cons in string_iter(input) {
+        let ch;
+        let rest;
+        if let Some((c, cons)) = maybe_char_and_cons {
+            ch            = c;
+            cursor        = cons.get_gcref();
+            rest          = cons.get_cdr();
+            *char_count  += 1;
         }
         else {
             return TokenResult::InvalidString;
@@ -72,7 +73,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
                     // do nothing
                 }
                 else {
-                    return TokenResult::Ok(Token::new(TokenKind::OpenParen, Location::new(file, *line_count, *char_count)), next_cursor);
+                    return TokenResult::Ok(Token::new(TokenKind::OpenParen, Location::new(file, *line_count, *char_count)), rest);
                 }
             },
             ')' => {
@@ -88,7 +89,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
                     // do nothing
                 }
                 else {
-                    return TokenResult::Ok(Token::new(TokenKind::CloseParen, Location::new(file, *line_count, *char_count)), next_cursor);
+                    return TokenResult::Ok(Token::new(TokenKind::CloseParen, Location::new(file, *line_count, *char_count)), rest);
                 }
             },
             '"' => {
@@ -98,7 +99,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
                         string_escape = false;
                     }
                     else {
-                        return string_token(&buffer, file, start_line_count, start_char_count, next_cursor);
+                        return string_token(&buffer, file, start_line_count, start_char_count, rest);
                     }
                 }
                 else if buffer.len() > 0 {
@@ -125,7 +126,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
                     in_comment = false;
                 }
                 else if buffer.len() > 0 {
-                    return atom_token(&buffer, file, start_line_count, start_char_count, next_cursor);
+                    return atom_token(&buffer, file, start_line_count, start_char_count, rest);
                 }
                 else {
                     // do nothing
@@ -179,7 +180,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
             }
         }
 
-        cursor = next_cursor;
+        cursor = rest;
     }
 
     if buffer.len() == 0 {
