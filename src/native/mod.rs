@@ -23,7 +23,8 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "macroexpand",    eval::macroexpand,         FunctionKind::Lambda);
     load_native_function(mem, "eval",           eval::eval,                FunctionKind::Lambda);
     load_native_function(mem, "load-all",       eval::load_all,            FunctionKind::Lambda);
-    load_native_function(mem, "print",          print::print,              FunctionKind::Lambda);
+    // load_native_function(mem, "print",          print::print,              FunctionKind::Lambda);
+    load_native_function2(mem, print::INFO);
     load_native_function(mem, "add",            numbers::add,              FunctionKind::Lambda);
     load_native_function(mem, "substract",      numbers::substract,        FunctionKind::Lambda);
     load_native_function(mem, "multiply",       numbers::multiply,         FunctionKind::Lambda);
@@ -43,6 +44,24 @@ fn load_native_function(mem: &mut Memory, name: &str, function: fn(&mut Memory, 
     mem.define_global(name, nf);
 }
 
+
+fn load_native_function2(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
+    let empty_env = GcRef::nil();
+
+    let nf = mem.allocate_native_function(nfmd.kind, nfmd.function, empty_env);
+    let meta = Metadata{ read_name: nfmd.name.to_string(), location: Location::in_stdin(0, 0), documentation: nfmd.documentation.to_string() };
+    let nf_with_meta = mem.allocate_metadata(nf, meta);
+    mem.define_global(nfmd.name, nf_with_meta);
+}
+
+
+pub struct NativeFunctionMetaData {
+    function: fn (&mut Memory, &[GcRef], GcRef) -> NativeResult,
+    name: &'static str,
+    kind: FunctionKind,
+    documentation: &'static str,
+    parameters: &'static [&'static str],
+}
 
 
 pub mod print;
