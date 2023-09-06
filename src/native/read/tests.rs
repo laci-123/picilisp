@@ -330,9 +330,9 @@ fn read_location_atom() {
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     assert_eq_symbol!(result, mem.symbol_for("abc"));
-    assert_eq!(result.get_metadata().unwrap().location.file, None);
-    assert_eq!(result.get_metadata().unwrap().location.line, 2);
-    assert_eq!(result.get_metadata().unwrap().location.column, 3);
+    assert_eq!(result.get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(result.get_metadata().unwrap().location.get_line().unwrap(), 2);
+    assert_eq!(result.get_metadata().unwrap().location.get_column().unwrap(), 3);
 }
 
 
@@ -346,9 +346,9 @@ fn read_location_string() {
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq!(result.get_metadata().unwrap().location.file, None);
-    assert_eq!(result.get_metadata().unwrap().location.line, 3);
-    assert_eq!(result.get_metadata().unwrap().location.column, 4);
+    assert_eq!(result.get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(result.get_metadata().unwrap().location.get_line().unwrap(), 3);
+    assert_eq!(result.get_metadata().unwrap().location.get_column().unwrap(), 4);
 }
 
 #[test]
@@ -362,15 +362,15 @@ fn read_location_list() {
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     let elems = list_to_vec(result).unwrap();
-    assert_eq!(elems[0].get_metadata().unwrap().location.file, None);
-    assert_eq!(elems[0].get_metadata().unwrap().location.line, 1);
-    assert_eq!(elems[0].get_metadata().unwrap().location.column, 2);
-    assert_eq!(elems[1].get_metadata().unwrap().location.file, None);
-    assert_eq!(elems[1].get_metadata().unwrap().location.line, 1);
-    assert_eq!(elems[1].get_metadata().unwrap().location.column, 4);
-    assert_eq!(elems[2].get_metadata().unwrap().location.file, None);
-    assert_eq!(elems[2].get_metadata().unwrap().location.line, 1);
-    assert_eq!(elems[2].get_metadata().unwrap().location.column, 9);
+    assert_eq!(elems[0].get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(elems[0].get_metadata().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[0].get_metadata().unwrap().location.get_column().unwrap(), 2);
+    assert_eq!(elems[1].get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(elems[1].get_metadata().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[1].get_metadata().unwrap().location.get_column().unwrap(), 4);
+    assert_eq!(elems[2].get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(elems[2].get_metadata().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[2].get_metadata().unwrap().location.get_column().unwrap(), 9);
 }
 
 #[test]
@@ -384,15 +384,15 @@ fn read_location_list_2() {
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     let elems = list_to_vec(result).unwrap();
-    assert_eq!(elems[0].get_metadata().unwrap().location.file, None);
-    assert_eq!(elems[0].get_metadata().unwrap().location.line, 1);
-    assert_eq!(elems[0].get_metadata().unwrap().location.column, 4);
-    assert_eq!(elems[1].get_metadata().unwrap().location.file, None);
-    assert_eq!(elems[1].get_metadata().unwrap().location.line, 2);
-    assert_eq!(elems[1].get_metadata().unwrap().location.column, 1);
-    assert_eq!(elems[2].get_metadata().unwrap().location.file, None);
-    assert_eq!(elems[2].get_metadata().unwrap().location.line, 2);
-    assert_eq!(elems[2].get_metadata().unwrap().location.column, 6);
+    assert_eq!(elems[0].get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(elems[0].get_metadata().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[0].get_metadata().unwrap().location.get_column().unwrap(), 4);
+    assert_eq!(elems[1].get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(elems[1].get_metadata().unwrap().location.get_line().unwrap(), 2);
+    assert_eq!(elems[1].get_metadata().unwrap().location.get_column().unwrap(), 1);
+    assert_eq!(elems[2].get_metadata().unwrap().location.get_file(), None);
+    assert_eq!(elems[2].get_metadata().unwrap().location.get_line().unwrap(), 2);
+    assert_eq!(elems[2].get_metadata().unwrap().location.get_column().unwrap(), 6);
 }
 
 #[test]
@@ -419,9 +419,10 @@ fn read_continue_rest() {
 
                                               // 123456789
     let input        = string_to_list(&mut mem, "cat mouse");
+    let source       = mem.symbol_for("stdin");
     let start_line   = mem.allocate_number(1);
     let start_column = mem.allocate_number(1);
-    let r            = read(&mut mem, &[input, start_line, start_column], GcRef::nil()).unwrap();
+    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil()).unwrap();
     let status       = property(&mut mem, "status", r.clone()).unwrap();
     let result       = property(&mut mem, "result", r.clone()).unwrap();
     let rest         = property(&mut mem, "rest", r.clone()).unwrap();
@@ -433,7 +434,7 @@ fn read_continue_rest() {
     assert_eq!(*line.get().unwrap().as_number(), 1);
     assert_eq!(*column.get().unwrap().as_number(), 4);
 
-    let r      = read(&mut mem, &[rest, line, column], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil()).unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -452,9 +453,10 @@ fn read_continue_rest_newline() {
 
                                               // 123456 01234567
     let input        = string_to_list(&mut mem, "  lion\n tiger  ");
+    let source       = mem.symbol_for("stdin");
     let start_line   = mem.allocate_number(1);
     let start_column = mem.allocate_number(1);
-    let r            = read(&mut mem, &[input, start_line, start_column], GcRef::nil()).unwrap();
+    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil()).unwrap();
     let status       = property(&mut mem, "status", r.clone()).unwrap();
     let result       = property(&mut mem, "result", r.clone()).unwrap();
     let rest         = property(&mut mem, "rest", r.clone()).unwrap();
@@ -466,7 +468,7 @@ fn read_continue_rest_newline() {
     assert_eq!(*line.get().unwrap().as_number(), 2);
     assert_eq!(*column.get().unwrap().as_number(), 1);
 
-    let r      = read(&mut mem, &[rest, line, column], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil()).unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();

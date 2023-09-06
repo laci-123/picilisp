@@ -454,13 +454,14 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     let incomplete_symbol = mem.symbol_for("incomplete");
     let error_symbol      = mem.symbol_for("error");
     let invalid_symbol    = mem.symbol_for("invalid");
+    let prelude_symbol    = mem.symbol_for("prelude");
 
     let mut input  = args[0].clone();
     let mut line   = mem.allocate_number(1);
     let mut column = mem.allocate_number(1);
 
     while !input.is_nil() {
-        let output     = match read(mem, &[input.clone(), line.clone(), column.clone()], GcRef::nil()) {
+        let output     = match read(mem, &[input.clone(), prelude_symbol.clone(), line.clone(), column.clone()], GcRef::nil()) {
             NativeResult::Value(x) => x,
             other                  => return other,
         };

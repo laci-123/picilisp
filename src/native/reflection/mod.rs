@@ -46,9 +46,31 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
     match (metadata, param_names.clone()) {
         (Some(md), _) => {
             let doc     = string_to_list(mem, &md.documentation);
-            let file    = md.location.file.as_ref().map_or(mem.symbol_for("<stdin>"), |f| string_to_list(mem, &f.clone().into_os_string().into_string().unwrap()));
-            let line    = mem.allocate_number(md.location.line as i64);
-            let column  = mem.allocate_number(md.location.column as i64);
+            let file;
+            let line;
+            let column;
+            match &md.location {
+                Location::Native                             => {
+                    file = mem.symbol_for("native");
+                    line = GcRef::nil();
+                    column = GcRef::nil();
+                },
+                Location::Prelude{ line: ln, column: cn }    => {
+                    file = mem.symbol_for("prelude");
+                    line = mem.allocate_number(*ln as i64);
+                    column = mem.allocate_number(*cn as i64);
+                },
+                Location::Stdin{ line: ln, column: cn }      => {
+                    file = mem.symbol_for("stdin");
+                    line = mem.allocate_number(*ln as i64);
+                    column = mem.allocate_number(*cn as i64);
+                },
+                Location::File{ path, line: ln, column: cn } => {
+                    file = string_to_proper_list(mem, &path.clone().into_os_string().into_string().unwrap());
+                    line = mem.allocate_number(*ln as i64);
+                    column = mem.allocate_number(*cn as i64);
+                },
+            }
             let mut vec = vec![("documentation", doc), ("file", file), ("line", line), ("column", column)];
 
             if let Some(pn) = param_names {

@@ -14,6 +14,9 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
     let nothing_symbol    = mem.symbol_for("nothing");
     let error_symbol      = mem.symbol_for("error");
     let invalid_symbol    = mem.symbol_for("invalid");
+    let stdin_symbol      = mem.symbol_for("stdin");
+    let start_line        = mem.allocate_number(1);
+    let start_column      = mem.allocate_number(1);
 
     let mut incomplete = false;
     let mut input      = String::new();
@@ -29,7 +32,7 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
         
         let input_list  = string_to_list(mem, input.as_str());
         let output = 
-        match read(mem, &[input_list], env.clone()) {
+        match read(mem, &[input_list, stdin_symbol.clone(), start_line.clone(), start_column.clone()], env.clone()) {
             NativeResult::Value(x) => x,
             other                  => return other,
         };

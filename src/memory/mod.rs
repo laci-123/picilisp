@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::{HashSet, HashMap};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 
 #[derive(Default)]
@@ -238,23 +238,39 @@ impl Trap {
 
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Location {
-    pub file: Option<PathBuf>, // None: reading from stdin
-    pub line: usize,
-    pub column: usize,
+pub enum Location {
+    Native,
+    Prelude{line: usize, column: usize},
+    Stdin{line: usize, column: usize},
+    File{path: PathBuf, line: usize, column: usize},
 }
 
 impl Location {
-    pub fn new(file: Option<&Path>, line: usize, column: usize) -> Self {
-        Self{ file: file.map(|p| p.to_path_buf()), line, column } 
-    }
-    
-    pub fn in_file(path: &Path, line: usize, column: usize) -> Self {
-        Self{ file: Some(path.to_path_buf()), line, column }
+    pub fn get_file(&self) -> Option<PathBuf> {
+        if let Self::File{path, line: _, column: _} = self {
+            Some(path.clone())
+        }
+        else {
+            None
+        }
     }
 
-    pub fn in_stdin(line: usize, column: usize) -> Self {
-        Self{ file: None, line, column }
+    pub fn get_line(&self) -> Option<usize> {
+        match self {
+            Self::Native                         => None,
+            Self::Prelude{line, column: _}       => Some(*line),
+            Self::Stdin{line, column: _}         => Some(*line),
+            Self::File{path: _, line, column: _} => Some(*line),
+        }
+    }
+
+    pub fn get_column(&self) -> Option<usize> {
+        match self {
+            Self::Native                         => None,
+            Self::Prelude{line: _, column}       => Some(*column),
+            Self::Stdin{line: _, column}         => Some(*column),
+            Self::File{path: _, line: _, column} => Some(*column),
+        }
     }
 }
 
