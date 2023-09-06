@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::memory::*;
-use crate::util::{vec_to_list, string_to_proper_list, string_iter};
+use crate::util::{vec_to_list, string_to_proper_list, list_iter_heads_tails};
 use crate::native::list::make_plist;
 use std::path::Path;
 
@@ -46,14 +46,19 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
     let mut string_escape    = false;
     let mut buffer           = String::new();
 
-    for maybe_char_and_cons in string_iter(input) {
+    for maybe_head_and_tail in list_iter_heads_tails(input) {
         let ch;
         let rest;
-        if let Some((c, cons)) = maybe_char_and_cons {
-            ch            = c;
-            cursor        = cons.get_gcref();
-            rest          = cons.get_cdr();
-            *char_count  += 1;
+        if let Some((head, tail)) = maybe_head_and_tail {
+            if let Some(PrimitiveValue::Character(c)) = head.get() {
+                ch = *c;
+            }
+            else {
+                return TokenResult::InvalidString;
+            }
+            cursor       = head;
+            rest         = tail;
+            *char_count += 1;
         }
         else {
             return TokenResult::InvalidString;
@@ -151,7 +156,7 @@ fn next_token(input: GcRef, file: Option<&Path>, line_count: &mut usize, char_co
                 }
                 else if buffer.len() > 0 {
                     *char_count -= 1;
-                    return atom_token(&buffer, file, start_line_count, start_char_count, cursor);
+                    return atom_token(&buffer, file, start_line_count, start_char_count, rest);
                 }
                 else {
                     // do nothing

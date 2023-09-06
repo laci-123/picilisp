@@ -97,27 +97,32 @@ pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRe
 
 
 pub fn list_iter(list: GcRef) -> ListIterator {
-    ListIterator { cursor: list.clone() }
+    ListIterator { cursor: list.clone(), invalid: false }
 }
 
 
 pub struct ListIterator {
     cursor: GcRef,
+    invalid: bool,
 }
 
 impl Iterator for ListIterator {
     type Item = Option<GcRef>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.invalid {
+            return Some(None);
+        }
+        
         if let Some(thing) = self.cursor.get() {
             if let PrimitiveValue::Cons(cons) = thing {
                 let car     = cons.get_car();
                 self.cursor = cons.get_cdr();
-
                 // next element
                 Some(Some(car))
             }
             else {
+                self.invalid = true;
                 // invalid list
                 Some(None)
             }
@@ -131,33 +136,80 @@ impl Iterator for ListIterator {
 
 
 pub fn string_iter(string: GcRef) -> StringIterator {
-    StringIterator { cursor: string.clone() }
+    StringIterator { cursor: string.clone(), invalid: false }
 }
 
 
 pub struct StringIterator {
     cursor: GcRef,
+    invalid: bool,
 }
 
 impl Iterator for StringIterator {
-    type Item = Option<(char, ConsInGcRef)>;
+    type Item = Option<char>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.invalid {
+            return Some(None);
+        }
+        
         if let Some(thing) = self.cursor.get() {
             if let PrimitiveValue::Cons(cons) = thing {
-                let old_cur = self.cursor.clone();
                 let car     = cons.get_car();
                 self.cursor = cons.get_cdr();
 
                 if let Some(PrimitiveValue::Character(ch)) = car.get() {
                     // next element
-                    Some(Some((*ch, ConsInGcRef{ content: old_cur })))
+                    Some(Some(*ch))
                 }
                 else {
+                    self.invalid = true;
+                    // invalid string
                     Some(None)
                 }
             }
             else {
+                self.invalid = true;
+                // invalid list
+                Some(None)
+            }
+        }
+        else {
+            // end of list
+            None
+        }
+    }
+}
+
+
+pub fn list_iter_heads_tails(list: GcRef) -> HeadTailIterator {
+    HeadTailIterator{ cursor: list, invalid: false }
+}
+
+
+pub struct HeadTailIterator {
+    cursor: GcRef,
+    invalid: bool,
+}
+
+impl Iterator for HeadTailIterator {
+    type Item = Option<(GcRef, GcRef)>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.invalid {
+            return Some(None);
+        }
+        
+        if let Some(thing) = self.cursor.get() {
+            if let PrimitiveValue::Cons(cons) = thing {
+                let car     = cons.get_car();
+                self.cursor = cons.get_cdr();
+
+                // next element
+                Some(Some((car, self.cursor.clone())))
+            }
+            else {
+                self.invalid = true;
                 // invalid list
                 Some(None)
             }

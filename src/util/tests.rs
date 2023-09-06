@@ -108,4 +108,105 @@ fn util_append_lists() {
     assert_eq!(vec3.iter().map(|x| *x.get().unwrap().as_number()).collect::<Vec<i64>>(), vec![110, 120, 130, 140, 150, 160]);
 }
 
+#[test]
+fn util_list_iter_empty() {
+    let list = GcRef::nil();
 
+    let mut iterator = list_iter(list);
+
+    assert!(iterator.next().is_none());
+}
+
+#[test]
+fn util_list_iter() {
+    let mut mem = Memory::new();
+
+    let vec  = vec![mem.allocate_number(1), mem.allocate_number(2), mem.allocate_number(3)];
+    let list = vec_to_list(&mut mem, &vec);
+
+    let mut iterator = list_iter(list);
+
+    assert_eq!(*iterator.next().unwrap().unwrap().get().unwrap().as_number(), 1);
+    assert_eq!(*iterator.next().unwrap().unwrap().get().unwrap().as_number(), 2);
+    assert_eq!(*iterator.next().unwrap().unwrap().get().unwrap().as_number(), 3);
+    assert!(iterator.next().is_none());
+}
+
+#[test]
+fn util_list_iter_invalid() {
+    let mut mem = Memory::new();
+
+    let x1 = mem.allocate_character('a');
+    let x2 = mem.allocate_character('b');
+    let x3 = mem.symbol_for("not-nil");
+    let cons1 = mem.allocate_cons(x2, x3);
+    let cons2 = mem.allocate_cons(x1, cons1);
+
+    let mut iterator = list_iter(cons2);
+
+    assert_eq!(*iterator.next().unwrap().unwrap().get().unwrap().as_character(), 'a');
+    assert_eq!(*iterator.next().unwrap().unwrap().get().unwrap().as_character(), 'b');
+    assert!(iterator.next().unwrap().is_none());
+}
+
+#[test]
+fn util_headstails_iter_empty() {
+    let list = GcRef::nil();
+
+    let mut iterator = list_iter_heads_tails(list);
+
+    assert!(iterator.next().is_none());
+}
+
+#[test]
+fn util_headstails_iter() {
+    let mut mem = Memory::new();
+
+    let vec  = vec![mem.allocate_number(1), mem.allocate_number(2), mem.allocate_number(3)];
+    let list = vec_to_list(&mut mem, &vec);
+
+    let mut iterator = list_iter_heads_tails(list);
+
+    let (h1, t1) = iterator.next().unwrap().unwrap();
+    assert_eq!(*h1.get().unwrap().as_number(), 1);
+    let v1 = list_to_vec(t1).unwrap();
+    assert_eq!(v1.len(), 2);
+    assert_eq!(*v1[0].get().unwrap().as_number(), 2);
+    assert_eq!(*v1[1].get().unwrap().as_number(), 3);
+
+    let (h2, t2) = iterator.next().unwrap().unwrap();
+    assert_eq!(*h2.get().unwrap().as_number(), 2);
+    let v2 = list_to_vec(t2).unwrap();
+    assert_eq!(v2.len(), 1);
+    assert_eq!(*v2[0].get().unwrap().as_number(), 3);
+
+    let (h3, t3) = iterator.next().unwrap().unwrap();
+    assert_eq!(*h3.get().unwrap().as_number(), 3);
+    assert!(t3.is_nil());
+
+    assert!(iterator.next().is_none());
+}
+
+#[test]
+fn util_heads_tails_iter_invalid() {
+    let mut mem = Memory::new();
+
+    let x1 = mem.allocate_character('a');
+    let x2 = mem.allocate_character('b');
+    let x3 = mem.symbol_for("not-nil");
+    let cons1 = mem.allocate_cons(x2, x3);
+    let cons2 = mem.allocate_cons(x1, cons1);
+
+    let mut iterator = list_iter_heads_tails(cons2);
+
+    let (h1, t1) = iterator.next().unwrap().unwrap();
+    assert_eq!(*h1.get().unwrap().as_character(), 'a');
+    assert_eq!(*t1.get().unwrap().as_conscell().get_car().get().unwrap().as_character(), 'b');
+    assert_eq!(t1.get().unwrap().as_conscell().get_cdr().get().unwrap().as_symbol(), mem.symbol_for("not-nil").get().unwrap().as_symbol());
+
+    let (h2, t2) = iterator.next().unwrap().unwrap();
+    assert_eq!(*h2.get().unwrap().as_character(), 'b');
+    assert_eq!(t2.get().unwrap().as_symbol(), mem.symbol_for("not-nil").get().unwrap().as_symbol());
+
+    assert!(iterator.next().unwrap().is_none());
+}
