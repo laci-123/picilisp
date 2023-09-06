@@ -49,7 +49,7 @@ fn load_native_function2(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
     let empty_env = GcRef::nil();
 
     let nf = mem.allocate_native_function(nfmd.kind, nfmd.function, empty_env);
-    let meta = Metadata{ read_name: nfmd.name.to_string(), location: Location::Native, documentation: nfmd.documentation.to_string() };
+    let meta = Metadata{ read_name: nfmd.name.to_string(), location: Location::Native, documentation: nfmd.documentation.to_string(), parameters: nfmd.parameters.iter().map(|s| s.to_string()).collect() };
     let nf_with_meta = mem.allocate_metadata(nf, meta);
     mem.define_global(nfmd.name, nf_with_meta);
 }

@@ -71,7 +71,15 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
                     column = mem.allocate_number(*cn as i64);
                 },
             }
-            let mut vec = vec![("documentation", doc), ("file", file), ("line", line), ("column", column)];
+            let mut vec = vec![("documentation", doc), ("file", file)];
+
+            if !line.is_nil() {
+                vec.push(("line", line));
+            }
+
+            if !column.is_nil() {
+                vec.push(("column", column));
+            }
 
             if let Some(pn) = param_names {
                 vec.insert(0, ("parameters", pn));
@@ -97,9 +105,14 @@ fn get_param_names(mem: &mut Memory, x: GcRef) -> Option<GcRef> {
             param_names.push(rp);
         }
 
-        Some(vec_to_list(mem, &param_names))
+        return Some(vec_to_list(mem, &param_names));
     }
-    else {
-        None
+    else if let Some(md) = x.get_metadata() {
+        if md.parameters.len() > 0 {
+            let param_names = md.parameters.iter().map(|p| mem.symbol_for(p)).collect::<Vec<GcRef>>();
+            return Some(vec_to_list(mem, &param_names));
+        }
     }
+
+    None
 }

@@ -310,7 +310,7 @@ fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: 
         read_name = symbol.get_name();
     }
 
-    let result = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string() });
+    let result = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string(), parameters: vec![] });
 
     if let Some(top) = stack.last_mut() {
         top.push(result);
