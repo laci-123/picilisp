@@ -1,7 +1,5 @@
 use crate::{memory::*, native::list::make_plist};
 
-use super::list::property;
-
 
 
 pub fn signal(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
@@ -37,20 +35,5 @@ pub fn fit_to_number(mem: &mut Memory, x: usize) -> GcRef {
     }
     else {
         mem.symbol_for("more-than-number-type-maximum")
-    }
-}
-
-
-pub fn get_error_kind(mem: &mut Memory, error: GcRef) -> Option<String> {
-    if let Some(x) = property(mem, "kind", error) {
-        if let Some(PrimitiveValue::Symbol(symbol)) = x.get() {
-            Some(symbol.get_name())
-        }
-        else {
-            None
-        }
-    }
-    else {
-        None
     }
 }

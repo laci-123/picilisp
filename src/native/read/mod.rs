@@ -329,7 +329,7 @@ fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: 
 
 fn format_error(mem: &mut Memory, location: Location, msg: String, rest: RestOfInput, rest_line: usize, rest_column: usize) -> GcRef {
     let error_sym = mem.symbol_for("error");
-    let error_msg = string_to_proper_list(mem, &msg);
+    let error_msg = string_to_list(mem, &msg);
     let file;
     let line;
     let column;

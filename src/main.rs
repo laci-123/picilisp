@@ -14,14 +14,17 @@ fn main() -> Result<(), String> {
 
     println!("Loaded native functions.");
 
+    // (load-all "prelude contents..." (quote prelude))
     let prelude_str = include_str!("prelude.lisp");  
     let prelude     = string_to_proper_list(&mut mem, prelude_str);
-    let vec         = vec![mem.symbol_for("load-all"), prelude];
+    let source_name = vec![mem.symbol_for("quote"), mem.symbol_for("prelude")];
+    let vec         = vec![mem.symbol_for("load-all"), prelude, vec_to_list(&mut mem, &source_name)];
     let expression  = vec_to_list(&mut mem, &vec);
     eval_external(&mut mem, expression)?;
 
     println!("Loaded prelude.");
 
+    // (repl)
     let vec        = vec![mem.symbol_for("repl")];
     let expression = vec_to_list(&mut mem, &vec);
     eval_external(&mut mem, expression)?;

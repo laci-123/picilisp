@@ -437,15 +437,15 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     
     match eval(mem, &[tree], empty_env.clone()) {
         NativeResult::Value(x)       => Ok(x),
-        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", get_error_kind(mem, signal).unwrap_or("<unkown signal>".to_string()))),
+        NativeResult::Signal(signal) => Err(format!("Unhandled signal: {}", list_to_string(crate::native::print::print(mem, &[signal], empty_env).unwrap()).unwrap())),
         NativeResult::Abort(msg)     => Err(msg),
     }
 }
 
 
 pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
+    if args.len() != 2 {
+        let error_details = vec![("expected", mem.allocate_number(2)), ("actual", fit_to_number(mem, args.len()))];
         let error = make_error(mem, "wrong-number-of-arguments", "load-all", &error_details);
         return NativeResult::Signal(error);
     }
@@ -454,22 +454,23 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     let incomplete_symbol = mem.symbol_for("incomplete");
     let error_symbol      = mem.symbol_for("error");
     let invalid_symbol    = mem.symbol_for("invalid");
-    let prelude_symbol    = mem.symbol_for("prelude");
 
     let mut input  = args[0].clone();
+    let source     = args[1].clone();
     let mut line   = mem.allocate_number(1);
     let mut column = mem.allocate_number(1);
 
     while !input.is_nil() {
-        let output     = match read(mem, &[input.clone(), prelude_symbol.clone(), line.clone(), column.clone()], GcRef::nil()) {
+        let output     = match read(mem, &[input.clone(), source.clone(), line.clone(), column.clone()], GcRef::nil()) {
             NativeResult::Value(x) => x,
             other                  => return other,
         };
-        let status = property(mem, "status", output.clone()).unwrap();
-        let result = property(mem, "result", output.clone()).unwrap();
-        let rest   = property(mem, "rest",   output.clone()).unwrap();
-        line       = property(mem, "line",   output.clone()).unwrap();
-        column     = property(mem, "column", output).unwrap();
+        let status     = property(mem, "status", output.clone()).unwrap();
+        let result     = property(mem, "result", output.clone()).unwrap();
+        let rest       = property(mem, "rest",   output.clone()).unwrap();
+        let read_error = property(mem, "error",   output.clone()).unwrap();
+        line           = property(mem, "line",   output.clone()).unwrap();
+        column         = property(mem, "column", output).unwrap();
 
         if symbol_eq!(status, ok_symbol) {
             match eval(mem, &[result], GcRef::nil()) {
@@ -478,13 +479,17 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
             }
         }
         else if symbol_eq!(status, incomplete_symbol) {
-            return NativeResult::Signal(mem.symbol_for("input-incomplete"));
+            let error = make_error(mem, "input-incomplete", "load-all", &vec![]);
+            return NativeResult::Signal(error);
         }
         else if symbol_eq!(status, error_symbol) {
-            return NativeResult::Signal(mem.symbol_for("read-error"));
+            let error_details = vec![("details", read_error)];
+            let error = make_error(mem, "read-error", "load-all", &error_details);
+            return NativeResult::Signal(error);
         }
         else if symbol_eq!(status, invalid_symbol) {
-            return NativeResult::Signal(mem.symbol_for("input-invalid-string"));
+            let error = make_error(mem, "input-invalid-string", "load-all", &vec![]);
+            return NativeResult::Signal(error);
         }
 
         input = rest;
