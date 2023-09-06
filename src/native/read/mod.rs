@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
 use crate::memory::*;
-use crate::util::{vec_to_list, string_to_proper_list, list_to_string, symbol_eq};
+use crate::util::*;
 use crate::native::list::make_plist;
+use crate::native::signal::{make_error, fit_to_number};
 use super::NativeFunctionMetaData;
 use std::path::PathBuf;
 
@@ -467,7 +468,10 @@ Possible values of `source`:
 
 pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 && args.len() != 4 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+        let vec = vec![mem.symbol_for("or"), mem.allocate_number(1), mem.allocate_number(4)];
+        let error_details = vec![("expected", vec_to_list(mem, &vec)), ("actual", fit_to_number(mem, args.len()))];
+        let error = make_error(mem, "wrong-number-of-arguments", READ.name, &error_details);
+        return NativeResult::Signal(error);
     }
 
     let source;
@@ -484,21 +488,37 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
                 source = Source::Stdin;
         }
         else {
-            return NativeResult::Signal(mem.symbol_for("unknown-read-source"));
+            let error_details = vec![("the-unknown-source", args[1].clone())];
+            let error = make_error(mem, "unknown-read-source", READ.name, &error_details);
+            return NativeResult::Signal(error);
         }
 
         if let Some(PrimitiveValue::Number(x)) = args[2].get() {
             start_line = *x as usize;
         }
         else {
-            return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
+            let actual_type =
+            match crate::native::reflection::type_of(mem, &[args[2].clone()], GcRef::nil()) {
+                NativeResult::Value(t) => t,
+                other                  => return other,
+            };
+            let error_details = vec![("expected", mem.symbol_for("number")), ("actual", actual_type)];
+            let error = make_error(mem, "wrong-argument-type", READ.name, &error_details);
+            return NativeResult::Signal(error);
         }
 
         if let Some(PrimitiveValue::Number(x)) = args[3].get() {
             start_column = *x as usize;
         }
         else {
-            return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
+            let actual_type =
+            match crate::native::reflection::type_of(mem, &[args[3].clone()], GcRef::nil()) {
+                NativeResult::Value(t) => t,
+                other                  => return other,
+            };
+            let error_details = vec![("expected", mem.symbol_for("number")), ("actual", actual_type)];
+            let error = make_error(mem, "wrong-argument-type", READ.name, &error_details);
+            return NativeResult::Signal(error);
         }
     }
     else {
