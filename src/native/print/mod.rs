@@ -125,19 +125,19 @@ fn print_internal(mem: &mut Memory, tree: GcRef) -> GcRef {
 }
 
 
-pub const INFO: NativeFunctionMetaData =
+pub const PRINT: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      print,
     name:          "print",
     kind:          FunctionKind::Lambda,
+    parameters:    &["input"],
     documentation: "Convert `input` to its string representation.",
-    parameters:    &["input"]
 };
 
 pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "wrong-number-of-arguments", INFO.name, &error_details);
+        let error = make_error(mem, "wrong-number-of-arguments", PRINT.name, &error_details);
         return NativeResult::Signal(error);
     }
     NativeResult::Value(print_internal(mem, args[0].clone()))

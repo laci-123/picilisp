@@ -3,6 +3,7 @@
 use crate::memory::*;
 use crate::util::{vec_to_list, string_to_proper_list, list_to_string, symbol_eq};
 use crate::native::list::make_plist;
+use super::NativeFunctionMetaData;
 use std::path::PathBuf;
 
 
@@ -434,20 +435,36 @@ fn next_character(input: GcRef) -> Option<(char, GcRef)> {
 }
 
 
-/// Converts a Lisp-style string to an AST
-///
-/// Only reads the shortest prefix of the input string that is a valid AST
-///
-/// Returns a property list which always contains at least a `status` key.
-/// The `status` key can have one of the following values:
-///  * `ok`:         Success. The key `result` is the AST.
-///  * `nothing`:    The input was empty or only contained whitespace.
-///  * `incomplete`: The input is not a valid AST, but can be the beginning of a valid AST.
-///  * `error`:      The input is not a valid AST, not even the beginning of one. The `error` key contains the error details.
-///  * `invalid`:    The input is not a valid string.
-///
-/// Whenever there is a `rest` key, the `line` and `column` keys are also present,
-/// whose values are respectively the first line and column of the rest of the input.
+
+pub const READ: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      read,
+    name:          "read",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["input", "&", "source", "start-line", "start-column"],
+    documentation: 
+r"Converts a Lisp-style string to an AST.
+
+Only reads the shortest prefix of the input string that is a valid AST.
+
+Returns a property list which always contains at least a `status` key.
+The `status` key can have one of the following values:
+ * `ok`:         Success. The key `result` is the AST.
+ * `nothing`:    The input was empty or only contained whitespace.
+ * `incomplete`: The input is not a valid AST, but can be the beginning of a valid AST.
+ * `error`:      The input is not a valid AST, not even the beginning of one. The `error` key contains the error details.
+ * `invalid`:    The input is not a valid string.
+
+Whenever there is a `rest` key, the `line` and `column` keys are also present,
+whose values are respectively the first line and column of the rest of the input.
+
+`source`, `start-line` and `start-column` describe where we are reading from.
+Possible values of `source`:
+ * prelude
+ * stdin
+ * a string representing a file-path.",
+};
+
 pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 && args.len() != 4 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));

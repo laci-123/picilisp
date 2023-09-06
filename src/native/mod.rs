@@ -19,12 +19,11 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "abort",          misc::abort,               FunctionKind::Lambda);
     load_native_function(mem, "signal",         signal::signal,            FunctionKind::Lambda);
     load_native_function(mem, "trap",           signal::trap,              FunctionKind::SpecialLambda);
-    load_native_function(mem, "read",           read::read,                FunctionKind::Lambda);
+    load_native_function2(mem, read::READ);
     load_native_function(mem, "macroexpand",    eval::macroexpand,         FunctionKind::Lambda);
     load_native_function(mem, "eval",           eval::eval,                FunctionKind::Lambda);
     load_native_function(mem, "load-all",       eval::load_all,            FunctionKind::Lambda);
-    // load_native_function(mem, "print",          print::print,              FunctionKind::Lambda);
-    load_native_function2(mem, print::INFO);
+    load_native_function2(mem, print::PRINT);
     load_native_function(mem, "add",            numbers::add,              FunctionKind::Lambda);
     load_native_function(mem, "substract",      numbers::substract,        FunctionKind::Lambda);
     load_native_function(mem, "multiply",       numbers::multiply,         FunctionKind::Lambda);
