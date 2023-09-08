@@ -126,3 +126,28 @@ Otherwise substract all but the first argument from the first one."
         (append (car lists)
                 (concat-list (cdr lists))))
       nil))
+
+(defun describe (thing)
+  "Print all available metadata about `thing` in a human-readable format."
+  (let (metadata (get-metadata thing))
+    (if metadata
+        (concat (if (= (type-of thing) (quote function))
+                    (concat "("
+                            (print (get-property (quote function-kind) metadata))
+                            " "
+                            (print (get-property (quote parameters) metadata))
+                            " ...)")
+                    "")
+                "\n\n"
+                (or (get-property (quote documentation) metadata)
+                    "[No documentation]")
+                "\n\nDefined in:\n "
+                (let (source (get-property (quote file) metadata))
+                  (if (= source (quote native))
+                      "Rust source."
+                      (concat (print source)
+                              ":"
+                              (print (get-property (quote line) metadata))
+                              ":"
+                              (print (get-property (quote column) metadata))))))
+        "No description available")))

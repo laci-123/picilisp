@@ -70,7 +70,7 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
                 let kind =
                 match f.get_kind() {
                     FunctionKind::Macro         => mem.symbol_for("macro"),
-                    FunctionKind::Syntax        => mem.symbol_for("syntax-macro"),
+                    FunctionKind::Syntax        => mem.symbol_for("syntax"),
                     FunctionKind::SpecialLambda => mem.symbol_for("special-lambda"),
                     FunctionKind::Lambda        => mem.symbol_for("lambda"),
                 };
