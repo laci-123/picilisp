@@ -1,10 +1,12 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::native::list::make_plist;
+use crate::error_utils::*;
 
 pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-number-of-arguments"));
+    let nr = validate_arguments(mem, "type-of", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let symbol =
@@ -23,8 +25,9 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 
 
 pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-number-of-arguments"));
+    let nr = validate_arguments(mem, "get-metadata", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let metadata    = args[0].get_metadata();

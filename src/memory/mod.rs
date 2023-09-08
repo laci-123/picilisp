@@ -172,6 +172,13 @@ impl NativeResult {
             panic!("called `NativeResult::unwrap()` on a non-`Value` variant")
         }
     }
+
+    pub fn is_err(&self) -> bool {
+        match self {
+            Self::Value(_) => false,
+            _              => true,
+        }
+    }
 }
 
 pub struct NativeFunction {
@@ -300,6 +307,7 @@ impl Meta {
 }
 
 
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TypeLabel {
     Nil,
     Number,
@@ -308,6 +316,20 @@ pub enum TypeLabel {
     Symbol,
     Function,
     Trap,
+}
+
+impl TypeLabel {
+    pub fn to_string(self) -> &'static str {
+        match self {
+            Self::Nil       => "nil",
+            Self::Number    => "number",
+            Self::Character => "character",
+            Self::Cons      => "conscell",
+            Self::Symbol    => "symbol",
+            Self::Function  => "function",
+            Self::Trap      => "trap",
+        }
+    }
 }
 
 
@@ -490,23 +512,23 @@ impl GcRef {
     }
 
     pub fn get_type(&self) -> TypeLabel {
-        if self.pointer.is_null() {
-            TypeLabel::Nil
-        }
-        else {
-            let mut pointer = self.pointer;
-            loop {
-                let value = unsafe { &(*pointer).value };
-                match value {
-                    PrimitiveValue::Nil          => return TypeLabel::Nil,
-                    PrimitiveValue::Number(_)    => return TypeLabel::Number,
-                    PrimitiveValue::Character(_) => return TypeLabel::Character,
-                    PrimitiveValue::Cons(_)      => return TypeLabel::Cons,
-                    PrimitiveValue::Symbol(_)    => return TypeLabel::Symbol,
-                    PrimitiveValue::Function(_)  => return TypeLabel::Function,
-                    PrimitiveValue::Trap(_)      => return TypeLabel::Trap,
-                    PrimitiveValue::Meta(m)      => pointer = m.value,
-                }
+        let mut pointer = self.pointer;
+        loop {
+            if pointer.is_null() {
+                return TypeLabel::Nil;
+            }
+            let value = unsafe {
+                &(*pointer).value
+            };
+            match value {
+                PrimitiveValue::Nil          => return TypeLabel::Nil,
+                PrimitiveValue::Number(_)    => return TypeLabel::Number,
+                PrimitiveValue::Character(_) => return TypeLabel::Character,
+                PrimitiveValue::Cons(_)      => return TypeLabel::Cons,
+                PrimitiveValue::Symbol(_)    => return TypeLabel::Symbol,
+                PrimitiveValue::Function(_)  => return TypeLabel::Function,
+                PrimitiveValue::Trap(_)      => return TypeLabel::Trap,
+                PrimitiveValue::Meta(m)      => pointer = m.value,
             }
         }
     }
@@ -586,7 +608,9 @@ impl Memory {
         }
         else {
             let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() }));
-            if let PrimitiveValue::Symbol(sym) = unsafe { &mut (*sym_ptr).value } {
+            if let PrimitiveValue::Symbol(sym) = unsafe {
+                &mut (*sym_ptr).value
+            } {
                 sym.own_address = sym_ptr;
             }
             else {
@@ -601,7 +625,9 @@ impl Memory {
 
     pub fn unique_symbol(&mut self) -> GcRef {
         let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
-        if let PrimitiveValue::Symbol(sym) = unsafe { &mut (*sym_ptr).value } {
+        if let PrimitiveValue::Symbol(sym) = unsafe {
+            &mut (*sym_ptr).value
+        } {
             sym.own_address = sym_ptr;
         }
         else {
@@ -708,7 +734,9 @@ impl Memory {
         while let Some(cell) = stack.pop() {
             reachable.insert(cell);
 
-            let value = unsafe{ &(*cell).value };
+            let value = unsafe{
+                &(*cell).value
+            };
             match value {
                 PrimitiveValue::Cons(cons) => {
                     if !cons.car.is_null() {

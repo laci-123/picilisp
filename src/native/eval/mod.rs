@@ -2,7 +2,7 @@ use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
 use crate::native::list::property;
-use super::signal::*;
+use crate::error_utils::*;
 
 
 
@@ -303,7 +303,7 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<&
         }
         else {
             let error_details = vec![("expected", fit_to_number(mem, i + 1)), ("actual", fit_to_number(mem, args.len()))];
-            let error = make_error(mem, "not-enough-arguments", source, &error_details);
+            let error = make_error(mem, "wrong-number-of-arguments", source, &error_details);
             return EvalInternal::Signal(error);
         };
         let param_arg = mem.allocate_cons(param, arg);
@@ -319,7 +319,7 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<&
     }
     else if i < args.len() {
         let error_details = vec![("expected", fit_to_number(mem, i)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "too-many-arguments", source, &error_details);
+        let error = make_error(mem, "wrong-number-of-arguments", source, &error_details);
         return EvalInternal::Signal(error);
     }
 
@@ -405,10 +405,9 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
 
 
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "wrong-number-of-arguments", "eval", &error_details);
-        return NativeResult::Signal(error);
+    let nr = validate_arguments(mem, "eval", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let expanded =
@@ -422,10 +421,9 @@ pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
 
 
 pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "wrong-number-of-arguments", "macroexpand", &error_details);
-        return NativeResult::Signal(error);
+    let nr = validate_arguments(mem, "macroexpand", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     process(mem, args[0].clone(), env, Mode::MacroExpand)
@@ -444,10 +442,9 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
 
 
 pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        let error_details = vec![("expected", mem.allocate_number(2)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "wrong-number-of-arguments", "load-all", &error_details);
-        return NativeResult::Signal(error);
+    let nr = validate_arguments(mem, "eval", &vec![ParameterType::Any, ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let ok_symbol         = mem.symbol_for("ok");
@@ -473,9 +470,9 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         column         = property(mem, "column", output).unwrap();
 
         if symbol_eq!(status, ok_symbol) {
-            match eval(mem, &[result], GcRef::nil()) {
-                NativeResult::Value(_) => {/* only interested in side effects */},
-                other                  => return other,
+            let nr = eval(mem, &[result], GcRef::nil());
+            if nr.is_err() {
+                return nr;
             }
         }
         else if symbol_eq!(status, incomplete_symbol) {

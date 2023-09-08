@@ -39,3 +39,4 @@ fn main() -> Result<(), String> {
 mod memory;
 mod util;
 mod native;
+mod error_utils;

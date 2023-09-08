@@ -1,12 +1,14 @@
 use crate::memory::*;
 use crate::native::eval::eval;
 use crate::util::{list_to_vec, list_to_string};
+use crate::error_utils::*;
 
 
 
 pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 0 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "gensym", &vec![], args);
+    if nr.is_err() {
+        return nr;
     }
     
     NativeResult::Value(mem.unique_symbol())
@@ -14,8 +16,9 @@ pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 
 
 pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "quote", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     NativeResult::Value(args[0].clone())
@@ -23,8 +26,9 @@ pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 
     // can't call it `if`
 pub fn branch(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    if args.len() != 3 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "if", &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let test      = args[0].clone();
@@ -47,8 +51,9 @@ pub fn branch(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
 
 
 pub fn equal(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "=", &vec![ParameterType::Any, ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     NativeResult::Value(if equal_internal(args[0].clone(), args[1].clone()) {mem.symbol_for("t")} else {GcRef::nil()})
@@ -138,8 +143,9 @@ fn equal_internal(a: GcRef, b: GcRef) -> bool {
 
 
 pub fn abort(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "abort", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let msg = list_to_string(args[0].clone());

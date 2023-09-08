@@ -1,14 +1,13 @@
 use crate::memory::*;
 use crate::util::list_to_string;
-use crate::native::signal::{make_error, fit_to_number};
+use crate::error_utils::*;
 
 
 
 pub fn message(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        let error_details = vec![("expected", mem.allocate_number(1)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "wrong-number-of-arguments", "message", &error_details);
-        return NativeResult::Signal(error);
+    let nr = validate_arguments(mem, "message", &vec![ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
     
     if let Some(msg) = list_to_string(args[0].clone()) {

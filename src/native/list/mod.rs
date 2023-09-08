@@ -1,11 +1,13 @@
 use crate::memory::*;
 use crate::util::*;
+use crate::error_utils::*;
 
 
 
 pub fn cons(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "cons", &vec![ParameterType::Any, ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
     let cons = mem.allocate_cons(args[0].clone(), args[1].clone());
@@ -15,30 +17,22 @@ pub fn cons(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 
 
 pub fn car(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "car", &vec![ParameterType::Type(TypeLabel::Cons)], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    if let Some(PrimitiveValue::Cons(cons)) = args[0].get() {
-        NativeResult::Value(cons.get_car())
-    }
-    else {
-        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
-    }
+    NativeResult::Value(args[0].get().unwrap().as_conscell().get_car())
 }
 
 
 pub fn cdr(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "cdr", &vec![ParameterType::Type(TypeLabel::Cons)], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    if let Some(PrimitiveValue::Cons(cons)) = args[0].get() {
-        NativeResult::Value(cons.get_cdr())
-    }
-    else {
-        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
-    }
+    NativeResult::Value(args[0].get().unwrap().as_conscell().get_cdr())
 }
 
 
@@ -74,24 +68,19 @@ pub fn property(mem: &mut Memory, key: &str, plist: GcRef) -> Option<GcRef> {
 
 
 pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "get-property", &vec![ParameterType::Type(TypeLabel::Symbol), ParameterType::Any], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    let key;
-    if let Some(PrimitiveValue::Symbol(symbol)) = args[0].get() {
-        key = symbol;
-    }
-    else {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
-    }
+    let key = args[0].get().unwrap().as_symbol();
 
     let plist;
     if let Some(v) = list_to_vec(args[1].clone()) {
         plist = v;
     }
     else {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-type"));
+        return NativeResult::Signal(mem.symbol_for("wrong-argument-type"));
     }
 
     if let Some(result) = get_property_internal(key, &plist) {

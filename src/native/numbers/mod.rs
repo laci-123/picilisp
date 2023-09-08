@@ -1,98 +1,71 @@
 use crate::memory::*;
+use crate::error_utils::*;
 
 
 
 pub fn add(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "add", &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
-        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
-            if let Some(z) = x.checked_add(*y) {
-                NativeResult::Value(mem.allocate_number(z))
-            }
-            else {
-                NativeResult::Signal(mem.symbol_for("addition-overflow"))
-            }
-        }
-        else {
-            NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
-        }
+    let x = args[0].get().unwrap().as_number();
+    let y = args[1].get().unwrap().as_number();
+    if let Some(z) = x.checked_add(*y) {
+        NativeResult::Value(mem.allocate_number(z))
     }
     else {
-        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
+        NativeResult::Signal(mem.symbol_for("addition-overflow"))
     }
 }
 
 
 pub fn substract(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "substract", &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
-        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
-            if let Some(z) = x.checked_sub(*y) {
-                NativeResult::Value(mem.allocate_number(z))
-            }
-            else {
-                NativeResult::Signal(mem.symbol_for("substraction-overflow"))
-            }
-        }
-        else {
-            NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
-        }
+    let x = args[0].get().unwrap().as_number();
+    let y = args[1].get().unwrap().as_number();
+    if let Some(z) = x.checked_sub(*y) {
+        NativeResult::Value(mem.allocate_number(z))
     }
     else {
-        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
+        NativeResult::Signal(mem.symbol_for("substraction-overflow"))
     }
 }
 
 
 pub fn multiply(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "multiply", &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
-        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
-            if let Some(z) = x.checked_mul(*y) {
-                NativeResult::Value(mem.allocate_number(z))
-            }
-            else {
-                NativeResult::Signal(mem.symbol_for("multiplication-overflow"))
-            }
-        }
-        else {
-            NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
-        }
+    let x = args[0].get().unwrap().as_number();
+    let y = args[1].get().unwrap().as_number();
+    if let Some(z) = x.checked_mul(*y) {
+        NativeResult::Value(mem.allocate_number(z))
     }
     else {
-        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
+        NativeResult::Signal(mem.symbol_for("multiplication-overflow"))
     }
 }
 
 
 pub fn divide(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    if args.len() != 2 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+    let nr = validate_arguments(mem, "divide", &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args);
+    if nr.is_err() {
+        return nr;
     }
 
-    if let Some(PrimitiveValue::Number(x)) = args[0].get() {
-        if let Some(PrimitiveValue::Number(y)) = args[1].get() {
-            if *y == 0 {
-                NativeResult::Signal(mem.symbol_for("divide-by-zero"))
-            }
-            else {
-                NativeResult::Value(mem.allocate_number(*x / *y))
-            }
-        }
-        else {
-            NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
-        }
+    let x = args[0].get().unwrap().as_number();
+    let y = args[1].get().unwrap().as_number();
+    if *y == 0 {
+        NativeResult::Signal(mem.symbol_for("divide-by-zero"))
     }
     else {
-        NativeResult::Signal(mem.symbol_for("wrong-arg-type"))
+        NativeResult::Value(mem.allocate_number(*x / *y))
     }
 }

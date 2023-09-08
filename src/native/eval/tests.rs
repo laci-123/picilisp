@@ -342,7 +342,7 @@ fn eval_not_enough_args() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind not-enough-arguments source #<function> expected 2 actual 1)");
+    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source #<function> expected 2 actual 1)");
 }
 
 #[test]
@@ -359,5 +359,5 @@ fn eval_too_many_args() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind too-many-arguments source #<function> expected 2 actual 3)");
+    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source #<function> expected 2 actual 3)");
 }

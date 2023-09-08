@@ -3,7 +3,7 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::native::list::make_plist;
-use crate::native::signal::{make_error, fit_to_number};
+use crate::error_utils::*;
 use super::NativeFunctionMetaData;
 use std::path::PathBuf;
 
@@ -468,9 +468,9 @@ Possible values of `source`:
 
 pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 && args.len() != 4 {
-        let vec = vec![mem.symbol_for("or"), mem.allocate_number(1), mem.allocate_number(4)];
+        let vec           = vec![mem.symbol_for("or"), mem.allocate_number(1), mem.allocate_number(4)];
         let error_details = vec![("expected", vec_to_list(mem, &vec)), ("actual", fit_to_number(mem, args.len()))];
-        let error = make_error(mem, "wrong-number-of-arguments", READ.name, &error_details);
+        let error         = make_error(mem, "wrong-number-of-arguments", READ.name, &error_details);
         return NativeResult::Signal(error);
     }
 
