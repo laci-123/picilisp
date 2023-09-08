@@ -299,6 +299,18 @@ impl Meta {
     }
 }
 
+
+pub enum TypeLabel {
+    Nil,
+    Number,
+    Character,
+    Cons,
+    Symbol,
+    Function,
+    Trap,
+}
+
+
 #[derive(Default)]
 pub enum PrimitiveValue {
     #[default]
@@ -312,21 +324,7 @@ pub enum PrimitiveValue {
     Meta(Meta),
 }
 
-impl PrimitiveValue {
-    // for debuggnig
-    pub fn which(&self) -> &str {
-        match self {
-            Self::Nil          => "nil",
-            Self::Number(_)    => "number",
-            Self::Character(_) => "character",
-            Self::Cons(_)      => "conscell",
-            Self::Symbol(_)    => "symbol",
-            Self::Function(_)  => "function",
-            Self::Trap(_)      => "trap",
-            Self::Meta(_)      => "meta",
-        }
-    }
-    
+impl PrimitiveValue { 
     pub fn is_nil(&self) -> bool {
         if let Self::Nil = self {
             true
@@ -488,6 +486,28 @@ impl GcRef {
         }
         else {
             None
+        }
+    }
+
+    pub fn get_type(&self) -> TypeLabel {
+        if self.pointer.is_null() {
+            TypeLabel::Nil
+        }
+        else {
+            let mut pointer = self.pointer;
+            loop {
+                let value = unsafe { &(*pointer).value };
+                match value {
+                    PrimitiveValue::Nil          => return TypeLabel::Nil,
+                    PrimitiveValue::Number(_)    => return TypeLabel::Number,
+                    PrimitiveValue::Character(_) => return TypeLabel::Character,
+                    PrimitiveValue::Cons(_)      => return TypeLabel::Cons,
+                    PrimitiveValue::Symbol(_)    => return TypeLabel::Symbol,
+                    PrimitiveValue::Function(_)  => return TypeLabel::Function,
+                    PrimitiveValue::Trap(_)      => return TypeLabel::Trap,
+                    PrimitiveValue::Meta(m)      => pointer = m.value,
+                }
+            }
         }
     }
 }
