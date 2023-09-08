@@ -9,16 +9,7 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         return nr;
     }
 
-    let symbol =
-    match args[0].get_type() {
-        TypeLabel::Nil       => mem.symbol_for("nil"),
-        TypeLabel::Number    => mem.symbol_for("number"),
-        TypeLabel::Character => mem.symbol_for("character"),
-        TypeLabel::Symbol    => mem.symbol_for("symbol"),
-        TypeLabel::Cons      => mem.symbol_for("conscell"),
-        TypeLabel::Trap      => mem.symbol_for("trap"),
-        TypeLabel::Function  => mem.symbol_for("function"),
-    };
+    let symbol = mem.symbol_for(args[0].get_type().to_string());
 
     NativeResult::Value(symbol)
 }
