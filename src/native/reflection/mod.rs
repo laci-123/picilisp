@@ -65,7 +65,18 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
             if let Some(pn) = param_names {
                 vec.insert(0, ("parameters", pn));
             }
-            
+
+            if let Some(PrimitiveValue::Function(f)) = args[0].get() {
+                let kind =
+                match f.get_kind() {
+                    FunctionKind::Macro         => mem.symbol_for("macro"),
+                    FunctionKind::Syntax        => mem.symbol_for("syntax-macro"),
+                    FunctionKind::SpecialLambda => mem.symbol_for("special-lambda"),
+                    FunctionKind::Lambda        => mem.symbol_for("lambda"),
+                };
+                vec.insert(0, ("function-kind", kind));
+            }
+ 
             NativeResult::Value(make_plist(mem, &vec))
         },
         (None, Some(pn)) => {
