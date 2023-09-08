@@ -11,6 +11,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "car",            list::car,                 FunctionKind::Lambda);
     load_native_function(mem, "cdr",            list::cdr,                 FunctionKind::Lambda);
     load_native_function(mem, "list",           list::list,                FunctionKind::Lambda);
+    load_native_function2(mem, list::UNREST);
     load_native_function(mem, "get-property",   list::get_property,        FunctionKind::Lambda);
     load_native_function(mem, "gensym",         misc::gensym,              FunctionKind::SpecialLambda);
     load_native_function(mem, "quote",          misc::quote,               FunctionKind::SpecialLambda);

@@ -51,7 +51,7 @@ If `things` is empty then just return `init`."
 
 (defmacro apply (f args-list)
   "Apply `f` to `args-list`, as if each element of `args-list` were a parameter of `f`."
-  (cons f args-list))
+  (list (list (quote unrest) f) args-list))
 
 (defun last (things)
   "Return the last element of `things`"

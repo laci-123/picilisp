@@ -119,6 +119,10 @@ impl NormalFunction {
         }
     }
 
+    pub fn get_params(&self) -> Vec<GcRef> {
+        self.parameters.iter().map(|p| GcRef::new(*p)).collect()
+    }
+
     pub fn get_kind(&self) -> FunctionKind {
         self.kind
     }

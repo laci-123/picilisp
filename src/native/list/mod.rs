@@ -1,6 +1,7 @@
 use crate::memory::*;
 use crate::util::*;
 use crate::error_utils::*;
+use super::NativeFunctionMetaData;
 
 
 
@@ -101,4 +102,31 @@ pub fn make_plist(mem: &mut Memory, kv: &[(&str, GcRef)]) -> GcRef {
     }
 
     vec_to_list(mem, &vec)
+}
+
+
+pub const UNREST: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      unrest,
+    name:          "unrest",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["f"],
+    documentation: "Transform `f` so that its last parameter is a normal list and not a rest-parameter.
+If `f` doesn't have rest-paramteres then it will remain unchanged.",
+};
+
+pub fn unrest(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+    let nr = validate_arguments(mem, UNREST.name, &vec![ParameterType::Type(TypeLabel::Function)], args);
+    if nr.is_err() {
+        return nr;
+    }
+
+    if let Some(PrimitiveValue::Function(Function::NormalFunction(nf))) = args[0].get() {
+        let has_rest_params = false;
+        let new_nf = mem.allocate_normal_function(nf.get_kind(), has_rest_params, nf.get_body(), &nf.get_params(), nf.get_env());
+        NativeResult::Value(new_nf)
+    }
+    else {
+        NativeResult::Value(args[0].clone())
+    }
 }
