@@ -118,3 +118,11 @@ Otherwise substract all but the first argument from the first one."
       (cons (car list1)
             (append (cdr list1) list2))
       list2))
+
+(defun concat (& lists)
+  "Concatenate all lists in `lists`."
+  (if lists
+      (let (concat-list (unrest concat))
+        (append (car lists)
+                (concat-list (cdr lists))))
+      nil))
