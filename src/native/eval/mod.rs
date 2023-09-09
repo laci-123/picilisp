@@ -62,6 +62,7 @@ struct ListFrame {
     current: usize,
     environment: GcRef,
     in_call: bool,
+    in_recursive_call: bool,
 }
 
 
@@ -75,7 +76,7 @@ impl StackFrame {
     fn new(tree: GcRef, environment: GcRef, mode: Mode) -> Self {
         if let Some(vec) = list_to_vec(tree.clone()) {
             // tree is a list
-            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false })
+            Self::List(ListFrame{ mode, eval_args: false, elems: vec, current: 0, environment, in_call: false, in_recursive_call: false })
         }
         else if let Some(PrimitiveValue::Cons(cons)) = tree.get() {
             // tree is a conscell but not a list
@@ -200,6 +201,13 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
         return EvalInternal::Return(GcRef::nil());
     }
 
+    // in the process of evaluating a call to eval itself: 
+    // Macroexpand is already done, return_value holds the expanded expression.
+    // Now continue with evalueating it.
+    if frame.in_recursive_call {
+        return EvalInternal::TailCall(return_value.clone(), frame.environment.clone(), Mode::Eval);
+    }
+
     // receive the evaluated element and step to the next one
     if frame.in_call {
         frame.elems[frame.current] = return_value.clone();
@@ -267,7 +275,8 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
             // This is to avoid running multiple call stacks on top of each other,
             // because that would make debugging very hard and can cause a stackoverflow.
             if nf.is_the_same_as(eval) {
-                EvalInternal::TailCall(frame.elems[1].clone(), frame.environment.clone(), Mode::Eval)
+                frame.in_recursive_call = true;
+                EvalInternal::Call(frame.elems[1].clone(), frame.environment.clone(), Mode::MacroExpand)
             }
             else if nf.is_the_same_as(macroexpand) {
                 EvalInternal::TailCall(frame.elems[1].clone(), frame.environment.clone(), Mode::MacroExpand)
