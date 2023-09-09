@@ -196,6 +196,10 @@ impl NativeFunction {
     pub fn call(&self, mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
         (self.function)(mem, args, env)
     }
+
+    pub fn is_the_same_as(&self, function: fn(&mut Memory, &[GcRef], GcRef) -> NativeResult) -> bool {
+        self.function == function
+    }
 }
 
 
@@ -612,9 +616,7 @@ impl Memory {
         }
         else {
             let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() }));
-            if let PrimitiveValue::Symbol(sym) = unsafe {
-                &mut (*sym_ptr).value
-            } {
+            if let PrimitiveValue::Symbol(sym) = unsafe {&mut (*sym_ptr).value} {
                 sym.own_address = sym_ptr;
             }
             else {
@@ -629,9 +631,7 @@ impl Memory {
 
     pub fn unique_symbol(&mut self) -> GcRef {
         let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
-        if let PrimitiveValue::Symbol(sym) = unsafe {
-            &mut (*sym_ptr).value
-        } {
+        if let PrimitiveValue::Symbol(sym) = unsafe {&mut (*sym_ptr).value} {
             sym.own_address = sym_ptr;
         }
         else {

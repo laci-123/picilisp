@@ -262,7 +262,16 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
     // call operator
     match operator {
         Function::NativeFunction(nf) => {
-            EvalInternal::from_nativeresult(nf.call(mem, &frame.elems[1..], frame.environment.clone()))
+            if nf.is_the_same_as(eval) || nf.is_the_same_as(macroexpand) {
+                // If we try to call eval/macroexpand,
+                // intercept that call and evaluate/expand the argument directly here.
+                // This is to avoid running multiple call stacks on top of each other,
+                // because that would make debugging very hard and can cause a stackoverflow.
+                EvalInternal::TailCall(frame.elems[1].clone(), frame.environment.clone(), frame.mode)
+            }
+            else {
+                EvalInternal::from_nativeresult(nf.call(mem, &frame.elems[1..], frame.environment.clone()))
+            }
         },
         Function::NormalFunction(nf) => {
             let nf_name =
@@ -345,6 +354,9 @@ fn unwind_stack(mem: &mut Memory, stack: &mut Vec<StackFrame>, signal: GcRef) ->
 }
 
 
+const MAX_STACK_SIZE: usize = 50000;
+
+
 fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> NativeResult {
     let mut stack        = vec![StackFrame::new(tree, env.clone(), initial_mode)];
     let mut return_value = GcRef::nil();
@@ -389,6 +401,13 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
             EvalInternal::Abort(msg) => {
                 return NativeResult::Abort(msg);
             },
+        }
+
+        let mode = frame.get_mode();
+        if stack.len() > MAX_STACK_SIZE {
+            let source = if mode == Mode::Eval { "eval" } else { "macroexpand" };
+            let error  = make_error(mem, "stackoverflow", source, &vec![]);
+            return NativeResult::Signal(error);
         }
 
         let last_frame = stack.pop();
