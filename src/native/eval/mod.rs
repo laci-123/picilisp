@@ -262,12 +262,15 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
     // call operator
     match operator {
         Function::NativeFunction(nf) => {
-            if nf.is_the_same_as(eval) || nf.is_the_same_as(macroexpand) {
-                // If we try to call eval/macroexpand,
-                // intercept that call and evaluate/expand the argument directly here.
-                // This is to avoid running multiple call stacks on top of each other,
-                // because that would make debugging very hard and can cause a stackoverflow.
-                EvalInternal::TailCall(frame.elems[1].clone(), frame.environment.clone(), frame.mode)
+            // If we try to call eval/macroexpand,
+            // intercept that call and evaluate/expand the argument directly here.
+            // This is to avoid running multiple call stacks on top of each other,
+            // because that would make debugging very hard and can cause a stackoverflow.
+            if nf.is_the_same_as(eval) {
+                EvalInternal::TailCall(frame.elems[1].clone(), frame.environment.clone(), Mode::Eval)
+            }
+            else if nf.is_the_same_as(macroexpand) {
+                EvalInternal::TailCall(frame.elems[1].clone(), frame.environment.clone(), Mode::MacroExpand)
             }
             else {
                 EvalInternal::from_nativeresult(nf.call(mem, &frame.elems[1..], frame.environment.clone()))
