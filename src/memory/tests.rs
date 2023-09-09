@@ -27,7 +27,7 @@ fn memory_allocate() {
 
         refs.push(mem.allocate_number(-10));
 
-        assert_eq!(mem.free_count(), ALLOCATION_INCREMENT - 1);
+        assert_eq!(mem.free_count() as f32, mem.used_count() as f32 * ALLOCATION_RATIO - 1.0);
         assert_eq!(mem.used_count(), INITIAL_FREE_CELLS + 1);
 
         for i in 0 .. 100 {
@@ -38,7 +38,7 @@ fn memory_allocate() {
     }
 
     // make sure gc collect actually happens
-    for i in 100 .. 200 {
+    for i in 100 .. 1000 {
         mem.allocate_number(i as i64);
     }
 

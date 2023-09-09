@@ -579,8 +579,8 @@ const MAXIMUM_FREE_RATIO: f32   = 0.75;
 /// when removing free cells after garbage collection, keep as many that the ratio of their number and the number
 /// of used cells is at least this big
 const MINIMUM_FREE_RATIO: f32   = 0.1;
-/// when there are no more free cells (not even after garbage collection), allocate this many
-const ALLOCATION_INCREMENT: usize = 128;
+/// when there are no more free cells (not even after garbage collection), allocate this many times the used cells
+const ALLOCATION_RATIO: f32 = 1.0;
 
 impl Memory {
     pub fn new() -> Self {
@@ -708,7 +708,8 @@ impl Memory {
             self.cells.push(new_cell);
             self.first_free += 1;
 
-            for _ in 1 .. ALLOCATION_INCREMENT {
+            let new_cells = (self.cells.len() as f32 * ALLOCATION_RATIO) as usize;
+            for _ in 1 .. new_cells {
                 // pre-allocate a bunch of cells
                 // so that `collect` won't have to run
                 // on the next few times `allocate_internal` is called

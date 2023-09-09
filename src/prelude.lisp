@@ -121,11 +121,10 @@ Otherwise substract all but the first argument from the first one."
 
 (defun concat (& lists)
   "Concatenate all lists in `lists`."
-  (if lists
-      (let (concat-list (unrest concat))
-        (append (car lists)
-                (concat-list (cdr lists))))
-      nil))
+  (let (f (lambda (f xs) (if xs
+                             (append (car xs) (f f (cdr xs)))
+                             nil)))
+    (f f lists)))
 
 (defun describe (thing)
   "Print all available metadata about `thing` in a human-readable format."
