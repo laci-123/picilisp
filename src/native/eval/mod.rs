@@ -379,21 +379,32 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
     let mut stack        = vec![StackFrame::new(tree, env.clone(), initial_mode)];
     let mut return_value = GcRef::nil();
 
-    while let Some(frame) = stack.last_mut() {
-        let evaled =
-        match frame {
-            StackFrame::Atom(ref mut atom_frame) => {
-                process_atom(mem, atom_frame, return_value.clone())
-            },
-            StackFrame::Cons(ref mut cons_frame) => {
-                process_cons(mem, cons_frame, return_value.clone())
-            },
-            StackFrame::List(ref mut list_frame) => {
-                process_list(mem, list_frame, return_value.clone())
-            },
-        };
+    while stack.len() > 0 {
+        let stack_size = stack.len();
+        let frame = &mut stack[stack_size - 1];
+        let process_result;
 
-        match evaled {
+        if stack_size > MAX_STACK_SIZE {
+            let source = if frame.get_mode() == Mode::Eval { "eval" } else { "macroexpand" };
+            let error  = make_error(mem, "stackoverflow", source, &vec![]);
+            process_result = EvalInternal::Signal(error);
+        }
+        else {
+            process_result =
+            match frame {
+                StackFrame::Atom(ref mut atom_frame) => {
+                    process_atom(mem, atom_frame, return_value.clone())
+                },
+                StackFrame::Cons(ref mut cons_frame) => {
+                    process_cons(mem, cons_frame, return_value.clone())
+                },
+                StackFrame::List(ref mut list_frame) => {
+                    process_list(mem, list_frame, return_value.clone())
+                },
+            };
+        }
+
+        match process_result {
             EvalInternal::Return(x) => {
                 return_value = x;
             },
@@ -421,20 +432,7 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
             },
         }
 
-        let mode = frame.get_mode();
-        if stack.len() > MAX_STACK_SIZE {
-            let source = if mode == Mode::Eval { "eval" } else { "macroexpand" };
-            let error  = make_error(mem, "stackoverflow", source, &vec![]);
-            return NativeResult::Signal(error);
-        }
-
-        let last_frame = stack.pop();
-
-        if last_frame.is_some_and(|lf| lf.get_mode() == Mode::Eval) {
-            if let Some(PrimitiveValue::Trap(_)) = return_value.get() {
-                stack.push(StackFrame::new(return_value.clone(), env.clone(), Mode::Eval));
-            }
-        }
+        stack.pop();
     }
 
     NativeResult::Value(return_value)
