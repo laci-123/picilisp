@@ -163,3 +163,12 @@ Otherwise substract all but the first argument from the first one."
                               ":"
                               (print (get-property (quote column) metadata))))))
         "No description available")))
+
+(defmacro case (& cases)
+  "Each element of `cases` should be in the following form: `(condition value)`.
+Return the `value` of the first element whose `condition` evaluates to true.
+If non of them is true then return `nil`."
+  (foldr (lambda (c acc) (let (condition (car c), value (car (cdr c)))
+                           (list (quote if) condition value acc)))
+        nil
+        cases)) 
