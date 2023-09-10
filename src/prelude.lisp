@@ -13,6 +13,11 @@
   "Globally define `name` as a special-lambda function."
   (list (quote define) name (list (quote special-lambda) params body) doc-string))
 
+(defspecial if (condition then otherwise)
+  "Evaluate `then` if and only if `condition` evaluates to non-nil,
+and evaluate `otherwise` if and only if `condition` evaluates to nil."
+  (eval (branch (eval condition) then otherwise)))
+
 (defun unzip-list (pairs)
   "Group the odd and even numbered elements of `pairs` into two separate lists."
   (if pairs

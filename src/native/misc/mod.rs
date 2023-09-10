@@ -1,5 +1,4 @@
 use crate::memory::*;
-use crate::native::eval::eval;
 use crate::util::{list_to_vec, list_to_string};
 use crate::error_utils::*;
 
@@ -24,28 +23,22 @@ pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     NativeResult::Value(args[0].clone())
 }
 
-    // can't call it `if`
-pub fn branch(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "if", &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args);
+
+pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+    let nr = validate_arguments(mem, "branch", &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
 
-    let test      = args[0].clone();
+    let condition = args[0].clone();
     let then      = args[1].clone();
     let otherwise = args[2].clone();
 
-    let evaled_test =
-    match eval(mem, &[test], env.clone()) {
-        NativeResult::Value(x) => x,
-        other                  => return other,
-    };
-
-    if !evaled_test.is_nil() {
-        eval(mem, &[then], env)
+    if !condition.is_nil() {
+        NativeResult::Value(then)
     }
     else {
-        eval(mem, &[otherwise], env)
+        NativeResult::Value(otherwise)
     }
 }
 

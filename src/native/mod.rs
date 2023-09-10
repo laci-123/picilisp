@@ -15,7 +15,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, "get-property",   list::get_property,        FunctionKind::Lambda);
     load_native_function(mem, "gensym",         misc::gensym,              FunctionKind::SpecialLambda);
     load_native_function(mem, "quote",          misc::quote,               FunctionKind::SpecialLambda);
-    load_native_function(mem, "if",             misc::branch,              FunctionKind::SpecialLambda);
+    load_native_function(mem, "branch",             misc::branch,              FunctionKind::Lambda);
     load_native_function(mem, "=",              misc::equal,               FunctionKind::Lambda);
     load_native_function(mem, "abort",          misc::abort,               FunctionKind::Lambda);
     load_native_function(mem, "signal",         signal::signal,            FunctionKind::Lambda);
