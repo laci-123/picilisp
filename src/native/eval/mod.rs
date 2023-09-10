@@ -296,7 +296,7 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
 
             let new_tree = nf.get_body();
             let new_env  =
-            match pair_params_and_args(mem, nf, nf_name, &frame.elems[1..]) {
+            match pair_params_and_args(mem, nf, nf_name, &frame.elems[1..], frame.environment.clone()) {
                 EvalInternal::Return(ne) => ne,
                 other                    => return other,
             };
@@ -306,8 +306,14 @@ fn process_list(mem: &mut Memory, frame: &mut ListFrame, return_value: GcRef) ->
 }
 
 
-fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<&String>, args: &[GcRef]) -> EvalInternal {
-    let mut new_env = nf.get_env();
+fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<&String>, args: &[GcRef], env: GcRef) -> EvalInternal {
+    let mut new_env =
+    if nf.get_kind() == FunctionKind::SpecialLambda {
+        env
+    }
+    else {
+        nf.get_env()
+    };
 
     let source = if let Some(name) = nf_name {
         name
