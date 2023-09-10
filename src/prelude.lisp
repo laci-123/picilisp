@@ -40,12 +40,20 @@ The value of the last form in `body` is returned."
       (cdr params-args)))
    (unzip-list bindings)))
 
-(defun fold (f init things)
+(defun foldl (f init things)
   "Return the result of applying `f` to `init` and the first element of `things`,
-then applying `f` to that result and the third element of `things` etc.
+then applying `f` to that result and the second element of `things` and so on.
 If `things` is empty then just return `init`."
   (if things
-      (f init (fold f (car things) (cdr things)))
+      (foldl f (f init (car things)) (cdr things))
+      init))
+
+(defun foldr (f init things)
+  "Return the result of applying `f` to `init` and the last element of `things`,
+then applying `f` to that result and the second to last element of `things` and so on.
+If `things` is empty then just return `init`."
+  (if things
+      (f (car things) (foldr f init (cdr things)))
       init))
 
 (defun map (f things)
@@ -87,11 +95,11 @@ If `things` is empty then just return `init`."
 
 (defun + (& numbers)
   "Add all numbers together. Return 0 if called whith 0 arguments."
-  (fold add 0 numbers))
+  (foldl add 0 numbers))
 
 (defun * (& numbers)
   "Multiply all numbers. Return 1 if called with 0 arguments."
-  (fold multiply 1 numbers))
+  (foldl multiply 1 numbers))
 
 (defun - (& numbers)
   "If called with 0 arguments: return 1.
@@ -101,7 +109,7 @@ Otherwise substract all but the first argument from the first one."
       (let (first (car numbers)
             rest  (cdr numbers))
         (if rest
-            (substract first (fold add 0 rest))
+            (substract first (foldl add 0 rest))
             (multiply -1 first)))
       0))
 
@@ -113,7 +121,7 @@ Otherwise substract all but the first argument from the first one."
       (let (first (car numbers)
             rest  (cdr numbers))
         (if rest
-            (divide first (fold multiply 1 rest))
+            (divide first (foldl multiply 1 rest))
             (divide 1 first)))
       1))
 
