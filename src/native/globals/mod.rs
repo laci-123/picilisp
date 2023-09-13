@@ -1,8 +1,20 @@
 use crate::memory::*;
 use crate::native::eval::eval;
 use crate::util::list_to_string;
+use super::NativeFunctionMetaData;
 
 
+
+pub const DEFINE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      define,
+    name:          "define",
+    kind:          FunctionKind::SpecialLambda,
+    parameters:    &["name", "value", "documentation"],
+    documentation: "Define the symbol `name` as a global constant with `value` as its value
+and the string `documentation` as the documentation field of its metadata.
+Error if a global constant is already defined with the same name."
+};
 
 pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     if args.len() != 3 {
@@ -37,7 +49,7 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
     };
 
     if mem.is_global_defined(&name) {
-        return NativeResult::Value(mem.symbol_for("already-defined"));
+        return NativeResult::Signal(mem.symbol_for("already-defined"));
     }
 
     if let Some(meta) = args[0].get_metadata() {
@@ -54,13 +66,18 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
 }
 
 
+pub const UNDEFINE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      undefine,
+    name:          "undefine",
+    kind:          FunctionKind::SpecialLambda,
+    parameters:    &["name"],
+    documentation: "Delete the global constant associated with the symbol `name`, if any."
+};
+
 pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
     if args.len() != 1 {
         return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
-    }
-
-    if args[0].is_nil() {
-        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
     }
 
     let name =

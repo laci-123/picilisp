@@ -3,6 +3,7 @@ use crate::util::*;
 use crate::native::read::read;
 use crate::native::list::property;
 use crate::error_utils::*;
+use super::NativeFunctionMetaData;
 
 
 
@@ -439,8 +440,17 @@ fn process(mem: &mut Memory, tree: GcRef, env: GcRef, initial_mode: Mode) -> Nat
 }
 
 
+pub const EVAL: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      eval,
+    name:          "eval",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["object"],
+    documentation: "Expand macros in `object` then evaluate `object`."
+};
+
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "eval", &vec![ParameterType::Any], args);
+    let nr = validate_arguments(mem, EVAL.name, &vec![ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
@@ -455,8 +465,17 @@ pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
 }
 
 
+pub const MACROEXPAND: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      macroexpand,
+    name:          "macroexpand",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["object"],
+    documentation: "Expand macros in `object`."
+};
+
 pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "macroexpand", &vec![ParameterType::Any], args);
+    let nr = validate_arguments(mem, MACROEXPAND.name, &vec![ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
@@ -476,8 +495,18 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
 }
 
 
+pub const LOAD_ALL: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      load_all,
+    name:          "load-all",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["string"],
+    documentation: "Read, macroexpand and evaluate all expressions in `string` in sequential order.
+Error if `string` is not a valid string."
+};
+
 pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "eval", &vec![ParameterType::Any, ParameterType::Any], args);
+    let nr = validate_arguments(mem, LOAD_ALL.name, &vec![ParameterType::Any, ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }

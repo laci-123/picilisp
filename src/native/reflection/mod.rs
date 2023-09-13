@@ -2,9 +2,21 @@ use crate::memory::*;
 use crate::util::*;
 use crate::native::list::make_plist;
 use crate::error_utils::*;
+use super::NativeFunctionMetaData;
+
+
+
+pub const TYPE_OF: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      type_of,
+    name:          "type-of",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["object"],
+    documentation: "Return a symbol representing the type of `object`."
+};
 
 pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "type-of", &vec![ParameterType::Any], args);
+    let nr = validate_arguments(mem, TYPE_OF.name, &vec![ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
@@ -15,8 +27,17 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
+pub const GET_METADATA: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      get_metadata,
+    name:          "get-metadata",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["object"],
+    documentation: "Return all metadata stored about `object` in a property-list."
+};
+
 pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "get-metadata", &vec![ParameterType::Any], args);
+    let nr = validate_arguments(mem, GET_METADATA.name, &vec![ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }

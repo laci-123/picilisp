@@ -1,11 +1,23 @@
 use crate::memory::*;
 use crate::util::{list_to_vec, list_to_string};
 use crate::error_utils::*;
+use super::NativeFunctionMetaData;
 
 
+
+pub const GENSYM: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      gensym,
+    name:          "gensym",
+    kind:          FunctionKind::Lambda,
+    parameters:    &[],
+    documentation: "GENerate a unique SYMbol.
+It is guaranteed that there never has been and never will be a symbol
+that is equal to the returned symbol."
+};
 
 pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "gensym", &vec![], args);
+    let nr = validate_arguments(mem, GENSYM.name, &vec![], args);
     if nr.is_err() {
         return nr;
     }
@@ -14,8 +26,18 @@ pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
+pub const QUOTE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      quote,
+    name:          "quote",
+    kind:          FunctionKind::SpecialLambda,
+    parameters:    &["object"],
+    documentation: "Don't do anything with `object`.
+Useful if you want to prevent `object` from being evaluated."
+};
+
 pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "quote", &vec![ParameterType::Any], args);
+    let nr = validate_arguments(mem, QUOTE.name, &vec![ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
@@ -24,8 +46,17 @@ pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
+pub const BRANCH: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      branch,
+    name:          "branch",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["condition", "then", "otherwise"],
+    documentation: "Return `otherwise` if `condition` is nil, return `then` if `condition` is anything else."
+};
+
 pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "branch", &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args);
+    let nr = validate_arguments(mem, BRANCH.name, &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
@@ -43,8 +74,17 @@ pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
 }
 
 
+pub const EQUAL: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      equal,
+    name:          "=",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["x", "y"],
+    documentation: "Return`t` if `x` and `y` are equal in type and value, otherwise return nil."
+};
+
 pub fn equal(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "=", &vec![ParameterType::Any, ParameterType::Any], args);
+    let nr = validate_arguments(mem, EQUAL.name, &vec![ParameterType::Any, ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }
@@ -135,8 +175,20 @@ fn equal_internal(a: GcRef, b: GcRef) -> bool {
 }
 
 
+pub const ABORT: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      abort,
+    name:          "abort",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["message"],
+    documentation: "Print `message` to standard output then
+immediately abort the execution of the whole program.
+If `message` is not a valid string
+then immediately abort the execution of the whole program without printing anything."
+};
+
 pub fn abort(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, "abort", &vec![ParameterType::Any], args);
+    let nr = validate_arguments(mem, ABORT.name, &vec![ParameterType::Any], args);
     if nr.is_err() {
         return nr;
     }

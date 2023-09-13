@@ -4,9 +4,24 @@ use crate::native::read::read;
 use crate::native::eval::eval;
 use crate::native::print::print;
 use crate::native::list::property;
+use super::NativeFunctionMetaData;
 use std::io::{self, BufRead};
 use std::io::prelude::*;
 
+
+
+pub const REPL: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      repl,
+    name:          "repl",
+    kind:          FunctionKind::Lambda,
+    parameters:    &[],
+    documentation: "(R)ead an expression from standard input,
+(E)valuated it,
+(P)rint the result to standard output,
+then repeat (or (L)oop) from the beginning.
+Stop the loop when end of input (EOF) is reached.",
+};
 
 pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
     let ok_symbol         = mem.symbol_for("ok");
