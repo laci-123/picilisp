@@ -148,9 +148,8 @@ Otherwise substract all but the first argument from the first one."
                             (print (get-property (quote function-kind) metadata))
                             " "
                             (print (get-property (quote parameters) metadata))
-                            " ...)")
+                            " ...)\n\n")
                     "")
-                "\n\n"
                 (or (get-property (quote documentation) metadata)
                     "[No documentation]")
                 "\n\nDefined in:\n "
