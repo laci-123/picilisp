@@ -40,3 +40,4 @@ mod memory;
 mod util;
 mod native;
 mod error_utils;
+mod parser;

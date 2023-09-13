@@ -287,6 +287,24 @@ impl Location {
             Self::File{path: _, line: _, column} => Some(*column),
         }
     }
+
+    pub fn step_line(self) -> Self {
+        match self {
+            Self::Native                      => self,
+            Self::Prelude{line, column: _}    => Self::Prelude{    line: line + 1, column: 1 },
+            Self::Stdin{line, column: _}      => Self::Stdin{      line: line + 1, column: 1 },
+            Self::File{path, line, column: _} => Self::File{ path, line: line + 1, column: 1 },
+        }
+    }
+
+    pub fn step_column(self) -> Self {
+        match self {
+            Self::Native                   => self,
+            Self::Prelude{line, column}    => Self::Prelude{    line, column: column + 1 },
+            Self::Stdin{line, column}      => Self::Stdin{      line, column: column + 1 },
+            Self::File{path, line, column} => Self::File{ path, line, column: column + 1 },
+        }
+    }
 }
 
 
