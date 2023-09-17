@@ -73,7 +73,14 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<S
 }
 
 
+const MAX_RECURSION_DEPTH: usize = 1000;
+
+
 fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    if recursion_depth > MAX_RECURSION_DEPTH {
+        return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
+    }
+    
     loop {
         let name = expression.get_metadata().map(|md| md.read_name.clone());
 
@@ -164,6 +171,10 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
 
 
 fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    if recursion_depth > MAX_RECURSION_DEPTH {
+        return Err(make_error(mem, "stackoverflow", MACROEXPAND.name, &vec![]));
+    }
+    
     let name = expression.get_metadata().map(|md| md.read_name.clone());
 
     if let Some(mut vec) = list_to_vec(expression.clone()) {
