@@ -80,7 +80,13 @@ fn eval_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResul
     let name = expression.get_metadata().map(|md| md.read_name.clone());
 
     if let Some(mut vec) = list_to_vec(expression.clone()) {
-        if let Some(operator) = vec.get(0).map(|x| x.clone()) {
+        if let Some(first) = vec.get(0).map(|x| x.clone()) {
+            let operator =
+            match eval_internal(mem, first, env.clone()) {
+                NativeResult::Value(x) => x,
+                other => return other,
+            };
+
             if let Some(PrimitiveValue::Function(f)) = operator.get() {
                 let eval_args =
                 match f.get_kind() {
@@ -162,6 +168,12 @@ fn eval_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResul
 }
 
 
+fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResult {
+
+    todo!()
+}
+
+
 pub const EVAL: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      eval,
@@ -202,7 +214,7 @@ pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult
         return nr;
     }
 
-    todo!()
+    macroexpand_internal(mem, args[0].clone(), env)
 }
 
 
