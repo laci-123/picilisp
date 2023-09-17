@@ -73,9 +73,6 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<S
 }
 
 
-const MAX_STACK_SIZE: usize = 1000;
-
-
 fn eval_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResult {
     let name = expression.get_metadata().map(|md| md.read_name.clone());
 
@@ -92,7 +89,9 @@ fn eval_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResul
                 match f.get_kind() {
                     FunctionKind::Lambda                       => true,
                     FunctionKind::SpecialLambda                => false,
-                    FunctionKind::Macro | FunctionKind::Syntax => return NativeResult::Signal(mem.symbol_for("eval-found-macro")),
+                    FunctionKind::Macro | FunctionKind::Syntax => {
+                        return NativeResult::Signal(mem.symbol_for("eval-found-macro"));
+                    },
                 };
 
                 if eval_args {
@@ -183,33 +182,34 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> Nati
                 other => return other,
             };
 
+            for i in 1..vec.len() {
+                vec[i] =
+                match macroexpand_internal(mem, vec[i].clone(), env.clone()) {
+                    NativeResult::Value(x) => x,
+                    other => return other,
+                };
+            }
+
             if let Some(PrimitiveValue::Function(f)) = operator.get() {
-                if f.get_kind() != FunctionKind::Macro {
-                    return NativeResult::Value(expression)
+                if f.get_kind() == FunctionKind::Macro {
+                    match f {
+                        Function::NativeFunction(nf) => nf.call(mem, &vec[1..], env.clone()),
+                        Function::NormalFunction(nf) => {
+                            let new_env =
+                            match pair_params_and_args(mem, &nf, name, &vec[1..], env.clone()) {
+                                NativeResult::Value(x) => x,
+                                other => return other,
+                            };
+                            eval_internal(mem, nf.get_body(), new_env)
+                        },
+                    }
                 }
-
-                for i in 1..vec.len() {
-                    vec[i] =
-                    match macroexpand_internal(mem, vec[i].clone(), env.clone()) {
-                        NativeResult::Value(x) => x,
-                        other => return other,
-                    };
-                }
-
-                match f {
-                    Function::NativeFunction(nf) => nf.call(mem, &vec[1..], env.clone()),
-                    Function::NormalFunction(nf) => {
-                        let new_env =
-                        match pair_params_and_args(mem, &nf, name, &vec[1..], env) {
-                            NativeResult::Value(x) => x,
-                            other => return other,
-                        };
-                        eval_internal(mem, nf.get_body(), new_env)
-                    },
+                else {
+                    NativeResult::Value(vec_to_list(mem, &vec))
                 }
             }
             else {
-                NativeResult::Value(expression)
+                NativeResult::Value(vec_to_list(mem, &vec))
             }
         }
         else {
