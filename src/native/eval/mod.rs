@@ -127,50 +127,126 @@ fn eval_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResul
             NativeResult::Value(GcRef::nil())
         }
     }
-    else if let Some(PrimitiveValue::Cons(cons)) = expression.get() {
-        let car =
-        match eval_internal(mem, cons.get_car(), env.clone()) {
-            NativeResult::Value(x) => x,
-            other => return other,
-        };
-        let cdr =
-        match eval_internal(mem, cons.get_cdr(), env.clone()) {
-            NativeResult::Value(x) => x,
-            other => return other,
-        };
-
-        NativeResult::Value(mem.allocate_cons(car, cdr))
-    }
-    else if let Some(PrimitiveValue::Trap(trap)) = expression.get() {
-        match eval_internal(mem, trap.get_normal_body(), env.clone()) {
-            NativeResult::Signal(signal) => {
-                let key       = mem.symbol_for("*trapped-signal*");
-                let param_arg = mem.allocate_cons(key, signal);
-                let new_env   = mem.allocate_cons(param_arg, env);
-                eval_internal(mem, trap.get_trap_body(), new_env)
-            },
-            other => other,
-        }
-    }
-    else if let Some(PrimitiveValue::Symbol(_)) = expression.get() {
-        if let Some(value) = lookup(mem, expression.clone(), env) {
-            NativeResult::Value(value)
-        }
-        else {
-            let error_details = vec![("symbol", expression)];
-            let error = make_error(mem, "unbound-symbol", "eval", &error_details);
-            NativeResult::Signal(error)
-        }
-    }
     else {
-        NativeResult::Value(expression)
+        match expression.get() {
+            Some(PrimitiveValue::Cons(cons)) => {
+                let car =
+                match eval_internal(mem, cons.get_car(), env.clone()) {
+                    NativeResult::Value(x) => x,
+                    other => return other,
+                };
+                let cdr =
+                match eval_internal(mem, cons.get_cdr(), env.clone()) {
+                    NativeResult::Value(x) => x,
+                    other => return other,
+                };
+
+                NativeResult::Value(mem.allocate_cons(car, cdr))
+            },
+            Some(PrimitiveValue::Trap(trap)) => {
+                match eval_internal(mem, trap.get_normal_body(), env.clone()) {
+                    NativeResult::Signal(signal) => {
+                        let key       = mem.symbol_for("*trapped-signal*");
+                        let param_arg = mem.allocate_cons(key, signal);
+                        let new_env   = mem.allocate_cons(param_arg, env);
+                        eval_internal(mem, trap.get_trap_body(), new_env)
+                    },
+                    other => other,
+                }
+            },
+            Some(PrimitiveValue::Symbol(_)) => {
+                if let Some(value) = lookup(mem, expression.clone(), env) {
+                    NativeResult::Value(value)
+                }
+                else {
+                    let error_details = vec![("symbol", expression)];
+                    let error = make_error(mem, "unbound-symbol", "eval", &error_details);
+                    NativeResult::Signal(error)
+                }
+            },
+            _ => {
+                NativeResult::Value(expression)
+            },
+        }
     }
 }
 
 
 fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef) -> NativeResult {
+    let name = expression.get_metadata().map(|md| md.read_name.clone());
 
-    todo!()
+    if let Some(mut vec) = list_to_vec(expression.clone()) {
+        if let Some(first) = vec.get(0).map(|x| x.clone()) {
+            let operator =
+            match macroexpand_internal(mem, first, env.clone()) {
+                NativeResult::Value(x) => x,
+                other => return other,
+            };
+
+            if let Some(PrimitiveValue::Function(f)) = operator.get() {
+                if f.get_kind() != FunctionKind::Macro {
+                    return NativeResult::Value(expression)
+                }
+
+                for i in 1..vec.len() {
+                    vec[i] =
+                    match macroexpand_internal(mem, vec[i].clone(), env.clone()) {
+                        NativeResult::Value(x) => x,
+                        other => return other,
+                    };
+                }
+
+                match f {
+                    Function::NativeFunction(nf) => nf.call(mem, &vec[1..], env.clone()),
+                    Function::NormalFunction(nf) => {
+                        let new_env =
+                        match pair_params_and_args(mem, &nf, name, &vec[1..], env) {
+                            NativeResult::Value(x) => x,
+                            other => return other,
+                        };
+                        eval_internal(mem, nf.get_body(), new_env)
+                    },
+                }
+            }
+            else {
+                NativeResult::Value(expression)
+            }
+        }
+        else {
+            NativeResult::Value(GcRef::nil())
+        }
+    }
+    else {
+        match expression.get() {
+            Some(PrimitiveValue::Cons(cons)) => {
+                let car =
+                match macroexpand_internal(mem, cons.get_car(), env.clone()) {
+                    NativeResult::Value(x) => x,
+                    other => return other,
+                };
+                let cdr =
+                match macroexpand_internal(mem, cons.get_cdr(), env.clone()) {
+                    NativeResult::Value(x) => x,
+                    other => return other,
+                };
+
+                NativeResult::Value(mem.allocate_cons(car, cdr))
+            },
+            Some(PrimitiveValue::Symbol(_)) => {
+                if let Some(value) = lookup(mem, expression.clone(), env) {
+                    if let Some(PrimitiveValue::Function(f)) = value.get() {
+                        if f.get_kind() == FunctionKind::Macro {
+                            return NativeResult::Value(value);
+                        }
+                    }
+                }
+                NativeResult::Value(expression)
+            },
+            _ => {
+                NativeResult::Value(expression)
+            },
+        }
+    }
 }
 
 
@@ -189,13 +265,13 @@ pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
         return nr;
     }
 
-    // let expanded =
-    // match eval_internal(mem, args[0].clone(), env.clone()) {
-    //     NativeResult::Value(e) => e,
-    //     other                  => return other,
-    // };
+    let expanded =
+    match macroexpand_internal(mem, args[0].clone(), env.clone()) {
+        NativeResult::Value(e) => e,
+        other                  => return other,
+    };
 
-    eval_internal(mem, args[0].clone(), env)
+    eval_internal(mem, expanded, env)
 }
 
 
