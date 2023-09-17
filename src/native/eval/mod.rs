@@ -80,43 +80,55 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
     if recursion_depth > MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
-    
-    loop {
+
+    // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
+    loop { 
         let name = expression.get_metadata().map(|md| md.read_name.clone());
 
-        if let Some(mut vec) = list_to_vec(expression.clone()) {
-            if let Some(first) = vec.get(0).map(|x| x.clone()) {
+        if let Some(mut list_elems) = list_to_vec(expression.clone()) {
+            // `expression` is a list
+            
+            if let Some(first) = list_elems.get(0).map(|x| x.clone()) {
+                // `expression` is a non-empty list
+                
                 let operator = eval_internal(mem, first, env.clone(), recursion_depth + 1)?;
 
                 if let Some(PrimitiveValue::Function(f)) = operator.get() {
+                    // first element of `expression` evaluates to a function
+                    
                     let eval_args =
                     match f.get_kind() {
                         FunctionKind::Lambda                       => true,
                         FunctionKind::SpecialLambda                => false,
                         FunctionKind::Macro | FunctionKind::Syntax => {
+                            // this should never happen because `macroexpand` is always called at the beginning of `eval`
                             return Err(mem.symbol_for("eval-found-macro"));
                         },
                     };
 
                     if eval_args {
-                        for i in 1..vec.len() {
-                            vec[i] = eval_internal(mem, vec[i].clone(), env.clone(), recursion_depth + 1)?;
+                        for i in 1..list_elems.len() {
+                            list_elems[i] = eval_internal(mem, list_elems[i].clone(), env.clone(), recursion_depth + 1)?;
                         }
                     }
 
                     match f {
                         Function::NativeFunction(nf) => {
                             if nf.is_the_same_as(eval) {
-                                validate_arguments(mem, EVAL.name, &vec![ParameterType::Any], &vec[1..])?;
-                                expression = vec[1].clone();
+                                // prevent `eval` from calling itself as regular native function;
+                                // instead "reuse" this instance of `eval`
+                                validate_arguments(mem, EVAL.name, &vec![ParameterType::Any], &list_elems[1..])?;
+                                expression = list_elems[1].clone();
                                 continue;
                             }
                             else {
-                                return nf.call(mem, &vec[1..], env.clone(), recursion_depth + 1)
+                                return nf.call(mem, &list_elems[1..], env.clone(), recursion_depth + 1)
                             }
                         },
                         Function::NormalFunction(nf) => {
-                            let new_env = pair_params_and_args(mem, &nf, name, &vec[1..], env)?;
+                            // tail-call elimination: jump back to the beginning of this instance of `eval`
+                            // instead of calling itself recursively
+                            let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..], env)?;
                             expression = nf.get_body();
                             env = new_env;
                             continue;
@@ -124,16 +136,20 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     }
                 }
                 else {
-                    let error_details = vec![("symbol", vec[0].clone())];
-                    let error = make_error(mem, "eval-bad-operator", "eval", &error_details);
+                    // first element of `expression` doesn't evaluate to a function
+                    let error_details = vec![("symbol", list_elems[0].clone())];
+                    let error = make_error(mem, "eval-bad-operator", EVAL.name, &error_details);
                     return Err(error);
                 }
             }
             else {
+                // `expression` is the empty list
                 return Ok(GcRef::nil());
             }
         }
         else {
+            // `expression` is not a list
+            
             match expression.get() {
                 Some(PrimitiveValue::Cons(cons)) => {
                     let car = eval_internal(mem, cons.get_car(), env.clone(), recursion_depth + 1)?;
@@ -177,37 +193,45 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
     
     let name = expression.get_metadata().map(|md| md.read_name.clone());
 
-    if let Some(mut vec) = list_to_vec(expression.clone()) {
-        if let Some(first) = vec.get(0).map(|x| x.clone()) {
+    if let Some(mut list_elems) = list_to_vec(expression.clone()) {
+        // `expression` is a list
+        
+        if let Some(first) = list_elems.get(0).map(|x| x.clone()) {
+            // `expression` is a non-empty list
+            
             let operator = macroexpand_internal(mem, first, env.clone(), recursion_depth + 1)?;
 
-            for i in 1..vec.len() {
-                vec[i] = macroexpand_internal(mem, vec[i].clone(), env.clone(), recursion_depth + 1)?;
+            // expand all elements regardless what the operator is
+            for i in 1..list_elems.len() {
+                list_elems[i] = macroexpand_internal(mem, list_elems[i].clone(), env.clone(), recursion_depth + 1)?;
             }
 
+            // if the operator is a macro then evaluate it... 
             if let Some(PrimitiveValue::Function(f)) = operator.get() {
                 if f.get_kind() == FunctionKind::Macro {
                     match f {
-                        Function::NativeFunction(nf) => nf.call(mem, &vec[1..], env.clone(), recursion_depth + 1),
+                        Function::NativeFunction(nf) => {
+                            return nf.call(mem, &list_elems[1..], env.clone(), recursion_depth + 1);
+                        },
                         Function::NormalFunction(nf) => {
-                            let new_env = pair_params_and_args(mem, &nf, name, &vec[1..], env.clone())?;
-                            eval_internal(mem, nf.get_body(), new_env, recursion_depth + 1)
+                            let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..], env.clone())?;
+                            return eval_internal(mem, nf.get_body(), new_env, recursion_depth + 1);
                         },
                     }
                 }
-                else {
-                    Ok(vec_to_list(mem, &vec))
-                }
             }
-            else {
-                Ok(vec_to_list(mem, &vec))
-            }
+
+            // ...otherwise return the whole list as-is
+            Ok(vec_to_list(mem, &list_elems))
         }
         else {
+            // `expression` is the empty list
             Ok(GcRef::nil())
         }
     }
     else {
+        // `expression` is not a list
+        
         match expression.get() {
             Some(PrimitiveValue::Cons(cons)) => {
                 let car = macroexpand_internal(mem, cons.get_car(), env.clone(), recursion_depth + 1)?;
@@ -215,6 +239,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
                 Ok(mem.allocate_cons(car, cdr))
             },
             Some(PrimitiveValue::Symbol(_)) => {
+                // only evaluate symbols if their value is a macro
                 if let Some(value) = lookup(mem, expression.clone(), env) {
                     if let Some(PrimitiveValue::Function(f)) = value.get() {
                         if f.get_kind() == FunctionKind::Macro {

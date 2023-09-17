@@ -1,5 +1,5 @@
 use crate::memory::*;
-use crate::util::{list_to_vec, list_to_string};
+use crate::util::list_to_vec;
 use crate::error_utils::*;
 use super::NativeFunctionMetaData;
 
