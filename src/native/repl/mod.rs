@@ -23,7 +23,7 @@ then repeat (or (L)oop) from the beginning.
 Stop the loop when end of input (EOF) is reached.",
 };
 
-pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
+pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     let ok_symbol         = mem.symbol_for("ok");
     let incomplete_symbol = mem.symbol_for("incomplete");
     let nothing_symbol    = mem.symbol_for("nothing");
@@ -46,11 +46,7 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
         input.push_str("\n"); // put back the newline to know where line comments end
         
         let input_list  = string_to_list(mem, input.as_str());
-        let output = 
-        match read(mem, &[input_list, stdin_symbol.clone(), start_line.clone(), start_column.clone()], env.clone()) {
-            NativeResult::Value(x) => x,
-            other                  => return other,
-        };
+        let output = read(mem, &[input_list, stdin_symbol.clone(), start_line.clone(), start_column.clone()], env.clone(), recursion_depth + 1)?;
 
         let status = property(mem, "status", output.clone()).unwrap();
 
@@ -60,20 +56,15 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
 
             let ast    = property(mem, "result", output.clone()).unwrap();
             let evaled =
-            match eval(mem, &[ast], env.clone()) {
-                NativeResult::Value(x)       => x,
-                NativeResult::Signal(signal) => {
+            match eval(mem, &[ast], env.clone(), recursion_depth + 1) {
+                Ok(x)       => x,
+                Err(signal) => {
                     println!("UNHANDLED-SIGNAL:");
                     signal
                 },
-                NativeResult::Abort(msg)     => return NativeResult::Abort(msg),
             };
 
-            let output =
-            match print(mem, &[evaled], env.clone()) {
-                NativeResult::Value(x) => x,
-                other                  => return other,
-            };
+            let output = print(mem, &[evaled], env.clone(), recursion_depth + 1)?;
 
             println!("{}", list_to_string(output).unwrap());
         }
@@ -91,7 +82,7 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
             input.clear();
         }
         else if symbol_eq!(status, invalid_symbol) {
-            return NativeResult::Signal(mem.symbol_for("invalid-string"));
+            return Err(mem.symbol_for("invalid-string"));
         }
         else if symbol_eq!(status, nothing_symbol) {
             // do nothing
@@ -106,5 +97,5 @@ pub fn repl(mem: &mut Memory, _args: &[GcRef], env: GcRef) -> NativeResult {
 
     println!();
 
-    NativeResult::Value(ok_symbol)
+    Ok(ok_symbol)
 }

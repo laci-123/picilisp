@@ -15,15 +15,12 @@ NativeFunctionMetaData{
     documentation: "Return a symbol representing the type of `object`."
 };
 
-pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, TYPE_OF.name, &vec![ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, TYPE_OF.name, &vec![ParameterType::Any], args)?;
 
     let symbol = mem.symbol_for(args[0].get_type().to_string());
 
-    NativeResult::Value(symbol)
+    Ok(symbol)
 }
 
 
@@ -36,11 +33,8 @@ NativeFunctionMetaData{
     documentation: "Return all metadata stored about `object` in a property-list."
 };
 
-pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, GET_METADATA.name, &vec![ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, GET_METADATA.name, &vec![ParameterType::Any], args)?;
 
     let metadata    = args[0].get_metadata();
     let param_names = get_param_names(mem, args[0].clone());
@@ -98,13 +92,13 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
                 vec.insert(0, ("function-kind", kind));
             }
  
-            NativeResult::Value(make_plist(mem, &vec))
+            Ok(make_plist(mem, &vec))
         },
         (None, Some(pn)) => {
-            NativeResult::Value(make_plist(mem, &vec![("parameters", pn)]))
+            Ok(make_plist(mem, &vec![("parameters", pn)]))
         },
         (None, None) => {
-            NativeResult::Value(GcRef::nil())
+            Ok(GcRef::nil())
         },
     }
 }

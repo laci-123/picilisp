@@ -137,7 +137,7 @@ fn eval_global() {
 
     let tree  = mem.symbol_for("g");
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
     assert_eq!(value_str, "271");
 }
 
@@ -149,7 +149,7 @@ fn eval_global_nil() {
 
     let tree  = mem.symbol_for("g");
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
     assert_eq!(value_str, "()");
 }
 
@@ -174,7 +174,7 @@ fn eval_lambda() {
     let lambda  = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body,&params, GcRef::nil());
 
     let value = eval_external(&mut mem, lambda);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
     assert_eq!(value_str, "#<function>");
 }
 
@@ -192,7 +192,7 @@ fn eval_call_lambda() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
     assert_eq!(value_str, "%B");
 }
 
@@ -227,7 +227,7 @@ fn eval_call_special_lambda() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
     assert_eq!(value_str, "symbols");
 }
 
@@ -261,18 +261,18 @@ fn eval_trap_with_signal() {
     let tree    = mem.allocate_trap(normal, trap);
 
     let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil()).unwrap()).unwrap();
+    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
     assert!(value_str.contains("unbound-symbol"));
 }
 
 // receives two arguments, returns the second one
-fn test_native_function(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+fn test_native_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     if args.len() == 2 {
-        NativeResult::Value(args[1].clone())
+        Ok(args[1].clone())
     }
     else {
         let error = make_error(mem, "wrong-number-of-arguments", "test_native_function", &vec![]);
-        NativeResult::Signal(error)
+        Err(error)
     }
 }
 

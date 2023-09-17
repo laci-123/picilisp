@@ -8,12 +8,12 @@ use super::*;
 fn read_empty() {
     let mut mem = Memory::new();
 
-    let r      = read(&mut mem, &[GcRef::nil()], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[GcRef::nil()], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("nothing"));
 
     let input  = string_to_list(&mut mem, "   ;comment ");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("nothing"));
 }
@@ -23,7 +23,7 @@ fn read_number() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "-1235");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -37,7 +37,7 @@ fn read_character() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "%a");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -51,7 +51,7 @@ fn read_escaped_character() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, r"%\n");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -65,7 +65,7 @@ fn read_symbol() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "+a-symbol");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -79,7 +79,7 @@ fn read_whitespace() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, " , \n   %A   ");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -94,7 +94,7 @@ fn read_comment() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, " ;this is a comment\n 10");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -108,7 +108,7 @@ fn read_empty_list() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "()");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -122,7 +122,7 @@ fn read_list() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "( 1 ;something\n  2 3)");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -136,7 +136,7 @@ fn read_singleton_list() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "(blue-whale)");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -151,7 +151,7 @@ fn read_nested_list() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "(1 (%a %b)  2)");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -169,7 +169,7 @@ fn read_string_in_list() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, r#"(1 "ab"  2)"#);
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -189,7 +189,7 @@ fn read_string() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, r#" "The sky is blue." "#);
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -203,7 +203,7 @@ fn read_escaped_string() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, r#" "This is not the end: \". This is a newline: \n." "#);
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -217,7 +217,7 @@ fn read_string_with_special_chars() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, r#" "The sky isn't pink (for now); Elephants are also not pink." "#);
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -231,7 +231,7 @@ fn read_with_remainder() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "10(a b c)");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -245,7 +245,7 @@ fn read_with_remainder_2() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "(a b c) 10");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -259,7 +259,7 @@ fn read_with_remainder_3() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "(a b c ) 10");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -273,22 +273,22 @@ fn read_incomplete() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, "(((");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("incomplete"));
 
     let input  = string_to_list(&mut mem, "(%a %b %c ((");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("incomplete"));
 
     let input  = string_to_list(&mut mem, "(a b c (1 2 3) d");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("incomplete"));
 
     let input  = string_to_list(&mut mem, r#" "something "#);
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("incomplete"));
 }
@@ -298,7 +298,7 @@ fn read_bad_escape_char() {
     let mut mem = Memory::new();
 
     let input     = string_to_list(&mut mem, r#" "abc \k def" "#);
-    let r         = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r         = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status    = property(&mut mem, "status", r.clone()).unwrap();
     let error     = property(&mut mem, "error", r).unwrap();
     let error_msg = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
@@ -311,7 +311,7 @@ fn read_bad_parens() {
     let mut mem = Memory::new();
 
     let input  = string_to_list(&mut mem, ")");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let error  = property(&mut mem, "error", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("error"));
@@ -325,7 +325,7 @@ fn read_location_atom() {
 
                                        //               123
     let input  = string_to_list(&mut mem, ";first line\n  abc");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -342,7 +342,7 @@ fn read_location_string() {
 
                                        //                             123 4
     let input  = string_to_list(&mut mem, ";first line\n;second line\n   \"some text\"");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -357,7 +357,7 @@ fn read_location_list() {
 
                                       //   123 45 6789
     let input  = string_to_list(&mut mem, "(1 \"2\"  three)");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -379,7 +379,7 @@ fn read_location_list_2() {
 
                                       //  1234          12345 6 
     let input  = string_to_list(&mut mem, " ( 1;comment\n%2   \"three\")");
-    let r      = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
@@ -401,7 +401,7 @@ fn read_error_location() {
 
                                                 //1234567
     let input          = string_to_list(&mut mem, r#" "abc\defg" "#);
-    let r              = read(&mut mem, &[input], GcRef::nil()).unwrap();
+    let r              = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
     let status         = property(&mut mem, "status", r.clone()).unwrap();
     let error          = property(&mut mem, "error", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("error"));
@@ -422,7 +422,7 @@ fn read_continue_rest() {
     let source       = mem.symbol_for("stdin");
     let start_line   = mem.allocate_number(1);
     let start_column = mem.allocate_number(1);
-    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil()).unwrap();
+    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil(), 0).ok().unwrap();
     let status       = property(&mut mem, "status", r.clone()).unwrap();
     let result       = property(&mut mem, "result", r.clone()).unwrap();
     let rest         = property(&mut mem, "rest", r.clone()).unwrap();
@@ -434,7 +434,7 @@ fn read_continue_rest() {
     assert_eq!(*line.get().unwrap().as_number(), 1);
     assert_eq!(*column.get().unwrap().as_number(), 4);
 
-    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
@@ -456,7 +456,7 @@ fn read_continue_rest_newline() {
     let source       = mem.symbol_for("stdin");
     let start_line   = mem.allocate_number(1);
     let start_column = mem.allocate_number(1);
-    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil()).unwrap();
+    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil(), 0).ok().unwrap();
     let status       = property(&mut mem, "status", r.clone()).unwrap();
     let result       = property(&mut mem, "result", r.clone()).unwrap();
     let rest         = property(&mut mem, "rest", r.clone()).unwrap();
@@ -468,7 +468,7 @@ fn read_continue_rest_newline() {
     assert_eq!(*line.get().unwrap().as_number(), 2);
     assert_eq!(*column.get().unwrap().as_number(), 1);
 
-    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil()).unwrap();
+    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     let rest   = property(&mut mem, "rest", r.clone()).unwrap();

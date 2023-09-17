@@ -13,13 +13,10 @@ NativeFunctionMetaData{
     documentation: "Emit the signal `signal`."
 };
 
-pub fn signal(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, SIGNAL.name, &vec![ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn signal(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, SIGNAL.name, &vec![ParameterType::Any], args)?;
     
-    NativeResult::Signal(args[0].clone())
+    Ok(args[0].clone())
 }
 
 
@@ -39,13 +36,8 @@ If no signal is emitted during the evaluation of the normal body
 then the trap body is never evaluated."
 };
 
-pub fn trap(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, TRAP.name, &vec![ParameterType::Any, ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn trap(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, TRAP.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
     
-    let trap = mem.allocate_trap(args[0].clone(), args[1].clone());
-
-    NativeResult::Value(trap)
+    Ok(mem.allocate_trap(args[0].clone(), args[1].clone()))
 }

@@ -134,13 +134,10 @@ NativeFunctionMetaData{
     documentation: "Convert `input` to its string representation.",
 };
 
-pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, PRINT.name, &vec![ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, PRINT.name, &vec![ParameterType::Any], args)?;
 
-    NativeResult::Value(print_internal(mem, args[0].clone()))
+    Ok(print_internal(mem, args[0].clone()))
 }
 
 

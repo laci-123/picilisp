@@ -5,11 +5,8 @@ use super::NativeFunctionMetaData;
 
 
 
-fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> NativeResult {
-    let nr = validate_arguments(mem, source, &vec![ParameterType::Any, ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, source, &vec![ParameterType::Any, ParameterType::Any], args)?;
     
     if let Some(params) = list_to_vec(args[0].clone()) {
         let mut actual_params   = vec![];
@@ -44,7 +41,7 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: Fu
                         //                ^
                         //                3 > 4 - 2
                         let error = make_error(mem, "missing-rest-parameter", source, &vec![]);
-                        return NativeResult::Signal(error);
+                        return Err(error);
                     }
                     // i < param_count - 2
                     else {
@@ -54,7 +51,7 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: Fu
                         //            ^
                         //            1 < 4 - 2
                         let error = make_error(mem, "multiple-rest-parameters", source, &vec![]);
-                        return NativeResult::Signal(error);
+                        return Err(error);
                     }
                 }
                 else {
@@ -64,7 +61,7 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: Fu
             else {
                 let error_details = vec![("param", param)];
                 let error = make_error(mem, "param-is-not-symbol", source, &error_details);
-                return NativeResult::Signal(error);
+                return Err(error);
             }
 
             i += 1;
@@ -72,11 +69,11 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: Fu
 
         let body     = args[1].clone();
         let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env);
-        NativeResult::Value(function)
+        Ok(function)
     }
     else {
         let error = make_error(mem, "bad-param-list", source, &vec![]);
-        NativeResult::Signal(error)
+        Err(error)
     }
 }
 
@@ -93,7 +90,7 @@ and their arguments are evaluated in left-to-right order before the function its
 };
 
 
-pub fn lambda(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+pub fn lambda(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     function(mem, args, env, LAMBDA.name, FunctionKind::Lambda)
 }
 
@@ -112,7 +109,7 @@ they do not capture the environment they are declared in,
 instead they have access to the environment they are called in."
 };
 
-pub fn special_lambda(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+pub fn special_lambda(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     function(mem, args, env, SPECIAL_LAMBDA.name, FunctionKind::SpecialLambda)
 }
 
@@ -128,7 +125,7 @@ Macros are expanded before runtime,
 and their arguments are not evaluated.",
 };
 
-pub fn macro_macro(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+pub fn macro_macro(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     function(mem, args, env, MACRO.name, FunctionKind::Macro)
 }
 
@@ -145,7 +142,7 @@ Their only argument is the source string the reader is currently processing,
 and they should return a lisp-object and the rest of the source string.",
 };
 
-pub fn syntax(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+pub fn syntax(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     function(mem, args, env, SYNTAX.name, FunctionKind::Syntax)
 }
 

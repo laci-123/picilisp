@@ -161,43 +161,19 @@ impl<'a> Iterator for ParameterIterator<'a> {
 }
 
 
-pub enum NativeResult {
-    Value(GcRef),
-    Signal(GcRef),
-    Abort(String),
-}
-
-impl NativeResult {
-    pub fn unwrap(self) -> GcRef {
-        if let Self::Value(x) = self {
-            x
-        }
-        else {
-            panic!("called `NativeResult::unwrap()` on a non-`Value` variant")
-        }
-    }
-
-    pub fn is_err(&self) -> bool {
-        match self {
-            Self::Value(_) => false,
-            _              => true,
-        }
-    }
-}
-
 pub struct NativeFunction {
     kind: FunctionKind,
-              // memory,     argumetns, environment
-    function: fn(&mut Memory, &[GcRef], GcRef) -> NativeResult,
+              // memory,     argumetns, environment, recursion depth           value  signal
+    function: fn(&mut Memory, &[GcRef], GcRef,       usize)          -> Result<GcRef, GcRef>,
     environment: *mut CellContent,
 }
 
 impl NativeFunction {
-    pub fn call(&self, mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
-        (self.function)(mem, args, env)
+    pub fn call(&self, mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+        (self.function)(mem, args, env, recursion_depth)
     }
 
-    pub fn is_the_same_as(&self, function: fn(&mut Memory, &[GcRef], GcRef) -> NativeResult) -> bool {
+    pub fn is_the_same_as(&self, function: fn(&mut Memory, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>) -> bool {
         self.function == function
     }
 }
@@ -687,7 +663,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_native_function(&mut self, kind: FunctionKind, function: fn(&mut Self, &[GcRef], GcRef) -> NativeResult, environment: GcRef) -> GcRef {
+    pub fn allocate_native_function(&mut self, kind: FunctionKind, function: fn(&mut Self, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>, environment: GcRef) -> GcRef {
         let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, function, environment: environment.pointer })));
         GcRef::new(ptr)
     }

@@ -26,11 +26,11 @@ pub enum ParameterType {
 }
 
 
-pub fn validate_arguments(mem: &mut Memory, source: &str, parameters: &[ParameterType], arguments: &[GcRef]) -> NativeResult {
+pub fn validate_arguments(mem: &mut Memory, source: &str, parameters: &[ParameterType], arguments: &[GcRef]) -> Result<GcRef, GcRef> {
     if parameters.len() != arguments.len() {
         let error_details = vec![("expected", fit_to_number(mem, parameters.len())), ("actual", fit_to_number(mem, arguments.len()))];
         let error         = make_error(mem, "wrong-number-of-arguments", source, &error_details);
-        return NativeResult::Signal(error);
+        return Err(error);
     }
 
     for (p, arg) in parameters.iter().zip(arguments) {
@@ -39,10 +39,10 @@ pub fn validate_arguments(mem: &mut Memory, source: &str, parameters: &[Paramete
             if a_type != *p_type {
                 let error_details = vec![("expected", mem.symbol_for(p_type.to_string())), ("actual", mem.symbol_for(a_type.to_string()))];
                 let error         = make_error(mem, "wrong-argument-type", source, &error_details);
-                return NativeResult::Signal(error);
+                return Err(error);
             }
         }
     }
 
-    NativeResult::Value(GcRef::nil())
+    Ok(GcRef::nil())
 }

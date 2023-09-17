@@ -16,9 +16,9 @@ and the string `documentation` as the documentation field of its metadata.
 Error if a global constant is already defined with the same name."
 };
 
-pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
+pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     if args.len() != 3 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+        return Err(mem.symbol_for("wrong-arg-count"));
     }
 
     let name =
@@ -26,14 +26,10 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
         symbol.get_name()
     }
     else {
-        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
+        return Err(mem.symbol_for("definition-not-symbol"));
     };
 
-    let value = 
-    match eval(mem, &[args[1].clone()], env) {
-        NativeResult::Value(x) => x,
-        other                  => return other,
-    };
+    let value = eval(mem, &[args[1].clone()], env, recursion_depth + 1)?;
 
     let documentation =
     if !args[2].is_nil() {
@@ -41,15 +37,15 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
             string
         }
         else {
-            return NativeResult::Signal(mem.symbol_for("documentation-not-string"));
+            return Err(mem.symbol_for("documentation-not-string"));
         }
     }
     else {
-        return NativeResult::Signal(mem.symbol_for("documentation-not-string"));
+        return Err(mem.symbol_for("documentation-not-string"));
     };
 
     if mem.is_global_defined(&name) {
-        return NativeResult::Signal(mem.symbol_for("already-defined"));
+        return Err(mem.symbol_for("already-defined"));
     }
 
     if let Some(meta) = args[0].get_metadata() {
@@ -62,7 +58,7 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef) -> NativeResult {
         mem.define_global(&name, value);
     }
 
-    NativeResult::Value(mem.symbol_for("ok"))
+    Ok(mem.symbol_for("ok"))
 }
 
 
@@ -75,9 +71,9 @@ NativeFunctionMetaData{
     documentation: "Delete the global constant associated with the symbol `name`, if any."
 };
 
-pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
+pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     if args.len() != 1 {
-        return NativeResult::Signal(mem.symbol_for("wrong-arg-count"));
+        return Err(mem.symbol_for("wrong-arg-count"));
     }
 
     let name =
@@ -85,11 +81,11 @@ pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
         symbol.get_name()
     }
     else {
-        return NativeResult::Signal(mem.symbol_for("definition-not-symbol"));
+        return Err(mem.symbol_for("definition-not-symbol"));
     };
 
     mem.undefine_global(&name);
 
-    NativeResult::Value(mem.symbol_for("ok"))
+    Ok(mem.symbol_for("ok"))
 }
     

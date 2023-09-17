@@ -16,13 +16,10 @@ It is guaranteed that there never has been and never will be a symbol
 that is equal to the returned symbol."
 };
 
-pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, GENSYM.name, &vec![], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, GENSYM.name, &vec![], args)?;
     
-    NativeResult::Value(mem.unique_symbol())
+    Ok(mem.unique_symbol())
 }
 
 
@@ -36,13 +33,10 @@ NativeFunctionMetaData{
 Useful if you want to prevent `object` from being evaluated."
 };
 
-pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, QUOTE.name, &vec![ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, QUOTE.name, &vec![ParameterType::Any], args)?;
 
-    NativeResult::Value(args[0].clone())
+    Ok(args[0].clone())
 }
 
 
@@ -55,21 +49,18 @@ NativeFunctionMetaData{
     documentation: "Return `otherwise` if `condition` is nil, return `then` if `condition` is anything else."
 };
 
-pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, BRANCH.name, &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, BRANCH.name, &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args)?;
 
     let condition = args[0].clone();
     let then      = args[1].clone();
     let otherwise = args[2].clone();
 
     if !condition.is_nil() {
-        NativeResult::Value(then)
+        Ok(then)
     }
     else {
-        NativeResult::Value(otherwise)
+        Ok(otherwise)
     }
 }
 
@@ -83,13 +74,10 @@ NativeFunctionMetaData{
     documentation: "Return`t` if `x` and `y` are equal in type and value, otherwise return nil."
 };
 
-pub fn equal(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, EQUAL.name, &vec![ParameterType::Any, ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn equal(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, EQUAL.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
 
-    NativeResult::Value(if equal_internal(args[0].clone(), args[1].clone()) {mem.symbol_for("t")} else {GcRef::nil()})
+    Ok(if equal_internal(args[0].clone(), args[1].clone()) {mem.symbol_for("t")} else {GcRef::nil()})
 }
 
 fn equal_internal(a: GcRef, b: GcRef) -> bool {
@@ -140,7 +128,7 @@ fn equal_internal(a: GcRef, b: GcRef) -> bool {
                             let mut equal = true;
 
                             while i < l1.len() && j < l2.len() {
-                                // TODO: very deeply nested lists could cause stack overflow
+                                // TODO: Very deeply nested lists could cause stack overflow. Use recursion_depth to check.
                                 if !equal_internal(l1[i].clone(), l2[j].clone()) {
                                     equal = false;
                                     break;
@@ -171,33 +159,6 @@ fn equal_internal(a: GcRef, b: GcRef) -> bool {
     }
     else {
         a.is_nil() && b.is_nil()
-    }
-}
-
-
-pub const ABORT: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      abort,
-    name:          "abort",
-    kind:          FunctionKind::Lambda,
-    parameters:    &["message"],
-    documentation: "Print `message` to standard output then
-immediately abort the execution of the whole program.
-If `message` is not a valid string
-then immediately abort the execution of the whole program without printing anything."
-};
-
-pub fn abort(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, ABORT.name, &vec![ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
-
-    let msg = list_to_string(args[0].clone());
-
-    match msg {
-        Some(msg) => NativeResult::Abort(msg),
-        None      => NativeResult::Abort("#<invalid-string>".to_string()),
     }
 }
 

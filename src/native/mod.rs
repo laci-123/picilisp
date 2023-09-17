@@ -33,7 +33,6 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, misc::QUOTE);
     load_native_function(mem, misc::BRANCH);
     load_native_function(mem, misc::EQUAL);
-    load_native_function(mem, misc::ABORT);
 }
 
 
@@ -48,7 +47,7 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
 
 
 pub struct NativeFunctionMetaData {
-    function: fn (&mut Memory, &[GcRef], GcRef) -> NativeResult,
+    function: fn (&mut Memory, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>,
     name: &'static str,
     kind: FunctionKind,
     documentation: &'static str,

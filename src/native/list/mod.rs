@@ -14,15 +14,10 @@ NativeFunctionMetaData{
     documentation: "Create a new cons-cell with `car` and `cdr` as its two components.",
 };
 
-pub fn cons(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, CONS.name, &vec![ParameterType::Any, ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn cons(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, CONS.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
 
-    let cons = mem.allocate_cons(args[0].clone(), args[1].clone());
-
-    NativeResult::Value(cons)
+    Ok(mem.allocate_cons(args[0].clone(), args[1].clone()))
 }
 
 
@@ -35,13 +30,10 @@ NativeFunctionMetaData{
     documentation: "Return the car of `cons`. Error if `cons` is not actually a cons-cell.",
 };
 
-pub fn car(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, CAR.name, &vec![ParameterType::Type(TypeLabel::Cons)], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn car(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, CAR.name, &vec![ParameterType::Type(TypeLabel::Cons)], args)?;
 
-    NativeResult::Value(args[0].get().unwrap().as_conscell().get_car())
+    Ok(args[0].get().unwrap().as_conscell().get_car())
 }
 
 
@@ -54,13 +46,10 @@ NativeFunctionMetaData{
     documentation: "Return the cdr of `cons`. Error if `cons` is not actually a cons-cell.",
 };
 
-pub fn cdr(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, CDR.name, &vec![ParameterType::Type(TypeLabel::Cons)], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn cdr(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, CDR.name, &vec![ParameterType::Type(TypeLabel::Cons)], args)?;
 
-    NativeResult::Value(args[0].get().unwrap().as_conscell().get_cdr())
+    Ok(args[0].get().unwrap().as_conscell().get_cdr())
 }
 
 
@@ -74,8 +63,8 @@ NativeFunctionMetaData{
 Allows any number of arguments, including zero."
 };
 
-pub fn list(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    NativeResult::Value(vec_to_list(mem, &args.to_vec()))
+pub fn list(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    Ok(vec_to_list(mem, &args.to_vec()))
 }
 
 
@@ -116,11 +105,8 @@ Return nil of no value is associated with `key`.
 Error if `plist` is not a valid property-list."
 };
 
-pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, GET_PROPERTY.name, &vec![ParameterType::Type(TypeLabel::Symbol), ParameterType::Any], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, GET_PROPERTY.name, &vec![ParameterType::Type(TypeLabel::Symbol), ParameterType::Any], args)?;
 
     let key = args[0].get().unwrap().as_symbol();
 
@@ -129,14 +115,14 @@ pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResu
         plist = v;
     }
     else {
-        return NativeResult::Signal(mem.symbol_for("wrong-argument-type"));
+        return Err(mem.symbol_for("wrong-argument-type"));
     }
 
     if let Some(result) = get_property_internal(key, &plist) {
-        NativeResult::Value(result)
+        Ok(result)
     }
     else {
-        NativeResult::Signal(mem.symbol_for("wrong-plist-format"))
+        Err(mem.symbol_for("wrong-plist-format"))
     }
 }
 
@@ -163,18 +149,15 @@ NativeFunctionMetaData{
 If `f` doesn't have rest-paramteres then it will remain unchanged.",
 };
 
-pub fn unrest(mem: &mut Memory, args: &[GcRef], _env: GcRef) -> NativeResult {
-    let nr = validate_arguments(mem, UNREST.name, &vec![ParameterType::Type(TypeLabel::Function)], args);
-    if nr.is_err() {
-        return nr;
-    }
+pub fn unrest(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, UNREST.name, &vec![ParameterType::Type(TypeLabel::Function)], args)?;
 
     if let Some(PrimitiveValue::Function(Function::NormalFunction(nf))) = args[0].get() {
         let has_rest_params = false;
         let new_nf = mem.allocate_normal_function(nf.get_kind(), has_rest_params, nf.get_body(), &nf.get_params(), nf.get_env());
-        NativeResult::Value(new_nf)
+        Ok(new_nf)
     }
     else {
-        NativeResult::Value(args[0].clone())
+        Ok(args[0].clone())
     }
 }
