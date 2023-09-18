@@ -1,4 +1,5 @@
 use pretty_assertions::{assert_eq, assert_ne};
+use crate::config;
 use super::*;
 
 
@@ -6,7 +7,7 @@ use super::*;
 fn memory_init() {
     let mem = Memory::new();
 
-    assert_eq!(mem.free_count(), INITIAL_FREE_CELLS);
+    assert_eq!(mem.free_count(), config::INITIAL_FREE_CELLS);
     for i in mem.first_free .. mem.cells.len() {
         assert!(mem.cells[i].content.value.is_nil());
     }
@@ -18,17 +19,17 @@ fn memory_allocate() {
 
     {
         let mut refs = vec![]; // keep references -> prevent garbage collection
-        for i in 0 .. INITIAL_FREE_CELLS {
+        for i in 0 .. config::INITIAL_FREE_CELLS {
             refs.push(mem.allocate_number(i as i64));
         }
 
         assert_eq!(mem.free_count(), 0);
-        assert_eq!(mem.used_count(), INITIAL_FREE_CELLS);
+        assert_eq!(mem.used_count(), config::INITIAL_FREE_CELLS);
 
         refs.push(mem.allocate_number(-10));
 
-        assert_eq!(mem.free_count() as f32, mem.used_count() as f32 * ALLOCATION_RATIO - 1.0);
-        assert_eq!(mem.used_count(), INITIAL_FREE_CELLS + 1);
+        assert_eq!(mem.free_count() as f32, mem.used_count() as f32 * config::ALLOCATION_RATIO - 1.0);
+        assert_eq!(mem.used_count(), config::INITIAL_FREE_CELLS + 1);
 
         for i in 0 .. 100 {
             refs.push(mem.allocate_number(i as i64));

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use std::collections::{HashSet, HashMap};
+use crate::config;
 use std::path::PathBuf;
 
 
@@ -570,21 +571,11 @@ pub struct Memory {
     first_free: usize,
 }
 
-/// number of free cells when the [Memory] is constructed
-const INITIAL_FREE_CELLS: usize = 256;
-/// maximum ratio of the number of free cells after garbage collection, compared to the number of used cells
-const MAXIMUM_FREE_RATIO: f32   = 0.75;
-/// when removing free cells after garbage collection, keep as many that the ratio of their number and the number
-/// of used cells is at least this big
-const MINIMUM_FREE_RATIO: f32   = 0.1;
-/// when there are no more free cells (not even after garbage collection), allocate this many times the used cells
-const ALLOCATION_RATIO: f32 = 1.0;
-
 impl Memory {
     pub fn new() -> Self {
         Self { globals:    HashMap::new(),
                symbols:    HashMap::new(),
-               cells:      (0 .. INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
+               cells:      (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
                first_free: 0}
     }
 
@@ -702,7 +693,7 @@ impl Memory {
             self.cells.push(new_cell);
             self.first_free += 1;
 
-            let new_cells = (self.cells.len() as f32 * ALLOCATION_RATIO) as usize;
+            let new_cells = (self.cells.len() as f32 * config::ALLOCATION_RATIO) as usize;
             for _ in 1 .. new_cells {
                 // pre-allocate a bunch of cells
                 // so that `collect` won't have to run
@@ -796,11 +787,11 @@ impl Memory {
 
         // if there are too many free cells
         // then deallocate some, but not too many
-        let max_free_cells = (self.first_free as f32 * MAXIMUM_FREE_RATIO) as usize;
+        let max_free_cells = (self.first_free as f32 * config::MAXIMUM_FREE_RATIO) as usize;
 
         if self.free_count() > max_free_cells {
             let used_count = self.used_count();
-            let min_free_cells = (used_count as f32 * MINIMUM_FREE_RATIO) as usize;
+            let min_free_cells = (used_count as f32 * config::MINIMUM_FREE_RATIO) as usize;
             self.cells.truncate(used_count + min_free_cells + 1);
             self.first_free = used_count;
         }
