@@ -175,7 +175,7 @@ fn eval_lambda() {
 
     let value = eval_external(&mut mem, lambda);
     let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
-    assert_eq!(value_str, "#<function>");
+    assert_eq!(value_str, "#<lambda>");
 }
 
 #[test]

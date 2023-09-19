@@ -25,9 +25,16 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
             string_to_list(mem, &format!("%{y}"))
         },
         PrimitiveValue::Symbol(x)    => string_to_list(mem, &format!("{}", x.get_name())),
-        PrimitiveValue::Function(_)  => string_to_list(mem, &format!("#<function>")),
         PrimitiveValue::Trap(_)      => string_to_list(mem, &format!("#<trap>")),
         PrimitiveValue::Meta(x)      => print_atom(mem, x.get_value()),
+        PrimitiveValue::Function(f)  => {
+            match f.get_kind() {
+                FunctionKind::Lambda        => string_to_list(mem, &format!("#<lambda>")),
+                FunctionKind::SpecialLambda => string_to_list(mem, &format!("#<special-lambda>")),
+                FunctionKind::Macro         => string_to_list(mem, &format!("#<macro>")),
+                FunctionKind::Syntax        => string_to_list(mem, &format!("#<syntax-macro>")),
+            }
+        },
         PrimitiveValue::Cons(x)      => {
             let car = list_to_string(print_atom(mem, x.get_car())).unwrap();
             let cdr = list_to_string(print_atom(mem, x.get_cdr())).unwrap();

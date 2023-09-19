@@ -50,7 +50,13 @@ fn print_function() {
     let x = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, GcRef::nil(), &vec![], GcRef::nil());
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
-    assert_eq!(s, "#<function>");
+    assert_eq!(s, "#<lambda>");
+
+    let has_rest_params = false;
+    let x = mem.allocate_normal_function(FunctionKind::Macro, has_rest_params, GcRef::nil(), &vec![], GcRef::nil());
+    let p = print(&mut mem, &[x], GcRef::nil(), 0);
+    let s = list_to_string(p.ok().unwrap()).unwrap();
+    assert_eq!(s, "#<macro>");
 }
 
 #[test]
