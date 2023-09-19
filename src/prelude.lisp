@@ -40,6 +40,14 @@ The value of the last form in `body` is returned."
       (cdr params-args)))
    (unzip-list bindings)))
 
+(defmacro let* (bindings body)
+  ""
+  (list (quote let)
+        bindings
+        (list (quote let)
+              bindings
+              body)))
+
 (defun foldl (f init things)
   "Return the result of applying `f` to `init` and the first element of `things`,
 then applying `f` to that result and the second element of `things` and so on.
