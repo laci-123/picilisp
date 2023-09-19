@@ -1,6 +1,7 @@
 use crate::util::*;
 use crate::memory::*;
 use crate::error_utils::*;
+use crate::config;
 use super::NativeFunctionMetaData;
 
 
@@ -35,10 +36,11 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
     }
 }
 
-fn print_string(mem: &mut Memory, list: Vec<GcRef>) -> GcRef {
+fn print_string(mem: &mut Memory, string: String) -> GcRef {
     let mut result = string_to_list(mem, "\"");
-    for x in list.iter().rev() {
-        result = mem.allocate_cons(x.clone(), result);
+    for c in string.chars().rev() {
+        let character = mem.allocate_character(c);
+        result = mem.allocate_cons(character, result);
     }
 
     let quote = mem.allocate_character('"');
@@ -47,6 +49,7 @@ fn print_string(mem: &mut Memory, list: Vec<GcRef>) -> GcRef {
 
 fn print_list(mem: &mut Memory, list: Vec<GcRef>) -> GcRef {
     let mut result = string_to_list(mem, ")");
+
     let space = string_to_list(mem, " ");
     for (i, x) in list.iter().rev().enumerate() {
         result = append_lists(mem, x.clone(), result).unwrap();
@@ -59,69 +62,27 @@ fn print_list(mem: &mut Memory, list: Vec<GcRef>) -> GcRef {
     append_lists(mem, open_paren, result).unwrap()
 }
 
-struct Atom {
-    value: GcRef,
-}
 
-struct List {
-    elems: Vec<GcRef>,
-    current: usize,
-    in_call: bool,
-}
-
-enum StackFrame {
-    Atom(Atom),
-    List(List),
-}
-
-impl StackFrame {
-    fn new(x: GcRef) -> Self {
-        if let Some(vec) = list_to_vec(x.clone()) {
-            Self::List(List{ elems: vec, current: 0, in_call: false })
-        }
-        else {
-            Self::Atom(Atom{ value: x })
-        }
-    }
-}
-
-fn print_internal(mem: &mut Memory, tree: GcRef) -> GcRef {
-    let mut stack        = vec![StackFrame::new(tree)];
-    let mut return_value = GcRef::nil();
-
-    'stack_loop: while let Some(frame) = stack.last_mut() {
-        match frame {
-            StackFrame::Atom(atom_frame) => {
-                return_value = print_atom(mem, atom_frame.value.clone());
-            },
-            StackFrame::List(list_frame) => {
-                if list_frame.in_call {
-                    list_frame.elems[list_frame.current] = return_value.clone();
-                    list_frame.current += 1;
-                    list_frame.in_call = false;
-                }
-
-                if list_frame.elems.len() > 0 && list_frame.elems.iter().all(|x| matches!(x.get(), Some(PrimitiveValue::Character(_)))) {
-                    return_value = print_string(mem, list_frame.elems.clone());
-                }
-                else {
-                    let i = list_frame.current;
-                    if i < list_frame.elems.len() {
-                        let x = list_frame.elems[i].clone();
-                        list_frame.in_call = true;
-                        stack.push(StackFrame::new(x));
-                        continue 'stack_loop;
-                    }
-
-                    return_value = print_list(mem, list_frame.elems.clone());
-                }
-            },
-        }
-
-        stack.pop();
+fn print_internal(mem: &mut Memory, expression: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    if recursion_depth > config::MAX_RECURSION_DEPTH {
+        return Err(make_error(mem, "stackoverflow", PRINT.name, &vec![]));
     }
 
-    return_value
+    if expression.is_nil() {
+        Ok(string_to_list(mem, "()"))
+    }
+    else if let Some(string) = list_to_string(expression.clone()) {
+        Ok(print_string(mem, string))
+    }
+    else if let Some(mut elems) = list_to_vec(expression.clone()) {
+        for elem in elems.iter_mut() {
+            *elem = print_internal(mem, elem.clone(), recursion_depth + 1)?;
+        }
+        Ok(print_list(mem, elems))
+    }
+    else {
+        Ok(print_atom(mem, expression))
+    }
 }
 
 
@@ -134,10 +95,10 @@ NativeFunctionMetaData{
     documentation: "Convert `input` to its string representation.",
 };
 
-pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_arguments(mem, PRINT.name, &vec![ParameterType::Any], args)?;
 
-    Ok(print_internal(mem, args[0].clone()))
+    print_internal(mem, args[0].clone(), recursion_depth + 1)
 }
 
 
