@@ -27,8 +27,8 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, globals::UNDEFINE);
     load_native_function(mem, reflection::TYPE_OF);
     load_native_function(mem, reflection::GET_METADATA);
+    load_native_function(mem, io::INPUT);
     load_native_function(mem, io::OUTPUT);
-    load_native_function(mem, repl::REPL);
     load_native_function(mem, misc::GENSYM);
     load_native_function(mem, misc::QUOTE);
     load_native_function(mem, misc::BRANCH);

@@ -40,14 +40,6 @@ The value of the last form in `body` is returned."
       (cdr params-args)))
    (unzip-list bindings)))
 
-(defmacro let* (bindings body)
-  ""
-  (list (quote let)
-        bindings
-        (list (quote let)
-              bindings
-              body)))
-
 (defun foldl (f init things)
   "Return the result of applying `f` to `init` and the first element of `things`,
 then applying `f` to that result and the second element of `things` and so on.
@@ -179,3 +171,19 @@ If non of them is true then return `nil`."
                            (list (quote if) condition value acc)))
         nil
         cases)) 
+
+(defun repl (prompt text dummy)
+  "(R)ead an expression from standard input,
+(E)valuated it,
+(P)rint the result to standard output,
+then repeat (or (L)oop) from the beginning.
+Stop the loop when end of input (EOF) is reached."
+  (let (the-input (concat text (input prompt)))
+    (let (read-result (read the-input))
+      (let (read-status (get-property (quote status) read-result))
+        (case ((= read-status (quote invalid))    (signal (quote invalid-string)))
+              ((= read-status (quote nothing))    (repl prompt nil nil))
+              ((= read-status (quote incomplete)) (repl "... " the-input nil))
+              ((= read-status (quote error))      (signal (quote read-error)))
+              ((= read-status (quote ok))         (repl ">>> " nil (output (print (eval (get-property (quote result) read-result))))))
+              (t                                  (signal (quote unknown-read-status))))))))
