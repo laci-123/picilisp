@@ -3,34 +3,59 @@ use super::*;
 
 
 #[test]
-fn print_print_atom() {
+fn print_nil() {
     let mut mem = Memory::new();
 
     let x = GcRef::nil();
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert_eq!(s, "()");
+}
+
+#[test]
+fn print_number() {
+    let mut mem = Memory::new();
 
     let x = mem.allocate_number(-123);
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert_eq!(s, "-123");
+}
+
+#[test]
+fn print_character() {
+    let mut mem = Memory::new();
 
     let x = mem.allocate_character('A');
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert_eq!(s, "%A");
+}
+
+#[test]
+fn print_symbol() {
+    let mut mem = Memory::new();
 
     let x = mem.symbol_for("kitten");
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert_eq!(s, "kitten");
+}
+
+#[test]
+fn print_function() {
+    let mut mem = Memory::new();
 
     let has_rest_params = false;
     let x = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, GcRef::nil(), &vec![], GcRef::nil());
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert_eq!(s, "#<function>");
+}
+
+#[test]
+fn print_cons() {
+    let mut mem = Memory::new();
 
     let car = mem.allocate_number(999);
     let cdr = mem.allocate_character('9');
@@ -48,7 +73,7 @@ fn print_print_atom() {
 }
 
 #[test]
-fn print_print_list() {
+fn print_list() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.allocate_number(271), GcRef::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
@@ -59,7 +84,7 @@ fn print_print_list() {
 }
 
 #[test]
-fn print_print_singleton_list() {
+fn print_singleton_list() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.symbol_for("only-this-one")];
@@ -70,7 +95,7 @@ fn print_print_singleton_list() {
 }
 
 #[test]
-fn print_print_nested_list() {
+fn print_nested_list() {
     let mut mem = Memory::new();
 
     let vec1 = vec![mem.allocate_number(271), GcRef::nil(), mem.allocate_character('$'), mem.symbol_for("puppy")];
@@ -83,7 +108,7 @@ fn print_print_nested_list() {
 }
 
 #[test]
-fn print_print_string() {
+fn print_string() {
     let mut mem = Memory::new();
 
     let list = string_to_list(&mut mem, "The quick brown fox jumps over the lazy dog.");
@@ -93,7 +118,7 @@ fn print_print_string() {
 }
 
 #[test]
-fn print_print_almost_string() {
+fn print_almost_string() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.allocate_character('a'), mem.allocate_character('b'), mem.allocate_character('c'), mem.symbol_for("d")];
@@ -104,7 +129,7 @@ fn print_print_almost_string() {
 }
 
 #[test]
-fn print_print_string_in_list() {
+fn print_string_in_list() {
     let mut mem = Memory::new();
 
     let vec = vec![mem.allocate_number(1), string_to_list(&mut mem, "two"), mem.allocate_number(3)];
