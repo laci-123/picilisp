@@ -1,17 +1,17 @@
-(define t (quote t) "`t` is the canonical true value.")
+(define t 't "`t` is the canonical true value.")
 
 (define nil () "`nil` is a synonym for the empty list `()`.")
 
 (define defmacro (macro (name params doc-string body)
-    (list (quote define) name (list (quote macro) params body) doc-string)) "Globally define `name` as a macro.")
+    (list 'define name (list 'macro params body) doc-string)) "Globally define `name` as a macro.")
 
 (defmacro defun (name params doc-string body)
   "Globally define `name` as a lambda function."
-  (list (quote define) name (list (quote lambda) params body) doc-string))
+  (list 'define name (list 'lambda params body) doc-string))
 
 (defmacro defspecial (name params doc-string body)
   "Globally define `name` as a special-lambda function."
-  (list (quote define) name (list (quote special-lambda) params body) doc-string))
+  (list 'define name (list 'special-lambda params body) doc-string))
 
 (defspecial if (condition then otherwise)
   "Evaluate `then` if and only if `condition` evaluates to non-nil,
@@ -27,7 +27,7 @@ and evaluate `otherwise` if and only if `condition` evaluates to nil."
           (cons (car (cdr pairs)) (cdr fsts-snds))))
        (unzip-list (cdr (if (cdr pairs)
                             (cdr pairs)
-                            (signal (quote odd-number-of-elements))))))
+                            (signal 'odd-number-of-elements)))))
       (cons nil nil)))
 
 (defmacro let (bindings body)
@@ -35,7 +35,7 @@ and evaluate `otherwise` if and only if `condition` evaluates to nil."
 The value of the last form in `body` is returned."
   ((lambda (params-args)
      ((lambda (params args)
-        (cons (list (quote lambda) params body) args))
+        (cons (list 'lambda params body) args))
       (car params-args)
       (cdr params-args)))
    (unzip-list bindings)))
@@ -64,7 +64,7 @@ If `things` is empty then just return `init`."
 
 (defmacro apply (f args-list)
   "Apply `f` to `args-list`, as if each element of `args-list` were a parameter of `f`."
-  (list (list (quote unrest) f) args-list))
+  (list (list 'unrest f) args-list))
 
 (defun last (things)
   "Return the last element of `things`."
@@ -72,7 +72,7 @@ If `things` is empty then just return `init`."
       (if (cdr things)
           (last (cdr things))
           (car things))
-      (signal (quote empty-list))))
+      (signal 'empty-list)))
 
 (defun init (things)
   "Return all elements of `things` except the last one."
@@ -88,20 +88,20 @@ If `things` is empty then just return `init`."
       (let (init-body (init body))
         (let (params (map (lambda (_) (gensym)) init-body)
               end    (last body))
-          (cons (list (quote lambda) params end) init-body)))
+          (cons (list 'lambda params end) init-body)))
       nil))
 
 (defmacro and (x y)
   "Logical and."
-  (list (quote if) x y nil))
+  (list 'if x y nil))
 
 (defmacro or (x y)
   "Logical or."
-  (list (quote if) x x y))
+  (list 'if x x y))
 
 (defmacro not (x)
   "Logical not."
-  (list (quote if) x nil t))
+  (list 'if x nil t))
 
 (defun + (& numbers)
   "Add all numbers together. Return 0 if called whith 0 arguments."
@@ -153,24 +153,24 @@ Otherwise substract all but the first argument from the first one."
   "Print all available metadata about `thing` in a human-readable format."
   (let (metadata (get-metadata thing))
     (if metadata
-        (concat (if (= (type-of thing) (quote function))
+        (concat (if (= (type-of thing) 'function)
                     (concat "("
-                            (print (get-property (quote function-kind) metadata))
+                            (print (get-property 'function-kind metadata))
                             " "
-                            (print (get-property (quote parameters) metadata))
+                            (print (get-property 'parameters metadata))
                             " ...)\n\n")
                     "")
-                (or (get-property (quote documentation) metadata)
+                (or (get-property 'documentation metadata)
                     "[No documentation]")
                 "\n\nDefined in:\n "
-                (let (source (get-property (quote file) metadata))
-                  (if (= source (quote native))
+                (let (source (get-property 'file metadata))
+                  (if (= source 'native)
                       "Rust source."
                       (concat (print source)
                               ":"
-                              (print (get-property (quote line) metadata))
+                              (print (get-property 'line metadata))
                               ":"
-                              (print (get-property (quote column) metadata))))))
+                              (print (get-property 'column metadata))))))
         "No description available")))
 
 (defmacro case (& cases)
@@ -178,7 +178,7 @@ Otherwise substract all but the first argument from the first one."
 Return the `value` of the first element whose `condition` evaluates to true.
 If non of them is true then return `nil`."
   (foldr (lambda (c acc) (let (condition (car c), value (car (cdr c)))
-                           (list (quote if) condition value acc)))
+                           (list 'if condition value acc)))
         nil
         cases)) 
 
@@ -186,39 +186,39 @@ If non of them is true then return `nil`."
   "Catches any signal whose `kind` property is equal to `kind`.
 Meant to be used as part of the `try` macro.
 `body` should be a lambda with one parameter. This parameters will be set to the caught signal."
-  (list (quote test)
-        (list (quote =)
-              (list (quote get-property)
-                    (list (quote quote)
-                          (quote kind))
-                    (quote *trapped-signal*))
-              (list (quote quote) kind))
-        (quote body)
+  (list 'test
+        (list '=
+              (list 'get-property
+                    (list 'quote
+                          'kind)
+                    '*trapped-signal*)
+              (list 'quote kind))
+        'body
         body))
 
 (defmacro catch-all (body)
   "Catches any signal.
 Meant to be used as part of the `try` macro.
 `body` should be a lambda with one parameter. This parameters will be set to the caught signal."
-  (list (quote test) t
-        (quote body) body))
+  (list 'test t
+        'body body))
 
 (defmacro try (body & catchers)
   "Try to evaluate `body`.
 If a signal is emitted while evaluating `body`, evaluate the first catcher in `catchers`
 that catches the signal."
-  (list (quote eval)
-         (list (quote trap)
+  (list 'eval
+         (list 'trap
                body
-               (cons (quote case)
-                     (map (lambda (catcher) (list (get-property (quote test) catcher)
-                                                  (list (get-property (quote body) catcher) (quote *trapped-signal*))))
+               (cons 'case
+                     (map (lambda (catcher) (list (get-property 'test catcher)
+                                                  (list (get-property 'body catcher) '*trapped-signal*)))
                           catchers)))))
 
 (defmacro throw (& body)
   "Emit a signal that is a property-list made of the key-value pairs in `body`."
-  (list (quote signal)
-        (cons (quote list)
+  (list 'signal
+        (cons 'list
               body)))
 
 (defun repl (prompt initial-input)
@@ -230,17 +230,17 @@ Stop the loop when end of input (EOF) is reached."
   (try
    (let (current-input (concat initial-input (input prompt)))
      (let (read-result (read current-input))
-       (let (read-status (get-property (quote status) read-result))
-         (case ((= read-status (quote invalid))    (throw (quote kind) (quote invalid-string), (quote source) (quote repl)))
-               ((= read-status (quote nothing))    (repl prompt nil))
-               ((= read-status (quote incomplete)) (repl "... " current-input))
-               ((= read-status (quote error))      (throw (quote kind) (quote syntax-error), (quote source) (quote repl), (quote details) (get-property (quote error) read-result)))
-               ((= read-status (quote ok))         (block (output (print (eval (get-property (quote result) read-result))))
+       (let (read-status (get-property 'status read-result))
+         (case ((= read-status 'invalid)    (throw 'kind 'invalid-string, 'source 'repl))
+               ((= read-status 'nothing)    (repl prompt nil))
+               ((= read-status 'incomplete) (repl "... " current-input))
+               ((= read-status 'error)      (throw 'kind 'syntax-error, 'source 'repl, 'details (get-property 'error read-result)))
+               ((= read-status 'ok)         (block (output (print (eval (get-property 'result read-result))))
                                                           (repl ">>> " nil)))
-               (t                                  (throw (quote kind) (quote unknown-read-status), (quote source) (qoute repl), (quote read-status) read-status))))))
+               (t                                  (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status))))))
    (catch eof
      (lambda (_) (block (output "")
-                        (quote ok))))
+                        'ok)))
    (catch-all
     (lambda (error) (block (output (concat "ERROR: " (print error)))
                            (repl ">>> " nil))))))
