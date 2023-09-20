@@ -50,13 +50,18 @@ pub fn input(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: us
         io::stdout().flush().unwrap();
     }
     else {
-        let error = make_error(mem, "invalid-string", OUTPUT.name, &vec![]);
-        return Err(error);
+        return Err(make_error(mem, "invalid-string", INPUT.name, &vec![]));
     }
 
     let stdin = io::stdin();
     let mut line = String::new();
-    stdin.lock().read_line(&mut line).unwrap();
+    let status = stdin.lock().read_line(&mut line);
 
-    Ok(string_to_list(mem, &line))
+    match status {
+        Err(_) => {
+            Err(make_error(mem, "input-error", INPUT.name, &vec![]))
+        },
+        Ok(0) => Err(mem.symbol_for("eof")),
+        Ok(_) => Ok(string_to_list(mem, &line)),
+    }
 }
