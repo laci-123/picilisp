@@ -182,6 +182,32 @@ If non of them is true then return `nil`."
         nil
         cases)) 
 
+(defmacro catch (kind body)
+  "Catches any signal whose `kind` property is equal to `kind`.
+Meant to be used as part of the `try` macro.
+`body` should be a lambda with one parameter. This parameters will be set to the caught signal."
+  (list (quote test) (list (quote =) (quote *trapped-signal*) (list (quote quote) kind))
+        (quote body) body))
+
+(defmacro catch-all (body)
+  "Catches any signal.
+Meant to be used as part of the `try` macro.
+`body` should be a lambda with one parameter. This parameters will be set to the caught signal."
+  (list (quote test) t
+        (quote body) body))
+
+(defmacro try (body & catchers)
+  "Try to evaluate `body`.
+If a signal is emitted while evaluating `body`, evaluate the first catcher in `catchers`
+that catches the signal."
+  (list (quote eval)
+         (list (quote trap)
+               body
+               (cons (quote case)
+                     (map (lambda (catcher) (list (get-property (quote test) catcher)
+                                                  (list (get-property (quote body) catcher) (quote *trapped-signal*))))
+                          catchers)))))
+
 (defun repl (prompt text dummy)
   "(R)ead an expression from standard input,
 (E)valuated it,
@@ -200,4 +226,4 @@ Stop the loop when end of input (EOF) is reached."
                      (t                                  (signal (quote unknown-read-status)))))))
          (if (= *trapped-signal* (quote eof))
              ok
-             (signal *trapped-signal*)))))
+             (output (print *trapped-signal*))))))
