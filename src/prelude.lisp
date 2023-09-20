@@ -215,6 +215,12 @@ that catches the signal."
                                                   (list (get-property (quote body) catcher) (quote *trapped-signal*))))
                           catchers)))))
 
+(defmacro throw (& body)
+  "Emit a signal that is a property-list made of the key-value pairs in `body`."
+  (list (quote signal)
+        (cons (quote list)
+              body)))
+
 (defun repl (prompt initial-input)
   "(R)ead an expression from standard input,
 (E)valuated it,
@@ -225,13 +231,13 @@ Stop the loop when end of input (EOF) is reached."
    (let (current-input (concat initial-input (input prompt)))
      (let (read-result (read current-input))
        (let (read-status (get-property (quote status) read-result))
-         (case ((= read-status (quote invalid))    (signal (quote invalid-string)))
+         (case ((= read-status (quote invalid))    (throw (quote kind) (quote invalid-string), (quote source) (quote repl)))
                ((= read-status (quote nothing))    (repl prompt nil))
                ((= read-status (quote incomplete)) (repl "... " current-input))
-               ((= read-status (quote error))      (signal (get-property (quote error) read-result)))
+               ((= read-status (quote error))      (throw (quote kind) (quote syntax-error), (quote source) (quote repl), (quote details) (get-property (quote error) read-result)))
                ((= read-status (quote ok))         (block (output (print (eval (get-property (quote result) read-result))))
                                                           (repl ">>> " nil)))
-               (t                                  (signal (quote unknown-read-status)))))))
+               (t                                  (throw (quote kind) (quote unknown-read-status), (quote source) (qoute repl), (quote read-status) read-status))))))
    (catch eof
      (lambda (_) (block (output "")
                         (quote ok))))
