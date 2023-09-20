@@ -24,13 +24,8 @@ fn main() -> Result<(), String> {
 
     println!("Loaded prelude.");
 
-    // // (repl)
-    // let vec        = vec![mem.symbol_for("repl")];
-    // let expression = vec_to_list(&mut mem, &vec);
-    // eval_external(&mut mem, expression)?;
-
-    // (repl ">>> " nil nil)
-    let vec        = vec![mem.symbol_for("repl"), string_to_proper_list(&mut mem, ">>> "), GcRef::nil(), GcRef::nil()];
+    // (repl ">>> " nil)
+    let vec        = vec![mem.symbol_for("repl"), string_to_proper_list(&mut mem, ">>> "), GcRef::nil()];
     let expression = vec_to_list(&mut mem, &vec);
     eval_external(&mut mem, expression)?;
 

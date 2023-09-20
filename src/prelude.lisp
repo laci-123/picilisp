@@ -186,8 +186,15 @@ If non of them is true then return `nil`."
   "Catches any signal whose `kind` property is equal to `kind`.
 Meant to be used as part of the `try` macro.
 `body` should be a lambda with one parameter. This parameters will be set to the caught signal."
-  (list (quote test) (list (quote =) (quote *trapped-signal*) (list (quote quote) kind))
-        (quote body) body))
+  (list (quote test)
+        (list (quote =)
+              (list (quote get-property)
+                    (list (quote quote)
+                          (quote kind))
+                    (quote *trapped-signal*))
+              (list (quote quote) kind))
+        (quote body)
+        body))
 
 (defmacro catch-all (body)
   "Catches any signal.
@@ -208,22 +215,26 @@ that catches the signal."
                                                   (list (get-property (quote body) catcher) (quote *trapped-signal*))))
                           catchers)))))
 
-(defun repl (prompt text dummy)
+(defun repl (prompt initial-input)
   "(R)ead an expression from standard input,
 (E)valuated it,
 (P)rint the result to standard output,
 then repeat (or (L)oop) from the beginning.
 Stop the loop when end of input (EOF) is reached."
-  (eval (trap 
-         (let (the-input (concat text (input prompt)))
-           (let (read-result (read the-input))
-             (let (read-status (get-property (quote status) read-result))
-               (case ((= read-status (quote invalid))    (signal (quote invalid-string)))
-                     ((= read-status (quote nothing))    (repl prompt nil nil))
-                     ((= read-status (quote incomplete)) (repl "... " the-input nil))
-                     ((= read-status (quote error))      (signal (get-property (quote error) read-result)))
-                     ((= read-status (quote ok))         (repl ">>> " nil (output (print (eval (get-property (quote result) read-result))))))
-                     (t                                  (signal (quote unknown-read-status)))))))
-         (if (= *trapped-signal* (quote eof))
-             ok
-             (output (print *trapped-signal*))))))
+  (try
+   (let (current-input (concat initial-input (input prompt)))
+     (let (read-result (read current-input))
+       (let (read-status (get-property (quote status) read-result))
+         (case ((= read-status (quote invalid))    (signal (quote invalid-string)))
+               ((= read-status (quote nothing))    (repl prompt nil))
+               ((= read-status (quote incomplete)) (repl "... " current-input))
+               ((= read-status (quote error))      (signal (get-property (quote error) read-result)))
+               ((= read-status (quote ok))         (block (output (print (eval (get-property (quote result) read-result))))
+                                                          (repl ">>> " nil)))
+               (t                                  (signal (quote unknown-read-status)))))))
+   (catch eof
+     (lambda (_) (block (output "")
+                        (quote ok))))
+   (catch-all
+    (lambda (error) (block (output (concat "ERROR: " (print error)))
+                           (repl ">>> " nil))))))

@@ -61,7 +61,7 @@ pub fn input(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: us
         Err(_) => {
             Err(make_error(mem, "input-error", INPUT.name, &vec![]))
         },
-        Ok(0) => Err(mem.symbol_for("eof")),
+        Ok(0) => Err(make_error(mem, "eof", INPUT.name, &vec![])),
         Ok(_) => Ok(string_to_list(mem, &line)),
     }
 }
