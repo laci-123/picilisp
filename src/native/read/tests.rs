@@ -165,6 +165,20 @@ fn read_nested_list() {
 }
 
 #[test]
+fn read_empty_string() {
+    let mut mem = Memory::new();
+
+    let input  = string_to_list(&mut mem, r#" "" "#);
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
+    let status = property(&mut mem, "status", r.clone()).unwrap();
+    let result = property(&mut mem, "result", r.clone()).unwrap();
+    assert_eq_symbol!(status, mem.symbol_for("ok"));
+
+    let string = list_to_string(result).unwrap();
+    assert_eq!(string, "");
+}
+
+#[test]
 fn read_string_in_list() {
     let mut mem = Memory::new();
 
@@ -302,6 +316,7 @@ fn read_bad_escape_char() {
     let status    = property(&mut mem, "status", r.clone()).unwrap();
     let error     = property(&mut mem, "error", r).unwrap();
     let error_msg = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
+
     assert_eq_symbol!(status, mem.symbol_for("error"));
     assert_eq!(error_msg, "'k' is not a valid escape character in a string literal");
 }

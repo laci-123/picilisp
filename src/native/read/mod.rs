@@ -4,330 +4,265 @@ use crate::memory::*;
 use crate::util::*;
 use crate::native::list::make_plist;
 use crate::error_utils::*;
+use crate::parser::*;
 use super::NativeFunctionMetaData;
 use std::path::PathBuf;
 
 
-enum TokenKind {
-    Number(i64),
-    Character(char),
-    Symbol(String),
-    OpenParen,
-    CloseParen,
-    LispString(String),
-}
 
-struct Token {
-    token_kind: TokenKind,
-    location: Location,
-}
-
-impl Token {
-    fn new(token_kind: TokenKind, location: Location) -> Self {
-        Self{ token_kind, location }
+fn whitespace_character(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        let ch = x.get().unwrap().as_character();
+        ch.is_whitespace() || *ch == ','
     }
-}
 
-type RestOfInput = GcRef;
-
-enum TokenResult {
-    InvalidString,
-    Incomplete,
-    Nothing,
-    Error(Location, String, RestOfInput),
-    Ok(Token, RestOfInput),
-}
-
-enum Source {
-    Prelude,
-    Stdin,
-    File(PathBuf),
-}
-
-fn make_location(source: &Source, line: usize, column: usize) -> Location {
-    match source {
-        Source::Prelude    => Location::Prelude{ line, column },
-        Source::Stdin      => Location::Stdin{ line, column },
-        Source::File(path) => Location::File { path: path.clone(), line, column },
-    }
+    (satisfy(&any_character, &p))(mem, input)
 }
 
 
-fn next_token(input: GcRef, source: &Source, line_count: &mut usize, char_count: &mut usize) -> TokenResult {
-    let mut cursor           = input;
-    let mut next_cursor;
-    let mut start_line_count = 1;
-    let mut start_char_count = 0;
-    let mut ch;
-    let mut in_comment       = false;
-    let mut in_string        = false;
-    let mut string_escape    = false;
-    let mut buffer           = String::new();
-
-    while !cursor.is_nil() {
-        if let Some((head, tail)) = next_character(cursor.clone()) {
-            ch = head;
-            next_cursor = tail;
-            *char_count += 1;
-        }
-        else {
-            return TokenResult::InvalidString;
-        }
-
-        match ch {
-            '(' => {
-                if in_string {
-                    buffer.push(ch);
-                    string_escape = false;
-                }
-                else if buffer.len() > 0 {
-                    *char_count -= 1;
-                    return atom_token(&buffer, source, start_line_count, start_char_count, cursor);
-                }
-                else if in_comment {
-                    // do nothing
-                }
-                else {
-                    return TokenResult::Ok(Token::new(TokenKind::OpenParen, make_location(source, *line_count, *char_count)), next_cursor);
-                }
-            },
-            ')' => {
-                if in_string {
-                    buffer.push(ch);
-                    string_escape = false;
-                }
-                else if buffer.len() > 0 {
-                    *char_count -= 1;
-                    return atom_token(&buffer, source, start_line_count, start_char_count, cursor);
-                }
-                else if in_comment {
-                    // do nothing
-                }
-                else {
-                    return TokenResult::Ok(Token::new(TokenKind::CloseParen, make_location(source, *line_count, *char_count)), next_cursor);
-                }
-            },
-            '"' => {
-                if in_string {
-                    if string_escape {
-                        buffer.push(ch);
-                        string_escape = false;
-                    }
-                    else {
-                        return string_token(&buffer, source, start_line_count, start_char_count, next_cursor);
-                    }
-                }
-                else if buffer.len() > 0 {
-                    *char_count -= 1;
-                    return atom_token(&buffer, source, start_line_count, start_char_count, cursor);
-                }
-                else if in_comment {
-                    // do nothing
-                }
-                else {
-                    in_string = true;
-                    start_line_count = *line_count;
-                    start_char_count = *char_count;
-                }
-            },
-            '\n' => {
-                *line_count += 1;
-                *char_count = 0;
-                if in_string {
-                    buffer.push(ch);
-                    string_escape = false;
-                }
-                else if in_comment {
-                    in_comment = false;
-                }
-                else if buffer.len() > 0 {
-                    return atom_token(&buffer, source, start_line_count, start_char_count, next_cursor);
-                }
-                else {
-                    // do nothing
-                }
-            }
-            ';' => {
-                if in_string {
-                    buffer.push(ch);
-                    string_escape = false;
-                }
-                else if buffer.len() > 0 {
-                    *char_count -= 1;
-                    return atom_token(&buffer, source, start_line_count, start_char_count, cursor);
-                }
-                else {
-                    in_comment = true;
-                }
-            }
-            c if c.is_whitespace() || c == ',' => {
-                if in_string {
-                    buffer.push(ch);
-                }
-                else if buffer.len() > 0 {
-                    *char_count -= 1;
-                    return atom_token(&buffer, source, start_line_count, start_char_count, cursor);
-                }
-                else {
-                    // do nothing
-                }
-            },
-            c => {
-                if in_string {
-                    if c == '\\' && !string_escape {
-                        string_escape = true;
-                    }
-                    else {
-                        string_escape = false;
-                    }
-                    buffer.push(c);
-                }
-                else if in_comment {
-                    // do nothing
-                }
-                else {
-                    if buffer.len() == 0 {
-                        start_line_count = *line_count;
-                        start_char_count = *char_count;
-                    }
-                    buffer.push(c);
-                }
-            }
-        }
-
-        cursor = next_cursor;
-    }
-
-    if buffer.len() == 0 {
-        return TokenResult::Nothing;
-    }
-    else if in_string {
-        return TokenResult::Incomplete;
-    }
-    else {
-        return atom_token(&buffer, source, start_line_count, start_char_count, cursor);
-    }
+fn whitespace(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    (at_least_once(&whitespace_character))(mem, input)
 }
 
 
-fn string_token(string: &str, source: &Source, line_count: usize, char_count: usize, rest: RestOfInput) -> TokenResult {
-    let mut escape = false;
-    let mut result = String::new();
-    let mut lc = 0;
-    let mut cc = 0;
-
-    for ch in string.chars() {
-        cc += 1;
-        if ch == '\\' {
-            escape = true;
-        }
-        else if escape {
-            match ch {
-                '\\' => result.push('\\'),
-                'n'  => result.push('\n'),
-                'r'  => result.push('\r'),
-                't'  => result.push('\t'),
-                '"'  => result.push('"'),
-                _    => {
-                    let error_char_count =
-                    if lc == 0 {
-                        char_count + cc
-                    }
-                    else {
-                        cc
-                    };
-                    return TokenResult::Error(make_location(source, line_count + lc, error_char_count), format!("'{ch}' is not a valid escape character in a string literal"), rest);
-                },
-            }
-            escape = false;
-        }
-        else {
-            if ch == '\n' {
-                lc += 1;
-                cc = 0;
-            }
-            result.push(ch);
-        }
+fn comment_start(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        *x.get().unwrap().as_character() == ';'
     }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn inside_comment(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        *x.get().unwrap().as_character() != '\n'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn comment(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let start = comment_start(mem, input)?;
+
+    (zero_or_more_times(&inside_comment))(mem, start.rest_of_input)
+}
+
+
+fn number_sign(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        let ch = x.get().unwrap().as_character();
+        *ch == '-' || *ch == '+'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn digit(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        x.get().unwrap().as_character().is_digit(10)
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn number(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let default_sign = mem.allocate_character('+');
+    let sign         = (parse_or_default(&number_sign, &default_sign))(mem, input.clone())?;
+    let sign_n       = if *sign.value.get().unwrap().as_character() == '+' { 1 } else { -1 };
+
+    let lisp_string = (at_least_once(&digit))(mem, sign.rest_of_input)?;
+    let rust_string = list_to_vec(lisp_string.value).unwrap().iter().map(|x| *x.get().unwrap().as_character()).collect::<String>();
+    let rust_number = rust_string.parse::<i64>().unwrap();
+    let lisp_number = mem.allocate_number(rust_number * sign_n);
+    let meta        = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+
+    Ok(ParserOk{ value: mem.allocate_metadata(lisp_number, meta), location: input.location, rest_of_input: lisp_string.rest_of_input })
+}
+
+
+fn character_start(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        *x.get().unwrap().as_character() == '%'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn escape_character(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        let ch = x.get().unwrap().as_character();
+        *ch == 'n' || *ch == 'r' || *ch == 't' || *ch == '\\'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn character(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let start = character_start(mem, input.clone())?;
+
+    let x1 = any_character(mem, start.rest_of_input)?;
+    let c1 = x1.value.get().unwrap().as_character(); 
     
-    return TokenResult::Ok(Token::new(TokenKind::LispString(result), make_location(source, line_count, char_count)), rest);
-}
-
-
-fn atom_token(string: &str, source: &Source, line_count: usize, char_count: usize, rest: RestOfInput) -> TokenResult {
-    if let Some(x) = number_token(string) {
-        TokenResult::Ok(Token::new(TokenKind::Number(x), make_location(source, line_count, char_count)), rest)
-    }
-    else if let Some(x) = character_token(string) {
-        TokenResult::Ok(Token::new(TokenKind::Character(x), make_location(source, line_count, char_count)), rest)
-    }
-    else if string.starts_with("#<") {
-        TokenResult::Error(make_location(source, line_count, char_count), format!("unreadable symbol: {string}"), rest)
-    }
-    else {
-        TokenResult::Ok(Token::new(TokenKind::Symbol(string.to_string()), make_location(source, line_count, char_count)), rest)
-    }
-}
-
-
-fn number_token(string: &str) -> Option<i64> {
-    string.parse().ok()
-}
-
-
-fn character_token(string: &str) -> Option<char> {
-    let mut chars = string.chars();
-    if let Some('%') = chars.next() {
-        let c1 = chars.next()?;
-        if c1 == '\\' {
-            let c2 = chars.next()?;
-            if chars.next().is_none() {
-                let c3 =
-                match c2 {
-                    't' => '\t',
-                    'n' => '\n',
-                    'r' => '\r',
-                    '\\' => '\\',
-                    _    => return None, 
-                };
-                Some(c3)
-            }
-            else {
-                None
-            }
-        }
-        else {
-            Some(c1)
-        }
+    let ch;
+    let rest;
+    if *c1 == '\\' {
+        let x2 = escape_character(mem, x1.rest_of_input)?;
+        let c2 = x2.value.get().unwrap().as_character(); 
+        ch =
+        match c2 {
+            'n'  => '\n',
+            'r'  => '\r',
+            't'  => '\t',
+            '\\' => '\\',
+            _    => unreachable!()
+        };
+        rest = x2.rest_of_input;
     }
     else {
-        None
-    }
+        ch   = *c1;
+        rest = x1.rest_of_input;
+    };
+
+
+    let lisp_ch = mem.allocate_character(ch);
+    let meta    = Metadata{ read_name: format!("%{ch}"), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+
+    Ok(ParserOk{ value: mem.allocate_metadata(lisp_ch, meta), location: input.location, rest_of_input: rest })
 }
 
 
-fn push_or_ok(mem: &mut Memory, stack: &mut Vec<Vec<GcRef>>, elem: GcRef, rest: GcRef, location: Location, rest_line: usize, rest_column: usize) -> Option<GcRef> {
-    let mut read_name = "".to_string();
-    if let Some(PrimitiveValue::Symbol(symbol)) = elem.get() {
-        read_name = symbol.get_name();
+fn symbol_char(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        let ch = x.get().unwrap().as_character();
+        *ch != '(' && *ch != ')' && *ch != '"' && !ch.is_whitespace() && *ch != ','
     }
 
-    let result = mem.allocate_metadata(elem, Metadata{ read_name, location, documentation: "".to_string(), parameters: vec![] });
-
-    if let Some(top) = stack.last_mut() {
-        top.push(result);
-        None
-    }
-    else {
-        let ok_sym = mem.symbol_for("ok");
-        let ln     = mem.allocate_number(rest_line as i64);
-        let cn     = mem.allocate_number((rest_column + 1) as i64);
-        Some(make_plist(mem, &vec![("status", ok_sym), ("result", result), ("rest", rest.clone()), ("line", ln), ("column", cn)]))
-    }
+    (satisfy(&any_character, &p))(mem, input)
 }
 
 
-fn format_error(mem: &mut Memory, location: Location, msg: String, rest: RestOfInput, rest_line: usize, rest_column: usize) -> GcRef {
+fn symbol(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let lisp_string = (at_least_once(&symbol_char))(mem, input.clone())?;
+    let rust_string = list_to_vec(lisp_string.value).unwrap().iter().map(|x| *x.get().unwrap().as_character()).collect::<String>();
+    let sym         = mem.symbol_for(&rust_string);
+    let meta        = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    Ok(ParserOk{ value: mem.allocate_metadata(sym, meta), location: input.location, rest_of_input: lisp_string.rest_of_input })
+}
+
+
+fn atom(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    (one_of_these_three(&number, &character, &symbol))(mem, input.clone())
+}
+
+
+fn open_paren(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        *x.get().unwrap().as_character() == '('
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn close_paren(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        *x.get().unwrap().as_character() == ')'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn list(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let op  = open_paren(mem, input.clone())?;
+    let lst = (zero_or_more_times(&expression))(mem, op.rest_of_input)?;
+    let jnk = (zero_or_more_times(&junk))(mem, lst.rest_of_input)?;
+    let cp  = close_paren(mem, jnk.rest_of_input)?;
+
+    Ok(ParserOk{ value: lst.value, location: input.location, rest_of_input: cp.rest_of_input} )
+}
+
+
+fn quote(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        *x.get().unwrap().as_character() == '"'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+
+fn string_normal(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        let ch = x.get().unwrap().as_character();
+        *ch != '"' && *ch != '\\'
+    }
+
+    (satisfy(&any_character, &p))(mem, input)
+}
+
+fn string_escape(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    fn p(x: GcRef) -> bool {
+        let ch = x.get().unwrap().as_character();
+        *ch == '\\'
+    }
+
+    let backslash = (satisfy(&any_character, &p))(mem, input.clone())?;
+    let ech = any_character(mem, backslash.rest_of_input)?;
+
+    let ch =
+    match ech.value.get().unwrap().as_character() {
+        '"'  => '"',
+        'n'  => '\n',
+        'r'  => '\t',
+        '\\' => '\\',
+        c    => return Err(ParserError::Fatal{ message: format!("'{c}' is not a valid escape character in a string literal"), location: ech.location, rest_of_input: ech.rest_of_input })
+    };
+
+    Ok(ParserOk{ value: mem.allocate_character(ch), location: input.location, rest_of_input: ech.rest_of_input} )
+}
+
+fn string_char(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    (one_of_these_two(&string_escape, &string_normal))(mem, input)
+}
+
+
+fn string(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let oq  = quote(mem, input.clone())?;
+    let chs = (zero_or_more_times(&string_char))(mem, oq.rest_of_input)?;
+    let cq  = quote(mem, chs.rest_of_input)?;
+
+    let meta = Metadata{ read_name: "".to_string(), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+
+    let list_symbol = mem.symbol_for("list");
+    let the_string  = mem.allocate_cons(list_symbol, chs.value);
+    Ok(ParserOk{ value: mem.allocate_metadata(the_string, meta), location: input.location, rest_of_input: cq.rest_of_input} )
+}
+
+
+fn junk(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    (one_of_these_two(&whitespace, &comment))(mem, input)
+}
+
+
+fn nothing(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    (one_of_these_two(&end_of_input, &junk))(mem, input)
+}
+
+
+fn expression(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let jnk = (zero_or_more_times(&junk))(mem, input)?;
+    (one_of_these_three(&string, &atom, &list))(mem, jnk.rest_of_input)
+}
+
+
+fn format_error(mem: &mut Memory, location: Location, msg: String, rest: GcRef, rest_line: usize, rest_column: usize) -> GcRef {
     let error_sym = mem.symbol_for("error");
     let error_msg = string_to_list(mem, &msg);
     let file;
@@ -357,84 +292,6 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: RestOfI
     let cn        = mem.allocate_number(rest_column as i64);
     make_plist(mem, &vec![("status", error_sym), ("error", error), ("rest", rest), ("line", ln), ("column", cn)])
 }
-
-
-fn read_internal(mem: &mut Memory, input: GcRef, source: &Source, start_line_count: usize, start_char_count: usize) -> GcRef {
-    let incomplete_sym  = mem.symbol_for("incomplete");
-    let nothing_sym     = mem.symbol_for("nothing");
-    let invalid_sym     = mem.symbol_for("invalid");
-    let incomplete      = make_plist(mem, &vec![("status", incomplete_sym)]);
-    let nothing         = make_plist(mem, &vec![("status", nothing_sym)]);
-    let invalid         = make_plist(mem, &vec![("status", invalid_sym)]);
-
-    let mut line_count = start_line_count;
-    let mut char_count = start_char_count - 1;
-    let mut cursor = input;
-    let mut stack: Vec<Vec<GcRef>>  = vec![];
-
-    loop {
-        let (token, rest) =
-        match next_token(cursor, &source, &mut line_count, &mut char_count) {
-            TokenResult::Ok(t, rest)                => (t, rest),
-            TokenResult::Error(location, msg, rest) => return format_error(mem, location, msg, rest, line_count + 1, char_count + 1),
-            TokenResult::Incomplete                 => return incomplete,
-            TokenResult::Nothing                    => return if stack.len() == 0 {nothing} else {incomplete},
-            TokenResult::InvalidString              => return invalid,
-        };
-
-        match token.token_kind {
-            TokenKind::Number(x) => {
-                let y = mem.allocate_number(x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location, line_count, char_count) {return z;}
-            },
-            TokenKind::Character(x) => {
-                let y = mem.allocate_character(x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location, line_count, char_count) {return z;}
-            },
-            TokenKind::Symbol(x) => {
-                let y = mem.symbol_for(&x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location, line_count, char_count) {return z;}
-            },
-            TokenKind::LispString(x) => {
-                let y = string_to_proper_list(mem, &x);
-                if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location, line_count, char_count) {return z;}
-            },
-            TokenKind::OpenParen => {
-                stack.push(vec![]);
-            },
-            TokenKind::CloseParen => {
-                if let Some(vec) = stack.pop() {
-                    let y = vec_to_list(mem, &vec);
-                    if let Some(z) = push_or_ok(mem, &mut stack, y, rest.clone(), token.location, line_count, char_count) {return z;}
-                }
-                else {
-                    return format_error(mem, make_location(source, line_count, char_count), "too many closing parentheses".to_string(), rest, line_count + 1, char_count + 1);
-                }
-            },
-        }
-
-        cursor = rest;
-    }
-}
-
-
-fn next_character(input: GcRef) -> Option<(char, GcRef)> {
-    let cons =
-    if let Some(PrimitiveValue::Cons(cons)) = input.get() {
-        cons
-    }
-    else {
-        return None;
-    };
-
-    if let Some(PrimitiveValue::Character(ch)) = cons.get_car().get() {
-        Some((*ch, cons.get_cdr()))
-    }
-    else {
-        None
-    }
-}
-
 
 
 pub const READ: NativeFunctionMetaData =
@@ -474,25 +331,10 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
         return Err(error);
     }
 
-    let source;
     let start_line;
     let start_column;
+    let location;
     if args.len() == 4 {
-        if let Some(path) = list_to_string(args[1].clone()) {
-            source = Source::File(PathBuf::from(path));
-        }
-        else if symbol_eq!(args[1], mem.symbol_for("prelude")) {
-                source = Source::Prelude;
-        }
-        else if symbol_eq!(args[1], mem.symbol_for("stdin")) {
-                source = Source::Stdin;
-        }
-        else {
-            let error_details = vec![("the-unknown-source", args[1].clone())];
-            let error = make_error(mem, "unknown-read-source", READ.name, &error_details);
-            return Err(error);
-        }
-
         if let Some(PrimitiveValue::Number(x)) = args[2].get() {
             start_line = *x as usize;
         }
@@ -512,14 +354,85 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
             let error = make_error(mem, "wrong-argument-type", READ.name, &error_details);
             return Err(error);
         }
+
+        if let Some(path) = list_to_string(args[1].clone()) {
+            location = Location::File { path: PathBuf::from(path), line: start_line, column: start_column };
+        }
+        else if symbol_eq!(args[1], mem.symbol_for("prelude")) {
+            location = Location::Prelude { line: start_line, column: start_column };
+        }
+        else if symbol_eq!(args[1], mem.symbol_for("stdin")) {
+            location = Location::Stdin { line: start_line, column: start_column };
+        }
+        else {
+            let error_details = vec![("the-unknown-source", args[1].clone())];
+            let error = make_error(mem, "unknown-read-source", READ.name, &error_details);
+            return Err(error);
+        }
     }
     else {
-        source = Source::Stdin;
-        start_line = 1;
-        start_column = 1;
+        location = Location::Stdin { line: 1, column: 1 };
     }
 
-    Ok(read_internal(mem, args[0].clone(), &source, start_line, start_column))
+    let input = args[0].clone();
+
+    match close_paren(mem, StringWithLocation { string: input.clone(), location: location.clone() }) {
+        Ok(output) => {
+            let rest = output.rest_of_input.trim();
+            return Ok(format_error(mem, rest.location.clone(), "too many closing parentheses".to_string(), rest.string, rest.location.get_line().unwrap(), rest.location.get_column().unwrap()))
+        }
+        Err(_) => {
+            // continue
+        }
+    }
+
+
+    let result =
+    match expression(mem, StringWithLocation { string: input.clone(), location: location.clone() }) {
+        Ok(output) => {
+            let rest = output.rest_of_input.trim();
+            let mut vec = vec![("status", mem.symbol_for("ok")), ("result", output.value), ("rest", rest.string)];
+            if let Some(line) = rest.location.get_line() {
+                vec.push(("line", fit_to_number(mem, line)));
+            }
+            if let Some(column) = rest.location.get_column() {
+                vec.push(("column", fit_to_number(mem, column)));
+            }
+            make_plist(mem, &vec)
+        },
+        Err(err)   => {
+            match err {
+                ParserError::NoMatch => {
+                    let vec = vec![("status", mem.symbol_for("incomplete"))];
+                    make_plist(mem, &vec)
+                },
+                ParserError::Incomplete => {
+                    match nothing(mem, StringWithLocation { string: input, location}) {
+                        Ok(_) => {
+                            let vec = vec![("status", mem.symbol_for("nothing"))];
+                            make_plist(mem, &vec)
+                        },
+                        Err(err) => {
+                            match err {
+                                ParserError::NoMatch | ParserError::Incomplete => {
+                                    let vec = vec![("status", mem.symbol_for("incomplete"))];
+                                    make_plist(mem, &vec)
+                                }
+                                ParserError::Fatal{ message, location, rest_of_input } => {
+                                    format_error(mem, location, message, rest_of_input.string, rest_of_input.location.get_line().unwrap(), rest_of_input.location.get_column().unwrap())
+                                }
+                            }
+                        },
+                    }
+                }
+                ParserError::Fatal{ message, location, rest_of_input } => {
+                    format_error(mem, location, message, rest_of_input.string, rest_of_input.location.get_line().unwrap(), rest_of_input.location.get_column().unwrap())
+                }
+            }
+        },
+    };
+
+    Ok(result)
 }
 
 
