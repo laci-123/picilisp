@@ -16,7 +16,7 @@ NativeFunctionMetaData{
 pub fn signal(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_arguments(mem, SIGNAL.name, &vec![ParameterType::Any], args)?;
     
-    Ok(args[0].clone())
+    Err(args[0].clone())
 }
 
 
