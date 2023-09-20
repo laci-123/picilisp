@@ -146,10 +146,22 @@ fn symbol_char(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, 
     (satisfy(&any_character, &p))(mem, input)
 }
 
+fn quote_syntax_macro(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+    let exp   = expression(mem, input)?;
+    let vec   = vec![mem.symbol_for("quote"), exp.value];
+    let q_exp = vec_to_list(mem, &vec);
+    Ok(ParserOk { value: q_exp, location: exp.location, rest_of_input: exp.rest_of_input })
+}
+
 
 fn symbol(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
     let lisp_string = (at_least_once(&symbol_char))(mem, input.clone())?;
     let rust_string = list_to_vec(lisp_string.value).unwrap().iter().map(|x| *x.get().unwrap().as_character()).collect::<String>();
+
+    if rust_string.starts_with("'") {
+        return quote_syntax_macro(mem, input.next())
+    }
+
     let sym         = mem.symbol_for(&rust_string);
     let meta        = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
     Ok(ParserOk{ value: mem.allocate_metadata(sym, meta), location: input.location, rest_of_input: lisp_string.rest_of_input })

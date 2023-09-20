@@ -11,6 +11,21 @@ pub struct StringWithLocation {
 }
 
 impl StringWithLocation {
+    pub fn next(self) -> Self {
+        if let Some(PrimitiveValue::Cons(cons)) = self.string.get() {
+            if let Some(PrimitiveValue::Character(ch)) = cons.get_car().get() {
+                if *ch == '\n' {
+                    return Self{ string: cons.get_cdr(), location: self.location.step_line() };
+                }
+                else {
+                    return Self{ string: cons.get_cdr(), location: self.location.step_column() };
+                }
+            }
+        }
+
+        self
+    }
+    
     pub fn trim(self) -> Self {
         if let Some(PrimitiveValue::Cons(cons)) = self.string.get() {
             if let Some(PrimitiveValue::Character(ch)) = cons.get_car().get() {
