@@ -514,7 +514,6 @@ fn read_quoted_symbol() {
     assert_eq!(list_to_string(rest).unwrap(), " ");
 }
 
-
 #[test]
 fn read_quoted_list() {
     let mut mem = Memory::new();
@@ -535,4 +534,14 @@ fn read_quoted_list() {
     assert_eq!(*vec2[1].get().unwrap().as_number(), 1);
     assert_eq!(*vec2[2].get().unwrap().as_character(), 'a');
     assert_eq!(list_to_string(rest).unwrap(), " ");
+}
+
+#[test]
+fn read_extremely_large_input() {
+    let mut mem = Memory::new();
+
+    let input  = string_to_list(&mut mem, &"(".repeat(10000));
+    let err    = read(&mut mem, &[input], GcRef::nil(), 0).err().unwrap();
+    let kind   = property(&mut mem, "kind", err.clone()).unwrap();
+    assert_eq_symbol!(kind, mem.symbol_for("stackoverflow"));
 }

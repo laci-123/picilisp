@@ -12,4 +12,4 @@ pub const MINIMUM_FREE_RATIO: f32   = 0.1;
 pub const ALLOCATION_RATIO: f32 = 1.0;
 
 /// maximum depth of recursion before a evaluation is interrupted and a stackoverflow signal is emitted
-pub const MAX_RECURSION_DEPTH: usize = 1000;
+pub const MAX_RECURSION_DEPTH: usize = 700;

@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::{memory::*, util::vec_to_list};
+use crate::config;
 
 
 
@@ -52,6 +53,17 @@ pub enum ParserError {
     NoMatch,
     Incomplete,
     Fatal{message: String, location: Location, rest_of_input: StringWithLocation},
+    StackOverflow,
+}
+
+
+pub fn check_stack_overflow(recursion_depth: usize) -> Result<ParserOk, ParserError> {
+    if recursion_depth > config::MAX_RECURSION_DEPTH {
+        Err(ParserError::StackOverflow)
+    }
+    else {
+        Ok(ParserOk { value: GcRef::nil(), location: Location::Native, rest_of_input: StringWithLocation{ string: GcRef::nil(), location: Location::Native } })
+    }
 }
 
 
@@ -61,23 +73,26 @@ fn select_error(e1: ParserError, e2: ParserError) -> ParserError {
     match e1 {
         NoMatch    => NoMatch,
         Incomplete => match e2 {
-            NoMatch    => NoMatch,
-            Incomplete => Incomplete,
-            _          => e1,
+            NoMatch       => NoMatch,
+            Incomplete    => Incomplete,
+            StackOverflow => StackOverflow,
+            _             => e1,
         }
         _          => e1,
     }
 }
 
 
-pub trait Parser: Fn(&mut Memory, StringWithLocation) -> Result<ParserOk, ParserError> {}
+pub trait Parser: Fn(&mut Memory, StringWithLocation, usize) -> Result<ParserOk, ParserError> {}
 
-impl<C: Fn(&mut Memory, StringWithLocation) -> Result<ParserOk, ParserError>> Parser for C {}
+impl<C: Fn(&mut Memory, StringWithLocation, usize) -> Result<ParserOk, ParserError>> Parser for C {}
 
 
 pub fn satisfy<'a>(parser: &'a impl Parser, predicate: &'a impl Fn(GcRef) -> bool) -> impl Parser + 'a {
-    |mem, input| {
-        let output = parser(mem, input)?;
+    |mem, input, recursion_depth| {
+        check_stack_overflow(recursion_depth)?;
+
+        let output = parser(mem, input, recursion_depth + 1)?;
         if predicate(output.value.clone()) {
             Ok(output)
         }
@@ -89,12 +104,16 @@ pub fn satisfy<'a>(parser: &'a impl Parser, predicate: &'a impl Fn(GcRef) -> boo
 
 
 pub fn one_of_these_two<'a>(parser1: &'a impl Parser, parser2: &'a impl Parser) -> impl Parser + 'a {
-    |mem, input| {
-        match parser1(mem, input.clone()) {
+    |mem, input, recursion_depth| {
+        check_stack_overflow(recursion_depth)?;
+
+        match parser1(mem, input.clone(), recursion_depth + 1) {
             Ok(output1) => Ok(output1),
+            Err(ParserError::StackOverflow) => Err(ParserError::StackOverflow),
             Err(err1)   => {
-                match parser2(mem, input.clone()) {
+                match parser2(mem, input.clone(), recursion_depth + 1) {
                     Ok(output2) => Ok(output2),
+                    Err(ParserError::StackOverflow) => Err(ParserError::StackOverflow),
                     Err(err2)   => Err(select_error(err1, err2)),
                 }
             },
@@ -104,15 +123,20 @@ pub fn one_of_these_two<'a>(parser1: &'a impl Parser, parser2: &'a impl Parser) 
 
 
 pub fn one_of_these_three<'a>(parser1: &'a impl Parser, parser2: &'a impl Parser, parser3: &'a impl Parser) -> impl Parser + 'a {
-    |mem, input| {
-        match parser1(mem, input.clone()) {
+    |mem, input, recursion_depth| {
+        check_stack_overflow(recursion_depth)?;
+
+        match parser1(mem, input.clone(), recursion_depth + 1) {
             Ok(output1) => Ok(output1),
+            Err(ParserError::StackOverflow) => Err(ParserError::StackOverflow),
             Err(err1)   => {
-                match parser2(mem, input.clone()) {
+                match parser2(mem, input.clone(), recursion_depth + 1) {
                     Ok(output2) => Ok(output2),
+                    Err(ParserError::StackOverflow) => Err(ParserError::StackOverflow),
                     Err(err2)   => {
-                        match parser3(mem, input.clone()) {
+                        match parser3(mem, input.clone(), recursion_depth + 1) {
                             Ok(output3) => Ok(output3),
+                            Err(ParserError::StackOverflow) => Err(ParserError::StackOverflow),
                             Err(err3)   => Err(select_error(err1, select_error(err2, err3))),
                         }
                     }
@@ -124,18 +148,21 @@ pub fn one_of_these_three<'a>(parser1: &'a impl Parser, parser2: &'a impl Parser
 
 
 pub fn zero_or_more_times<'a>(parser: &'a impl Parser) -> impl Parser + 'a {
-    |mem, input| {
+    |mem, input, recursion_depth| {
+        check_stack_overflow(recursion_depth)?;
+
         let mut outputs     = vec![];
         let mut cursor      = input.clone();
         let mut prev_cursor = input.clone();
 
         loop {
-            match parser(mem, cursor) {
+            match parser(mem, cursor, recursion_depth + 1) {
                 Ok(output) => {
                     outputs.push(output.value);
                     cursor = output.rest_of_input;
                     prev_cursor = cursor.clone();
                 },
+                Err(ParserError::StackOverflow) => return Err(ParserError::StackOverflow),
                 Err(ParserError::Fatal { message, location, rest_of_input }) => return Err(ParserError::Fatal { message, location, rest_of_input }),
                 Err(_) => break,
             }
@@ -147,10 +174,12 @@ pub fn zero_or_more_times<'a>(parser: &'a impl Parser) -> impl Parser + 'a {
 
 
 pub fn at_least_once<'a>(parser: &'a impl Parser) -> impl Parser + 'a {
-    |mem, input| {
-        match parser(mem, input) {
+    |mem, input, recursion_depth| {
+        check_stack_overflow(recursion_depth)?;
+
+        match parser(mem, input, recursion_depth + 1) {
             Ok(output) => {
-                let tail = (zero_or_more_times(parser))(mem, output.rest_of_input)?;
+                let tail = (zero_or_more_times(parser))(mem, output.rest_of_input, recursion_depth + 1)?;
                 let list = mem.allocate_cons(output.value, tail.value);
                 Ok(ParserOk{ value: list, location: output.location, rest_of_input: tail.rest_of_input })
             },
@@ -161,16 +190,21 @@ pub fn at_least_once<'a>(parser: &'a impl Parser) -> impl Parser + 'a {
 
 
 pub fn parse_or_default<'a>(parser: &'a impl Parser, default: &'a GcRef) -> impl Parser + 'a {
-    |mem, input| {
-        match parser(mem, input.clone()) {
+    |mem, input, recursion_depth| {
+        check_stack_overflow(recursion_depth)?;
+
+        match parser(mem, input.clone(), recursion_depth + 1) {
             Ok(output) => Ok(output),
+            Err(ParserError::StackOverflow) => Err(ParserError::StackOverflow),
             Err(_)     => Ok(ParserOk { value: default.clone(), location: input.location.clone(), rest_of_input: input })
         }
     }
 }
 
 
-pub fn end_of_input(_mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+pub fn end_of_input(_mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
+    check_stack_overflow(recursion_depth)?;
+
     if input.string.is_nil() {
         Ok(ParserOk{ value: GcRef::nil(), location: input.location.clone(), rest_of_input: input })
     }
@@ -180,7 +214,9 @@ pub fn end_of_input(_mem: &mut Memory, input: StringWithLocation) -> Result<Pars
 }
 
 
-pub fn any_character(mem: &mut Memory, input: StringWithLocation) -> Result<ParserOk, ParserError> {
+pub fn any_character(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
+    check_stack_overflow(recursion_depth)?;
+
     match input.string.get() {
         Some(PrimitiveValue::Cons(cons)) => {
             if let Some(PrimitiveValue::Character(ch)) = cons.get_car().get() {
