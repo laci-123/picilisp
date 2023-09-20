@@ -67,18 +67,28 @@ If `things` is empty then just return `init`."
   (list (list (quote unrest) f) args-list))
 
 (defun last (things)
-  "Return the last element of `things`"
+  "Return the last element of `things`."
   (if things
       (if (cdr things)
           (last (cdr things))
           (car things))
       (signal (quote empty-list))))
 
+(defun init (things)
+  "Return all elements of `things` except the last one."
+  (if things
+      (if (cdr things)
+          (cons (car things) (init (cdr things)))
+          nil)
+      nil))
+
 (defmacro block (& body)
   "Execute all forms in `body` then return the result of the last one."
   (if body
-      (let (params (map (lambda (_) (gensym)) body))
-        (cons (list (quote lambda) params (last params)) body))
+      (let (init-body (init body))
+        (let (params (map (lambda (_) (gensym)) init-body)
+              end    (last body))
+          (cons (list (quote lambda) params end) init-body)))
       nil))
 
 (defmacro and (x y)
