@@ -3,8 +3,6 @@
 use std::collections::{HashSet, HashMap};
 use crate::config;
 use std::path::PathBuf;
-use std::fs::OpenOptions;
-use std::io::{Read, Write};
 
 
 
@@ -295,83 +293,6 @@ impl Trap {
     pub fn get_trap_body(&self) -> GcRef {
         GcRef::new(self.trap_body)
     }
-}
-
-
-pub struct OutFile {
-    path: Option<PathBuf>, // None: stdout
-    file: Option<Box<dyn Write>>,
-}
-
-impl OutFile {
-    pub fn new(path: &str) -> Self {
-        Self{ path: Some(PathBuf::from(path)), file: None }
-    }
-
-    pub fn stdout() -> Self {
-        Self{ path: None, file: None }
-    }
-
-    pub fn open(&mut self) -> Result<(), String> {
-        if let Some(p) = &self.path {
-            let file  = OpenOptions::new().append(true).open(p).map_err(|err| err.kind().to_string())?;
-            self.file = Some(Box::new(file));
-        }
-        else {
-            let file  = std::io::stdout();
-            self.file = Some(Box::new(file));
-        }
-
-        Ok(())
-    }
-
-    pub fn create(&mut self) -> Result<(), String> {
-        if let Some(p) = &self.path {
-            let file  = std::fs::File::create(p).map_err(|err| err.kind().to_string())?;
-            self.file = Some(Box::new(file));
-            Ok(())
-        }
-        else {
-            Err("cannot create file 'standard output'".to_string())
-        }
-    }
-
-    pub fn write(&mut self, string: &str) -> Result<(), String> {
-        if let Some(file) = &mut self.file {
-            write!(file, "{string}").map_err(|err| err.kind().to_string())?;
-            Ok(())
-        }
-        else {
-            Err("attempted to write into a closed file".to_string())
-        }
-    }
-
-    pub fn flush(&mut self) -> Result<(), String> {
-        if let Some(file) = &mut self.file {
-            file.flush().map_err(|err| err.kind().to_string())?;
-        }
-
-        Ok(())
-    }
-
-    pub fn close(&mut self) -> Result<(), String> {
-        self.flush()?;
-        self.file = None;
-
-        Ok(())
-    }
-}
-
-
-pub struct InFile {
-    path: Option<PathBuf>, // None: stdin
-    file: Option<Box<dyn Read>>,
-}
-
-
-pub enum InOutFile {
-    In(InFile),
-    Out(OutFile),
 }
 
 
