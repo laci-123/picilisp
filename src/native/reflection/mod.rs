@@ -19,9 +19,22 @@ NativeFunctionMetaData{
 pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_arguments(mem, TYPE_OF.name, &vec![ParameterType::Any], args)?;
 
-    let symbol = mem.symbol_for(args[0].get_type().to_string());
-
-    Ok(symbol)
+    match args[0].get_type() {
+        TypeLabel::Cons => {
+            if is_string(args[0].clone()) {
+                Ok(mem.symbol_for("string"))
+            }
+            else if is_list(args[0].clone()) {
+                Ok(mem.symbol_for("list"))
+            }
+            else {
+                Ok(mem.symbol_for("cons"))
+            }
+        }
+        _ => {
+            Ok(mem.symbol_for(args[0].get_type().to_string()))
+        }
+    }
 }
 
 
