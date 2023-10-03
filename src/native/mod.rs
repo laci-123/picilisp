@@ -1,4 +1,5 @@
 use crate::memory::*;
+use crate::metadata::*;
 
 
 pub fn load_native_functions(mem: &mut Memory) {

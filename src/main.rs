@@ -36,6 +36,7 @@ fn main() -> Result<(), String> {
 
 
 
+mod metadata;
 mod memory;
 mod util;
 mod native;

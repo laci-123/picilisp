@@ -1,4 +1,5 @@
 use crate::memory::*;
+use crate::metadata::*;
 use crate::util::*;
 use crate::native::list::make_plist;
 use crate::error_utils::*;
