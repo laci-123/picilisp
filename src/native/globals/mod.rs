@@ -49,10 +49,9 @@ pub fn define(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usi
     }
 
     if let Some(meta) = args[0].get_metadata() {
-        let mut new_meta       = meta.clone();
-        new_meta.documentation = documentation;
-        let with_meta          = mem.allocate_metadata(value, new_meta);
-        mem.define_global(&name, with_meta);
+        let mut new_md         = meta.clone();
+        new_md.documentation   = documentation;
+        mem.define_global(&name, value.with_metadata(new_md));
     }
     else {
         mem.define_global(&name, value);

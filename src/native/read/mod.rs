@@ -94,10 +94,10 @@ fn number(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -
     let lisp_string = (at_least_once(&digit))(mem, sign.rest_of_input, recursion_depth + 1)?;
     let rust_string = list_to_vec(lisp_string.value).unwrap().iter().map(|x| *x.get().unwrap().as_character()).collect::<String>();
     let rust_number = rust_string.parse::<i64>().unwrap();
-    let lisp_number = mem.allocate_number(rust_number * sign_n);
-    let meta        = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    let md          = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    let lisp_number = mem.allocate_number(rust_number * sign_n).with_metadata(md);
 
-    Ok(ParserOk{ value: mem.allocate_metadata(lisp_number, meta), location: input.location, rest_of_input: lisp_string.rest_of_input })
+    Ok(ParserOk{ value: lisp_number, location: input.location, rest_of_input: lisp_string.rest_of_input })
 }
 
 
@@ -153,10 +153,10 @@ fn character(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize
     };
 
 
-    let lisp_ch = mem.allocate_character(ch);
-    let meta    = Metadata{ read_name: format!("%{ch}"), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    let md      = Metadata{ read_name: format!("%{ch}"), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    let lisp_ch = mem.allocate_character(ch).with_metadata(md);
 
-    Ok(ParserOk{ value: mem.allocate_metadata(lisp_ch, meta), location: input.location, rest_of_input: rest })
+    Ok(ParserOk{ value: lisp_ch, location: input.location, rest_of_input: rest })
 }
 
 
@@ -191,9 +191,9 @@ fn symbol(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -
         return quote_syntax_macro(mem, input.next(), recursion_depth + 1)
     }
 
-    let sym         = mem.symbol_for(&rust_string);
-    let meta        = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
-    Ok(ParserOk{ value: mem.allocate_metadata(sym, meta), location: input.location, rest_of_input: lisp_string.rest_of_input })
+    let md  = Metadata{ read_name: rust_string.clone(), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    let sym = mem.symbol_for(&rust_string).with_metadata(md);
+    Ok(ParserOk{ value: sym, location: input.location, rest_of_input: lisp_string.rest_of_input })
 }
 
 
@@ -297,11 +297,11 @@ fn string(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -
     let chs = (zero_or_more_times(&string_char))(mem, oq.rest_of_input, recursion_depth + 1)?;
     let cq  = quote(mem, chs.rest_of_input, recursion_depth + 1)?;
 
-    let meta = Metadata{ read_name: "".to_string(), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
+    let md  = Metadata{ read_name: "".to_string(), location: input.location.clone(), documentation: "".to_string(), parameters: vec![] };
 
     let list_symbol = mem.symbol_for("list");
-    let the_string  = mem.allocate_cons(list_symbol, chs.value);
-    Ok(ParserOk{ value: mem.allocate_metadata(the_string, meta), location: input.location, rest_of_input: cq.rest_of_input} )
+    let the_string  = mem.allocate_cons(list_symbol, chs.value).with_metadata(md);
+    Ok(ParserOk{ value: the_string, location: input.location, rest_of_input: cq.rest_of_input} )
 }
 
 

@@ -26,7 +26,6 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
         },
         PrimitiveValue::Symbol(x)    => string_to_list(mem, &format!("{}", x.get_name())),
         PrimitiveValue::Trap(_)      => string_to_list(mem, &format!("#<trap>")),
-        PrimitiveValue::Meta(x)      => print_atom(mem, x.get_value()),
         PrimitiveValue::Function(f)  => {
             match f.get_kind() {
                 FunctionKind::Lambda        => string_to_list(mem, &format!("#<lambda>")),

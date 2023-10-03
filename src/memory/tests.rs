@@ -228,27 +228,25 @@ fn mem_allocate_meta() {
     let mut mem = Memory::new();
     
     {
-        let x1   = mem.allocate_number(1370);
         let loc1 = Location::Stdin { line: 23, column: 42 };
         let md1  = Metadata{ read_name: "".to_string(), location: loc1, documentation: "".to_string(), parameters: vec![] };
-        let m1   = mem.allocate_metadata(x1, md1);
+        let x1   = mem.allocate_number(1370).with_metadata(md1);
 
-        let x2   = mem.allocate_character(' ');
         let loc2 = Location::File { path: PathBuf::from("~/the/input/file.lisp"), line: 41, column: 42 };
         let md2  = Metadata{ read_name: "".to_string(), location: loc2, documentation: "Very important information".to_string(), parameters: vec![] };
-        let m2   = mem.allocate_metadata(x2, md2);
+        let x2   = mem.allocate_character(' ').with_metadata(md2);
 
         let y    = mem.symbol_for("thing");
 
-        assert_eq!(*m1.get().unwrap().as_number(),    1370);
-        assert_eq!(*m2.get().unwrap().as_character(), ' ');
+        assert_eq!(*x1.get().unwrap().as_number(),    1370);
+        assert_eq!(*x2.get().unwrap().as_character(), ' ');
 
-        assert_eq!(m1.get_metadata().unwrap().location.get_file(), None);
-        assert_eq!(m1.get_metadata().unwrap().location.get_line().unwrap(), 23);
-        assert_eq!(m1.get_metadata().unwrap().documentation, "");
-        assert_eq!(m2.get_metadata().unwrap().location.get_file().unwrap(), PathBuf::from("~/the/input/file.lisp"));
-        assert_eq!(m2.get_metadata().unwrap().location.get_column().unwrap(), 42);
-        assert_eq!(m2.get_metadata().unwrap().documentation, "Very important information");
+        assert_eq!(x1.get_metadata().unwrap().location.get_file(), None);
+        assert_eq!(x1.get_metadata().unwrap().location.get_line().unwrap(), 23);
+        assert_eq!(x1.get_metadata().unwrap().documentation, "");
+        assert_eq!(x2.get_metadata().unwrap().location.get_file().unwrap(), PathBuf::from("~/the/input/file.lisp"));
+        assert_eq!(x2.get_metadata().unwrap().location.get_column().unwrap(), 42);
+        assert_eq!(x2.get_metadata().unwrap().documentation, "Very important information");
 
         assert_eq!(y.get_metadata(), None);
     }

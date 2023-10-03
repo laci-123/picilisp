@@ -5,6 +5,72 @@ use crate::config;
 use std::path::PathBuf;
 
 
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub enum Location {
+    Native,
+    Prelude{line: usize, column: usize},
+    Stdin{line: usize, column: usize},
+    File{path: PathBuf, line: usize, column: usize},
+}
+
+impl Location {
+    pub fn get_file(&self) -> Option<PathBuf> {
+        if let Self::File{path, line: _, column: _} = self {
+            Some(path.clone())
+        }
+        else {
+            None
+        }
+    }
+
+    pub fn get_line(&self) -> Option<usize> {
+        match self {
+            Self::Native                         => None,
+            Self::Prelude{line, column: _}       => Some(*line),
+            Self::Stdin{line, column: _}         => Some(*line),
+            Self::File{path: _, line, column: _} => Some(*line),
+        }
+    }
+
+    pub fn get_column(&self) -> Option<usize> {
+        match self {
+            Self::Native                         => None,
+            Self::Prelude{line: _, column}       => Some(*column),
+            Self::Stdin{line: _, column}         => Some(*column),
+            Self::File{path: _, line: _, column} => Some(*column),
+        }
+    }
+
+    pub fn step_line(self) -> Self {
+        match self {
+            Self::Native                      => self,
+            Self::Prelude{line, column: _}    => Self::Prelude{    line: line + 1, column: 1 },
+            Self::Stdin{line, column: _}      => Self::Stdin{      line: line + 1, column: 1 },
+            Self::File{path, line, column: _} => Self::File{ path, line: line + 1, column: 1 },
+        }
+    }
+
+    pub fn step_column(self) -> Self {
+        match self {
+            Self::Native                   => self,
+            Self::Prelude{line, column}    => Self::Prelude{    line, column: column + 1 },
+            Self::Stdin{line, column}      => Self::Stdin{      line, column: column + 1 },
+            Self::File{path, line, column} => Self::File{ path, line, column: column + 1 },
+        }
+    }
+}
+
+
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct Metadata {
+    pub read_name: String,
+    pub location: Location,
+    pub documentation: String,
+    pub parameters: Vec<String>,
+}
+
+
 #[derive(Default)]
 pub struct Cell {
     content: Box<CellContent>,
@@ -33,11 +99,12 @@ impl Cell {
 pub struct CellContent {
     value: PrimitiveValue,
     external_ref_count: usize,
+    metadata: Option<Metadata>,
 }
 
 impl CellContent {
     pub fn new(value: PrimitiveValue) -> Self {
-        Self{ value, external_ref_count: 0 }
+        Self{ value, external_ref_count: 0, metadata: None }
     }
 }
 
@@ -229,87 +296,6 @@ impl Trap {
 }
 
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub enum Location {
-    Native,
-    Prelude{line: usize, column: usize},
-    Stdin{line: usize, column: usize},
-    File{path: PathBuf, line: usize, column: usize},
-}
-
-impl Location {
-    pub fn get_file(&self) -> Option<PathBuf> {
-        if let Self::File{path, line: _, column: _} = self {
-            Some(path.clone())
-        }
-        else {
-            None
-        }
-    }
-
-    pub fn get_line(&self) -> Option<usize> {
-        match self {
-            Self::Native                         => None,
-            Self::Prelude{line, column: _}       => Some(*line),
-            Self::Stdin{line, column: _}         => Some(*line),
-            Self::File{path: _, line, column: _} => Some(*line),
-        }
-    }
-
-    pub fn get_column(&self) -> Option<usize> {
-        match self {
-            Self::Native                         => None,
-            Self::Prelude{line: _, column}       => Some(*column),
-            Self::Stdin{line: _, column}         => Some(*column),
-            Self::File{path: _, line: _, column} => Some(*column),
-        }
-    }
-
-    pub fn step_line(self) -> Self {
-        match self {
-            Self::Native                      => self,
-            Self::Prelude{line, column: _}    => Self::Prelude{    line: line + 1, column: 1 },
-            Self::Stdin{line, column: _}      => Self::Stdin{      line: line + 1, column: 1 },
-            Self::File{path, line, column: _} => Self::File{ path, line: line + 1, column: 1 },
-        }
-    }
-
-    pub fn step_column(self) -> Self {
-        match self {
-            Self::Native                   => self,
-            Self::Prelude{line, column}    => Self::Prelude{    line, column: column + 1 },
-            Self::Stdin{line, column}      => Self::Stdin{      line, column: column + 1 },
-            Self::File{path, line, column} => Self::File{ path, line, column: column + 1 },
-        }
-    }
-}
-
-
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct Metadata {
-    pub read_name: String,
-    pub location: Location,
-    pub documentation: String,
-    pub parameters: Vec<String>,
-}
-
-
-pub struct Meta {
-    value: *mut CellContent,
-    metadata: Metadata,
-}
-
-impl Meta {
-    pub fn get_value(&self) -> GcRef {
-        GcRef::new(self.value)
-    }
-
-    pub fn get_metadata(&self) -> &Metadata {
-        &self.metadata
-    }
-}
-
-
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TypeLabel {
     Nil,
@@ -346,7 +332,6 @@ pub enum PrimitiveValue {
     Symbol(Symbol),
     Function(Function),
     Trap(Trap),
-    Meta(Meta),
 }
 
 impl PrimitiveValue { 
@@ -445,12 +430,7 @@ impl GcRef {
             &(*self.pointer).value
         };
 
-        if let PrimitiveValue::Meta(meta) = value {
-            return meta.value.is_null();
-        }
-        else {
-            return false;
-        }
+        value.is_nil()
     }
 
     pub fn get(&self) -> Option<&PrimitiveValue> {
@@ -463,76 +443,46 @@ impl GcRef {
             &(*self.pointer).value
         };
 
-        if let PrimitiveValue::Meta(meta) = value {
-            if meta.value.is_null() {
-                None
-            }
-            else {
-                unsafe {
-                    Some(&(*meta.value).value)
-                }
-            }
-        }
-        else {
-            Some(value)
-        }
+        Some(value)
     }
 
-    pub fn without_metadata(&self) -> GcRef {
-        if self.pointer.is_null() {
-            return GcRef::nil();
+    pub fn with_metadata(self, md: Metadata) -> GcRef {
+        if !self.pointer.is_null() {
+            unsafe {
+                (*self.pointer).metadata = Some(md);
+            }
         }
-            
-        let value =
-        unsafe {
-            &(*self.pointer).value
-        };
-
-        if let PrimitiveValue::Meta(meta) = value {
-            GcRef::new(meta.value)
-        }
-        else {
-            GcRef::new(self.pointer)
-        }
+        self
     }
 
     pub fn get_metadata(&self) -> Option<&Metadata> {
         if self.pointer.is_null() {
-            return None;
-        }
-        
-        let value =
-        unsafe {
-            &(*self.pointer).value
-        };
-
-        if let PrimitiveValue::Meta(meta) = value {
-            Some(&meta.metadata)
+            None
         }
         else {
-            None
+            unsafe {
+                (*self.pointer).metadata.as_ref()
+            }
         }
     }
 
     pub fn get_type(&self) -> TypeLabel {
-        let mut pointer = self.pointer;
-        loop {
-            if pointer.is_null() {
-                return TypeLabel::Nil;
-            }
-            let value = unsafe {
-                &(*pointer).value
-            };
-            match value {
-                PrimitiveValue::Nil          => return TypeLabel::Nil,
-                PrimitiveValue::Number(_)    => return TypeLabel::Number,
-                PrimitiveValue::Character(_) => return TypeLabel::Character,
-                PrimitiveValue::Cons(_)      => return TypeLabel::Cons,
-                PrimitiveValue::Symbol(_)    => return TypeLabel::Symbol,
-                PrimitiveValue::Function(_)  => return TypeLabel::Function,
-                PrimitiveValue::Trap(_)      => return TypeLabel::Trap,
-                PrimitiveValue::Meta(m)      => pointer = m.value,
-            }
+        if self.pointer.is_null() {
+            return TypeLabel::Nil;
+        }
+
+        let value = unsafe {
+            &(*self.pointer).value
+        };
+
+        match value {
+            PrimitiveValue::Nil          => return TypeLabel::Nil,
+            PrimitiveValue::Number(_)    => return TypeLabel::Number,
+            PrimitiveValue::Character(_) => return TypeLabel::Character,
+            PrimitiveValue::Cons(_)      => return TypeLabel::Cons,
+            PrimitiveValue::Symbol(_)    => return TypeLabel::Symbol,
+            PrimitiveValue::Function(_)  => return TypeLabel::Function,
+            PrimitiveValue::Trap(_)      => return TypeLabel::Trap,
         }
     }
 }
@@ -664,18 +614,6 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_metadata(&mut self, value: GcRef, metadata: Metadata) -> GcRef {
-        let true_value =
-        if value.is_nil() {
-            value
-        }
-        else {
-            value.without_metadata()
-        };
-        let ptr = self.allocate_internal(PrimitiveValue::Meta(Meta{ value: true_value.pointer, metadata }));
-        GcRef::new(ptr)
-    }
-
     fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {
         if self.first_free > self.cells.len() - 1 {
             self.collect();
@@ -757,11 +695,6 @@ impl Memory {
                         }
                     }
                 },
-                PrimitiveValue::Meta(m) => {
-                    if !m.value.is_null() {
-                        stack.push(m.value);
-                    }
-                }
                 _ =>{},
             }
         }
@@ -842,7 +775,6 @@ impl Memory {
                     }
                 },
                 PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
-                PrimitiveValue::Meta(ref m)     => format!("METADATA  value: {:p}", m.value),
             };
             let used = if i < self.first_free { "[x] " } else { "[ ] " };
             let rc = c.content.external_ref_count;
