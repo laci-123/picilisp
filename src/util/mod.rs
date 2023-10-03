@@ -15,6 +15,47 @@ pub fn vec_to_list(mem: &mut Memory, vec: &[GcRef]) -> GcRef {
 }
 
 
+pub fn is_list(thing: GcRef) -> bool {
+    let mut cursor = thing;
+    loop {
+        if cursor.is_nil() {
+            break;
+        }
+
+        if let Some(PrimitiveValue::Cons(cons)) = cursor.get() {
+            cursor = cons.get_cdr();
+        }
+        else {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+
+pub fn is_string(thing: GcRef) -> bool {
+    let mut cursor = thing;
+    loop {
+        if cursor.is_nil() {
+            break;
+        }
+
+        if let Some(PrimitiveValue::Cons(cons)) = cursor.get() {
+            if cons.get_car().get_type() != TypeLabel::Character {
+                return false;
+            }
+            cursor = cons.get_cdr();
+        }
+        else {
+            return false;
+        }
+    }
+    
+    return true;
+}
+
+
 pub fn string_to_list(mem: &mut Memory, string: &str) -> GcRef {
     let char_vec = string.chars().map(|c| mem.allocate_character(c)).collect::<Vec<GcRef>>();
     vec_to_list(mem, &char_vec)
