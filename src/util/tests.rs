@@ -4,36 +4,14 @@ use super::*;
 
 
 #[test]
-fn util_vec_is_list() {
+fn util_cons_type() {
     let mut mem = Memory::new();
 
     // empty list
     let list = GcRef::nil();
-    assert!(is_list(list));
-    
-    // non-empty list
-    let mut list = GcRef::nil();
-    for i in 0..5 {
-        let x = mem.allocate_number(i as i64);
-        list = mem.allocate_cons(x, list);
-    }
-    assert!(is_list(list));
-
-    // not a list
-    let x = mem.allocate_character('x');
-    let y = mem.allocate_character('y');
-    let c = mem.allocate_cons(x, y);
-    assert!(!is_list(c));
-}
-
-
-#[test]
-fn util_vec_is_string() {
-    let mut mem = Memory::new();
-
-    // empty string
-    let list = GcRef::nil();
-    assert!(is_string(list));
+    let ct = cons_type(list);
+    assert!(ct.is_string);
+    assert!(ct.is_list);
     
     // non-empty list but not string
     let mut list = GcRef::nil();
@@ -41,7 +19,9 @@ fn util_vec_is_string() {
         let x = mem.allocate_number(i as i64);
         list = mem.allocate_cons(x, list);
     }
-    assert!(!is_string(list));
+    let ct = cons_type(list);
+    assert!(!ct.is_string);
+    assert!(ct.is_list);
 
     // non-empty string
     let mut list = GcRef::nil();
@@ -49,13 +29,17 @@ fn util_vec_is_string() {
         let c = mem.allocate_character(i);
         list = mem.allocate_cons(c, list);
     }
-    assert!(is_string(list));
+    let ct = cons_type(list);
+    assert!(ct.is_string);
+    assert!(ct.is_list);
 
     // not even a list
     let x = mem.allocate_character('x');
     let y = mem.allocate_character('y');
     let c = mem.allocate_cons(x, y);
-    assert!(!is_string(c));
+    let ct = cons_type(c);
+    assert!(!ct.is_string);
+    assert!(!ct.is_list);
 }
 
 

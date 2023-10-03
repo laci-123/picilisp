@@ -21,10 +21,11 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
 
     match args[0].get_type() {
         TypeLabel::Cons => {
-            if is_string(args[0].clone()) {
+            let ct = cons_type(args[0].clone());
+            if ct.is_string {
                 Ok(mem.symbol_for("string"))
             }
-            else if is_list(args[0].clone()) {
+            else if ct.is_list {
                 Ok(mem.symbol_for("list"))
             }
             else {

@@ -15,26 +15,14 @@ pub fn vec_to_list(mem: &mut Memory, vec: &[GcRef]) -> GcRef {
 }
 
 
-pub fn is_list(thing: GcRef) -> bool {
-    let mut cursor = thing;
-    loop {
-        if cursor.is_nil() {
-            break;
-        }
-
-        if let Some(PrimitiveValue::Cons(cons)) = cursor.get() {
-            cursor = cons.get_cdr();
-        }
-        else {
-            return false;
-        }
-    }
-    
-    return true;
+pub struct ConsType {
+    pub is_list: bool,
+    pub is_string: bool,
 }
 
 
-pub fn is_string(thing: GcRef) -> bool {
+pub fn cons_type(thing: GcRef) -> ConsType {
+    let mut is_string = true;
     let mut cursor = thing;
     loop {
         if cursor.is_nil() {
@@ -43,16 +31,16 @@ pub fn is_string(thing: GcRef) -> bool {
 
         if let Some(PrimitiveValue::Cons(cons)) = cursor.get() {
             if cons.get_car().get_type() != TypeLabel::Character {
-                return false;
+                is_string = false;
             }
             cursor = cons.get_cdr();
         }
         else {
-            return false;
+            return ConsType{ is_string: false, is_list: false };
         }
     }
     
-    return true;
+    ConsType{ is_string, is_list: true }
 }
 
 
