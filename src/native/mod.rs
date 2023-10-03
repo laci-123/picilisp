@@ -31,6 +31,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, io::INPUT);
     load_native_function(mem, io::OUTPUT);
     load_native_function(mem, io::INPUT_FILE);
+    load_native_function(mem, io::OUTPUT_FILE);
     load_native_function(mem, misc::GENSYM);
     load_native_function(mem, misc::QUOTE);
     load_native_function(mem, misc::BRANCH);

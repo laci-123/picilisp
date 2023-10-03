@@ -84,11 +84,46 @@ pub fn input_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_dept
             Ok(string) => Ok(string_to_list(mem, &string)),
             Err(err)   => {
                 let details = string_to_list(mem, &err.kind().to_string());
-                Err(make_error(mem, "cannot-open-file", INPUT_FILE.name, &vec![("details", details)]))
+                Err(make_error(mem, "cannot-read-file", INPUT_FILE.name, &vec![("details", details)]))
             },
         }
     }
     else {
         Err(make_error(mem, "wrong-argument-type", INPUT_FILE.name, &vec![]))
+    }
+}
+
+
+pub const OUTPUT_FILE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      output_file,
+    name:          "output-file",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["path", "string"],
+    documentation: "Append `string` to the file at `path`."
+};
+
+pub fn output_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, OUTPUT_FILE.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    
+    if let (Some(path), Some(string)) = (list_to_string(args[0].clone()), list_to_string(args[1].clone())) {
+        match std::fs::OpenOptions::new().append(true).open(path) {
+            Ok(mut file)   => {
+                match writeln!(file, "{string}") {
+                    Ok(_)    => Ok(mem.symbol_for("ok")),
+                    Err(err) => {
+                        let details = string_to_list(mem, &err.kind().to_string());
+                        Err(make_error(mem, "cannot-write-file", OUTPUT_FILE.name, &vec![("details", details)]))
+                    },
+                }
+            },
+            Err(err)   => {
+                let details = string_to_list(mem, &err.kind().to_string());
+                Err(make_error(mem, "cannot-write-file", OUTPUT_FILE.name, &vec![("details", details)]))
+            },
+        }
+    }
+    else {
+        Err(make_error(mem, "wrong-argument-type", OUTPUT_FILE.name, &vec![]))
     }
 }
