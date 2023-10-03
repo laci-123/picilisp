@@ -1,7 +1,0 @@
-PiciLisp
-Loaded native functions.
-Loaded prelude.
->>> PiciLisp
-Loaded native functions.
-Loaded prelude.
->>> 

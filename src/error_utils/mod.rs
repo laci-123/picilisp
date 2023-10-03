@@ -1,5 +1,6 @@
 use crate::memory::*;
 use crate::native::list::make_plist;
+use crate::util::*;
 
 
 
@@ -20,9 +21,60 @@ pub fn fit_to_number(mem: &mut Memory, x: usize) -> GcRef {
 }
 
 
+fn extended_get_type(thing: GcRef) -> TypeLabel {
+    match thing.get_type() {
+        TypeLabel::Cons => {
+            let ct = cons_type(thing);
+            if ct.is_string {
+                TypeLabel::String
+            }
+            else if ct.is_list {
+                TypeLabel::List
+            }
+            else {
+                TypeLabel::Cons
+            }
+        },
+        other => other,
+    }
+}
+
+
 pub enum ParameterType {
     Any,
     Type(TypeLabel),
+}
+
+
+macro_rules! cast {
+    ($x:expr, $type:literal) => {
+        match $type {
+            TypeLabel::Nil       => if $x.is_nil()                                                {Some(x)} else {None},
+            TypeLabel::Number    => if let Some(PrimitiveValue::Number(y))    = x                 {Some(y)} else {None},
+            TypeLabel::Character => if let Some(PrimitiveValue::Character(y)) = x                 {Some(y)} else {None},
+            TypeLabel::Cons      => if let Some(PrimitiveValue::Cons(y))      = x                 {Some(y)} else {None},
+            TypeLabel::List      => if let Some(y)                            = list_to_vec(x)    {Some(y)} else {None},
+            TypeLabel::String    => if let Some(y)                            = list_to_string(x) {Some(y)} else {None},
+            TypeLabel::Symbol    => if let Some(PrimitiveValue::Symbol(y))    = x                 {Some(y)} else {None},
+            TypeLabel::Function  => if let Some(PrimitiveValue::Function(y))  = x                 {Some(y)} else {None},
+            TypeLabel::Trap      => if let Some(PrimitiveValue::Tryp(y))      = x                 {Some(y)} else {None},
+        }
+    };
+}
+
+
+macro_rules! nth_arg {
+    ($mem:expr, $source:expr, $args:expr, $n:expr, $type:expr) => {
+        let arg = $args[$n].clone();
+        if let Some(x) = cast!(arg, $type) {
+            Ok(x)
+        }
+        else {
+            let error_details = vec![("expected", mem.symbol_for($type.to_string())), ("actual", mem.symbol_for(extended_get_type(arg.clone()).to_string()))];
+            let error         = make_error(mem, "wrong-argument-type", $source, &error_details);
+            Err(error)
+        }
+    };
 }
 
 
