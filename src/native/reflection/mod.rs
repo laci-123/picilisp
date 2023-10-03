@@ -23,13 +23,13 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
         TypeLabel::Cons => {
             let ct = cons_type(args[0].clone());
             if ct.is_string {
-                Ok(mem.symbol_for("string"))
+                Ok(mem.symbol_for("string-type"))
             }
             else if ct.is_list {
-                Ok(mem.symbol_for("list"))
+                Ok(mem.symbol_for("list-type"))
             }
             else {
-                Ok(mem.symbol_for("cons"))
+                Ok(mem.symbol_for("cons-type"))
             }
         }
         _ => {

@@ -247,15 +247,15 @@ pub enum TypeLabel {
 impl TypeLabel {
     pub fn to_string(self) -> &'static str {
         match self {
-            Self::Nil       => "nil",
-            Self::Number    => "number",
-            Self::Character => "character",
-            Self::Cons      => "conscell",
-            Self::List      => "list",
-            Self::String    => "string",
-            Self::Symbol    => "symbol",
-            Self::Function  => "function",
-            Self::Trap      => "trap",
+            Self::Nil       => "nil-type",
+            Self::Number    => "number-type",
+            Self::Character => "character-type",
+            Self::Cons      => "conscell-type",
+            Self::List      => "list-type",
+            Self::String    => "string-type",
+            Self::Symbol    => "symbol-type",
+            Self::Function  => "function-type",
+            Self::Trap      => "trap-type",
         }
     }
 }
