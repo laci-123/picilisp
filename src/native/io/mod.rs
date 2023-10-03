@@ -65,3 +65,30 @@ pub fn input(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: us
         Ok(_) => Ok(string_to_list(mem, &line)),
     }
 }
+
+
+pub const INPUT_FILE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      input_file,
+    name:          "input-file",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["path"],
+    documentation: "Read the whole contents of file at `path` into a string"
+};
+
+pub fn input_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_arguments(mem, INPUT_FILE.name, &vec![ParameterType::Any], args)?;
+    
+    if let Some(path) = list_to_string(args[0].clone()) {
+        match std::fs::read_to_string(path) {
+            Ok(string) => Ok(string_to_list(mem, &string)),
+            Err(err)   => {
+                let details = string_to_list(mem, &err.kind().to_string());
+                Err(make_error(mem, "cannot-open-file", INPUT_FILE.name, &vec![("details", details)]))
+            },
+        }
+    }
+    else {
+        Err(make_error(mem, "wrong-argument-type", INPUT_FILE.name, &vec![]))
+    }
+}
