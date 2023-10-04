@@ -1,17 +1,17 @@
-(define t 't "`t` is the canonical true value.")
+(define 't 't "`t` is the canonical true value.")
 
-(define nil () "`nil` is a synonym for the empty list `()`.")
+(define 'nil () "`nil` is a synonym for the empty list `()`.")
 
-(define defmacro (macro (name params doc-string body)
-    (list 'define name (list 'macro params body) doc-string)) "Globally define `name` as a macro.")
+(define 'defmacro (macro (name params doc-string body)
+    (list 'define (list 'quote name) (list 'macro params body) doc-string)) "Globally define `name` as a macro.")
 
 (defmacro defun (name params doc-string body)
   "Globally define `name` as a lambda function."
-  (list 'define name (list 'lambda params body) doc-string))
+  (list 'define (list 'quote name) (list 'lambda params body) doc-string))
 
 (defmacro defspecial (name params doc-string body)
   "Globally define `name` as a special-lambda function."
-  (list 'define name (list 'special-lambda params body) doc-string))
+  (list 'define (list 'quote name) (list 'special-lambda params body) doc-string))
 
 (defspecial if (condition then otherwise)
   "Evaluate `then` if and only if `condition` evaluates to non-nil,
@@ -153,7 +153,7 @@ Otherwise substract all but the first argument from the first one."
   "Print all available metadata about `thing` in a human-readable format."
   (let (metadata (get-metadata thing))
     (if metadata
-        (concat (if (= (type-of thing) 'function)
+        (concat (if (= (type-of thing) 'function-type)
                     (concat "("
                             (print (get-property 'function-kind metadata))
                             " "
