@@ -275,9 +275,9 @@ NativeFunctionMetaData{
 };
 
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, EVAL.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, EVAL.name, args, (let x: TypeLabel::Any));
 
-    let mut expanded = args[0].clone();
+    let mut expanded = x;
     loop {
         let mut changed  = false;
         expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
@@ -300,9 +300,9 @@ NativeFunctionMetaData{
 };
 
 pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, MACROEXPAND.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, MACROEXPAND.name, args, (let x: TypeLabel::Any));
 
-    let mut expanded = args[0].clone();
+    let mut expanded = x;
     loop {
         let mut changed = false;
         expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
@@ -331,26 +331,24 @@ NativeFunctionMetaData{
     function:      load_all,
     name:          "load-all",
     kind:          FunctionKind::Lambda,
-    parameters:    &["string"],
+    parameters:    &["string", "source"],
     documentation: "Read, macroexpand and evaluate all expressions in `string` in sequential order.
 Error if `string` is not a valid string."
 };
 
 pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, LOAD_ALL.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    validate_args!(mem, LOAD_ALL.name, args, (let input: TypeLabel::Any), (let source: TypeLabel::Any));
 
     let ok_symbol         = mem.symbol_for("ok");
     let incomplete_symbol = mem.symbol_for("incomplete");
     let error_symbol      = mem.symbol_for("error");
     let invalid_symbol    = mem.symbol_for("invalid");
+    let mut line          = mem.allocate_number(1);
+    let mut column        = mem.allocate_number(1);
+    let mut cursor        = input;
 
-    let mut input  = args[0].clone();
-    let source     = args[1].clone();
-    let mut line   = mem.allocate_number(1);
-    let mut column = mem.allocate_number(1);
-
-    while !input.is_nil() {
-        let output     = read(mem, &[input.clone(), source.clone(), line.clone(), column.clone()], GcRef::nil(), recursion_depth + 1)?;
+    while !cursor.is_nil() {
+        let output     = read(mem, &[cursor.clone(), source.clone(), line.clone(), column.clone()], GcRef::nil(), recursion_depth + 1)?;
         let status     = property(mem, "status", output.clone()).unwrap();
         let result     = property(mem, "result", output.clone()).unwrap();
         let rest       = property(mem, "rest",   output.clone()).unwrap();
@@ -378,7 +376,7 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: 
             return Err(error);
         }
 
-        input = rest;
+        cursor = rest;
     }
 
     Ok(ok_symbol)

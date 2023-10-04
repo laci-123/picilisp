@@ -15,9 +15,9 @@ NativeFunctionMetaData{
 };
 
 pub fn cons(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, CONS.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    validate_args!(mem, CONS.name, args, (let car: TypeLabel::Any), (let cdr: TypeLabel::Any));
 
-    Ok(mem.allocate_cons(args[0].clone(), args[1].clone()))
+    Ok(mem.allocate_cons(car, cdr))
 }
 
 
@@ -31,9 +31,9 @@ NativeFunctionMetaData{
 };
 
 pub fn car(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, CAR.name, &vec![ParameterType::Type(TypeLabel::Cons)], args)?;
+    validate_args!(mem, CAR.name, args, (let cons: TypeLabel::Cons));
 
-    Ok(args[0].get().unwrap().as_conscell().get_car())
+    Ok(cons.get_car())
 }
 
 
@@ -47,9 +47,9 @@ NativeFunctionMetaData{
 };
 
 pub fn cdr(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, CDR.name, &vec![ParameterType::Type(TypeLabel::Cons)], args)?;
+    validate_args!(mem, CDR.name, args, (let cons: TypeLabel::Cons));
 
-    Ok(args[0].get().unwrap().as_conscell().get_cdr())
+    Ok(cons.get_cdr())
 }
 
 
@@ -64,6 +64,8 @@ Allows any number of arguments, including zero."
 };
 
 pub fn list(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    // no need for validation: can accept any number of any type
+
     Ok(vec_to_list(mem, &args.to_vec()))
 }
 
@@ -106,17 +108,7 @@ Error if `plist` is not a valid property-list."
 };
 
 pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, GET_PROPERTY.name, &vec![ParameterType::Type(TypeLabel::Symbol), ParameterType::Any], args)?;
-
-    let key = args[0].get().unwrap().as_symbol();
-
-    let plist;
-    if let Some(v) = list_to_vec(args[1].clone()) {
-        plist = v;
-    }
-    else {
-        return Err(mem.symbol_for("wrong-argument-type"));
-    }
+    validate_args!(mem, GET_PROPERTY.name, args, (let key: TypeLabel::Symbol), (let plist: TypeLabel::List));
 
     if let Some(result) = get_property_internal(key, &plist) {
         Ok(result)
@@ -150,9 +142,9 @@ If `f` doesn't have rest-paramteres then it will remain unchanged.",
 };
 
 pub fn unrest(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, UNREST.name, &vec![ParameterType::Type(TypeLabel::Function)], args)?;
+    validate_args!(mem, UNREST.name, args, (let f: TypeLabel::Function));
 
-    if let Some(PrimitiveValue::Function(Function::NormalFunction(nf))) = args[0].get() {
+    if let Function::NormalFunction(nf) = f {
         let has_rest_params = false;
         let new_nf = mem.allocate_normal_function(nf.get_kind(), has_rest_params, nf.get_body(), &nf.get_params(), nf.get_env());
         Ok(new_nf)

@@ -14,9 +14,9 @@ NativeFunctionMetaData{
 };
 
 pub fn signal(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, SIGNAL.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, SIGNAL.name, args, (let signal: TypeLabel::Any));
     
-    Err(args[0].clone())
+    Err(signal)
 }
 
 
@@ -37,7 +37,7 @@ then the trap body is never evaluated."
 };
 
 pub fn trap(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, TRAP.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    validate_args!(mem, TRAP.name, args, (let normal_body: TypeLabel::Any), (let trap_body: TypeLabel::Any));
     
-    Ok(mem.allocate_trap(args[0].clone(), args[1].clone()))
+    Ok(mem.allocate_trap(normal_body, trap_body))
 }

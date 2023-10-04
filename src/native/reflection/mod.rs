@@ -17,9 +17,9 @@ NativeFunctionMetaData{
 };
 
 pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, TYPE_OF.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, TYPE_OF.name, args, (let x: TypeLabel::Any));
 
-    match args[0].get_type() {
+    match x.get_type() {
         TypeLabel::Cons => {
             let ct = cons_type(args[0].clone());
             if ct.is_string {
@@ -33,7 +33,7 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
             }
         }
         _ => {
-            Ok(mem.symbol_for(args[0].get_type().to_string()))
+            Ok(mem.symbol_for(x.get_type().to_string()))
         }
     }
 }
@@ -49,10 +49,10 @@ NativeFunctionMetaData{
 };
 
 pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, GET_METADATA.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, GET_METADATA.name, args, (let x: TypeLabel::Any));
 
-    let metadata    = args[0].get_metadata();
-    let param_names = get_param_names(mem, args[0].clone());
+    let metadata    = x.get_metadata();
+    let param_names = get_param_names(mem, x.clone());
 
     match (metadata, param_names.clone()) {
         (Some(md), _) => {

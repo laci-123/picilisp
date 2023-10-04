@@ -6,75 +6,67 @@ use super::NativeFunctionMetaData;
 
 
 fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, source, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    validate_args!(mem, source, args, (let params: TypeLabel::List), (let body: TypeLabel::Any));
     
-    if let Some(params) = list_to_vec(args[0].clone()) {
-        let mut actual_params   = vec![];
-        let mut has_rest_params = false;
-        let rest_param_symbol   = mem.symbol_for("&");
+    let mut actual_params   = vec![];
+    let mut has_rest_params = false;
+    let rest_param_symbol   = mem.symbol_for("&");
+    let param_count         = params.len();
+    let mut i               = 0;
 
-        let param_count = params.len();
-        let mut i = 0;
+    for param in params {
+        if let Some(PrimitiveValue::Symbol(symbol)) = param.get() {
+            if has_rest_params {
+                actual_params.push(param.clone());
+                break;
+            }
 
-        for param in params {
-            if let Some(PrimitiveValue::Symbol(symbol)) = param.get() {
-                if has_rest_params {
-                    actual_params.push(param.clone());
-                    break;
+            if symbol == rest_param_symbol.get().unwrap().as_symbol() {
+                // i == param_count - 2  (rearranged to avoid underflow when param_count == 0)
+                if i + 2 == param_count {
+                    //          ---4---
+                    //          0 1 2 3
+                    // (lambda (x y & z) ...
+                    //              ^
+                    //              4 - 2
+                    has_rest_params = true;
                 }
-
-                if symbol == rest_param_symbol.get().unwrap().as_symbol() {
-                    // i == param_count - 2  (rearranged to avoid underflow when param_count == 0)
-                    if i + 2 == param_count {
-                        //          ---4---
-                        //          0 1 2 3
-                        // (lambda (x y & z) ...
-                        //              ^
-                        //              4 - 2
-                        has_rest_params = true;
-                    }
-                    //      i > param_count - 2
-                    else if i + 2 > param_count {
-                        //          ---4---
-                        //          0 1 2 3
-                        // (lambda (x y z &) ...
-                        //                ^
-                        //                3 > 4 - 2
-                        let error = make_error(mem, "missing-rest-parameter", source, &vec![]);
-                        return Err(error);
-                    }
-                    // i < param_count - 2
-                    else {
-                        //          ---4---
-                        //          0 1 2 3
-                        // (lambda (x & y z) ...
-                        //            ^
-                        //            1 < 4 - 2
-                        let error = make_error(mem, "multiple-rest-parameters", source, &vec![]);
-                        return Err(error);
-                    }
+                //      i > param_count - 2
+                else if i + 2 > param_count {
+                    //          ---4---
+                    //          0 1 2 3
+                    // (lambda (x y z &) ...
+                    //                ^
+                    //                3 > 4 - 2
+                    let error = make_error(mem, "missing-rest-parameter", source, &vec![]);
+                    return Err(error);
                 }
+                // i < param_count - 2
                 else {
-                    actual_params.push(param.clone());
+                    //          ---4---
+                    //          0 1 2 3
+                    // (lambda (x & y z) ...
+                    //            ^
+                    //            1 < 4 - 2
+                    let error = make_error(mem, "multiple-rest-parameters", source, &vec![]);
+                    return Err(error);
                 }
             }
             else {
-                let error_details = vec![("param", param)];
-                let error = make_error(mem, "param-is-not-symbol", source, &error_details);
-                return Err(error);
+                actual_params.push(param.clone());
             }
-
-            i += 1;
+        }
+        else {
+            let error_details = vec![("param", param)];
+            let error = make_error(mem, "param-is-not-symbol", source, &error_details);
+            return Err(error);
         }
 
-        let body     = args[1].clone();
-        let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env);
-        Ok(function)
+        i += 1;
     }
-    else {
-        let error = make_error(mem, "bad-param-list", source, &vec![]);
-        Err(error)
-    }
+
+    let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env);
+    Ok(function)
 }
 
 

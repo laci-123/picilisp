@@ -21,7 +21,7 @@ pub fn fit_to_number(mem: &mut Memory, x: usize) -> GcRef {
 }
 
 
-fn extended_get_type(thing: GcRef) -> TypeLabel {
+pub fn extended_get_type(thing: GcRef) -> TypeLabel {
     match thing.get_type() {
         TypeLabel::Cons => {
             let ct = cons_type(thing);
@@ -46,7 +46,7 @@ pub enum ParameterType {
 }
 
 
-macro_rules! cast {
+macro_rules! _cast {
     ($x:expr, TypeLabel::Nil) => {
         if $x.is_nil() {Some($x)} else {None}
     };
@@ -79,21 +79,40 @@ macro_rules! cast {
     };
 }
 
+pub(crate) use _cast as cast;
 
-macro_rules! count {
+
+macro_rules! _count {
     ()                   => (0 as usize);
     ( $x:tt $($xs:tt)* ) => (1 as usize + count!($($xs)*));
 }
 
+pub(crate) use _count as count;
 
-macro_rules! validate_args {
-    ($mem:expr, $source:expr, $args:expr, $((let $name:ident : $($params:tt)+)),*) => {
+
+macro_rules! _validate_args {
+    ($mem:expr, $source:expr, $args:expr) => {
         let mem: &mut Memory = $mem;
         let source: &str = $source;
         let args: &[GcRef] = $args;
 
-        if args.len() != count!($($($params)+)*) {
-            let error_details = vec![("expected", fit_to_number(mem, count!($($($params)+)*))), ("actual", fit_to_number(mem, args.len()))];
+        if args.len() != 0 {
+            let error_details = vec![("expected", mem.allocate_number(0)), ("actual", fit_to_number(mem, args.len()))];
+            let error         = make_error(mem, "wrong-number-of-arguments", source, &error_details);
+            return Err(error);
+        }
+
+    };
+                                                             // Have to match a raw token-tree because cast! needs a literal, not an expression.
+                                                             // Must be a sequence because e.g. TypeLabel::Number is a sequence of two tokens ("TypeLabel", "Number").
+    ($mem:expr, $source:expr, $args:expr, $((let $name:ident : $($params:tt)+)),*) => {
+        let mem: &mut Memory = $mem;
+        let source: &str = $source;
+        let args: &[GcRef] = $args;
+        let params_count = count!($($($params)+)*) / 3; // count! counts the whole token-sequence, so e.g. "let x: TypeLabel::Number" is counted as 3 separate tokens (constant delimiters ("let", ":", "::") don't count)
+
+        if args.len() != params_count {
+            let error_details = vec![("expected", fit_to_number(mem, params_count)), ("actual", fit_to_number(mem, args.len()))];
             let error         = make_error(mem, "wrong-number-of-arguments", source, &error_details);
             return Err(error);
         }
@@ -116,6 +135,8 @@ macro_rules! validate_args {
         )*
     };
 }
+
+pub(crate) use _validate_args as validate_args;
 
 
 pub fn validate_arguments(mem: &mut Memory, source: &str, parameters: &[ParameterType], arguments: &[GcRef]) -> Result<GcRef, GcRef> {

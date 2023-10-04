@@ -18,15 +18,9 @@ Error if `string` is not a valid string."
 };
 
 pub fn output(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, OUTPUT.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, OUTPUT.name, args, (let msg: TypeLabel::String));
     
-    if let Some(msg) = list_to_string(args[0].clone()) {
-        println!("{msg}");
-    }
-    else {
-        let error = make_error(mem, "invalid-string", OUTPUT.name, &vec![]);
-        return Err(error);
-    }
+    println!("{msg}");
 
     Ok(mem.symbol_for("ok"))
 }
@@ -43,23 +37,19 @@ then read a line from standard input."
 };
 
 pub fn input(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, OUTPUT.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, INPUT.name, args, (let prompt: TypeLabel::String));
     
-    if let Some(prompt) = list_to_string(args[0].clone()) {
-        print!("{prompt}");
-        io::stdout().flush().unwrap();
-    }
-    else {
-        return Err(make_error(mem, "invalid-string", INPUT.name, &vec![]));
-    }
+    print!("{prompt}");
+    io::stdout().flush().unwrap();
 
     let stdin = io::stdin();
     let mut line = String::new();
     let status = stdin.lock().read_line(&mut line);
 
     match status {
-        Err(_) => {
-            Err(make_error(mem, "input-error", INPUT.name, &vec![]))
+        Err(err) => {
+            let details = vec![("details", string_to_list(mem, &err.kind().to_string()))];
+            Err(make_error(mem, "input-error", INPUT.name, &details))
         },
         Ok(0) => Err(make_error(mem, "eof", INPUT.name, &vec![])),
         Ok(_) => Ok(string_to_list(mem, &line)),
@@ -77,19 +67,14 @@ NativeFunctionMetaData{
 };
 
 pub fn input_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, INPUT_FILE.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, INPUT_FILE.name, args, (let path: TypeLabel::String));
     
-    if let Some(path) = list_to_string(args[0].clone()) {
-        match std::fs::read_to_string(path) {
-            Ok(string) => Ok(string_to_list(mem, &string)),
-            Err(err)   => {
-                let details = string_to_list(mem, &err.kind().to_string());
-                Err(make_error(mem, "cannot-read-file", INPUT_FILE.name, &vec![("details", details)]))
-            },
-        }
-    }
-    else {
-        Err(make_error(mem, "wrong-argument-type", INPUT_FILE.name, &vec![]))
+    match std::fs::read_to_string(path) {
+        Ok(string) => Ok(string_to_list(mem, &string)),
+        Err(err)   => {
+            let details = string_to_list(mem, &err.kind().to_string());
+            Err(make_error(mem, "cannot-read-file", INPUT_FILE.name, &vec![("details", details)]))
+        },
     }
 }
 
@@ -104,26 +89,21 @@ NativeFunctionMetaData{
 };
 
 pub fn output_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, OUTPUT_FILE.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    validate_args!(mem, OUTPUT_FILE.name, args, (let path: TypeLabel::String), (let string: TypeLabel::String));
     
-    if let (Some(path), Some(string)) = (list_to_string(args[0].clone()), list_to_string(args[1].clone())) {
-        match std::fs::OpenOptions::new().append(true).open(path) {
-            Ok(mut file)   => {
-                match writeln!(file, "{string}") {
-                    Ok(_)    => Ok(mem.symbol_for("ok")),
-                    Err(err) => {
-                        let details = string_to_list(mem, &err.kind().to_string());
-                        Err(make_error(mem, "cannot-write-file", OUTPUT_FILE.name, &vec![("details", details)]))
-                    },
-                }
-            },
-            Err(err)   => {
-                let details = string_to_list(mem, &err.kind().to_string());
-                Err(make_error(mem, "cannot-write-file", OUTPUT_FILE.name, &vec![("details", details)]))
-            },
-        }
-    }
-    else {
-        Err(make_error(mem, "wrong-argument-type", OUTPUT_FILE.name, &vec![]))
+    match std::fs::OpenOptions::new().append(true).open(path) {
+        Ok(mut file)   => {
+            match writeln!(file, "{string}") {
+                Ok(_)    => Ok(mem.symbol_for("ok")),
+                Err(err) => {
+                    let details = string_to_list(mem, &err.kind().to_string());
+                    Err(make_error(mem, "cannot-write-file", OUTPUT_FILE.name, &vec![("details", details)]))
+                },
+            }
+        },
+        Err(err)   => {
+            let details = string_to_list(mem, &err.kind().to_string());
+            Err(make_error(mem, "cannot-write-file", OUTPUT_FILE.name, &vec![("details", details)]))
+        },
     }
 }

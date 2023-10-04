@@ -102,9 +102,9 @@ NativeFunctionMetaData{
 };
 
 pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, PRINT.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, PRINT.name, args, (let x: TypeLabel::Any));
 
-    print_internal(mem, args[0].clone(), recursion_depth + 1)
+    print_internal(mem, x, recursion_depth + 1)
 }
 
 

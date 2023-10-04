@@ -35,7 +35,7 @@ fn make_lambda_bad_param_list() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind bad-param-list source lambda)");
+    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-argument-type source lambda expected list-type actual symbol-type)");
 }
 
 #[test]

@@ -17,7 +17,7 @@ that is equal to the returned symbol."
 };
 
 pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, GENSYM.name, &vec![], args)?;
+    validate_args!(mem, GENSYM.name, args);
     
     Ok(mem.unique_symbol())
 }
@@ -30,13 +30,14 @@ NativeFunctionMetaData{
     kind:          FunctionKind::SpecialLambda,
     parameters:    &["object"],
     documentation: "Don't do anything with `object`.
-Useful if you want to prevent `object` from being evaluated."
+Useful if you want to prevent `object` from being evaluated.
+Note: `object` will be macroexpanded, it just won't be evaluated."
 };
 
 pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, QUOTE.name, &vec![ParameterType::Any], args)?;
+    validate_args!(mem, QUOTE.name, args, (let x: TypeLabel::Any));
 
-    Ok(args[0].clone())
+    Ok(x)
 }
 
 
@@ -50,11 +51,7 @@ NativeFunctionMetaData{
 };
 
 pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, BRANCH.name, &vec![ParameterType::Any, ParameterType::Any, ParameterType::Any], args)?;
-
-    let condition = args[0].clone();
-    let then      = args[1].clone();
-    let otherwise = args[2].clone();
+    validate_args!(mem, BRANCH.name, args, (let condition: TypeLabel::Any), (let then: TypeLabel::Any), (let otherwise: TypeLabel::Any));
 
     if !condition.is_nil() {
         Ok(then)
@@ -75,9 +72,9 @@ NativeFunctionMetaData{
 };
 
 pub fn equal(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, EQUAL.name, &vec![ParameterType::Any, ParameterType::Any], args)?;
+    validate_args!(mem, EQUAL.name, args, (let x: TypeLabel::Any), (let y: TypeLabel::Any));
 
-    Ok(if equal_internal(args[0].clone(), args[1].clone()) {mem.symbol_for("t")} else {GcRef::nil()})
+    Ok(if equal_internal(x, y) {mem.symbol_for("t")} else {GcRef::nil()})
 }
 
 fn equal_internal(a: GcRef, b: GcRef) -> bool {

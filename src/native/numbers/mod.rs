@@ -15,10 +15,8 @@ Error if the additon results in overflow."
 };
 
 pub fn add(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, ADD.name, &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args)?;
+    validate_args!(mem, ADD.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
 
-    let x = args[0].get().unwrap().as_number();
-    let y = args[1].get().unwrap().as_number();
     if let Some(z) = x.checked_add(*y) {
         Ok(mem.allocate_number(z))
     }
@@ -39,10 +37,8 @@ Error if the substraction results in overflow."
 };
 
 pub fn substract(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, SUBSTRACT.name, &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args)?;
+    validate_args!(mem, SUBSTRACT.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
 
-    let x = args[0].get().unwrap().as_number();
-    let y = args[1].get().unwrap().as_number();
     if let Some(z) = x.checked_sub(*y) {
         Ok(mem.allocate_number(z))
     }
@@ -63,10 +59,8 @@ Error if the multiplication results in overflow."
 };
 
 pub fn multiply(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, MULTIPLY.name, &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args)?;
+    validate_args!(mem, MULTIPLY.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
 
-    let x = args[0].get().unwrap().as_number();
-    let y = args[1].get().unwrap().as_number();
     if let Some(z) = x.checked_mul(*y) {
         Ok(mem.allocate_number(z))
     }
@@ -87,10 +81,8 @@ Error if `y` is 0."
 };
 
 pub fn divide(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_arguments(mem, DIVIDE.name, &vec![ParameterType::Type(TypeLabel::Number), ParameterType::Type(TypeLabel::Number)], args)?;
+    validate_args!(mem, DIVIDE.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
 
-    let x = args[0].get().unwrap().as_number();
-    let y = args[1].get().unwrap().as_number();
     if *y == 0 {
         Err(mem.symbol_for("divide-by-zero"))
     }
