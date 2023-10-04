@@ -47,33 +47,73 @@ pub enum ParameterType {
 
 
 macro_rules! cast {
-    ($x:expr, $type:literal) => {
-        match $type {
-            TypeLabel::Nil       => if $x.is_nil()                                                {Some(x)} else {None},
-            TypeLabel::Number    => if let Some(PrimitiveValue::Number(y))    = x                 {Some(y)} else {None},
-            TypeLabel::Character => if let Some(PrimitiveValue::Character(y)) = x                 {Some(y)} else {None},
-            TypeLabel::Cons      => if let Some(PrimitiveValue::Cons(y))      = x                 {Some(y)} else {None},
-            TypeLabel::List      => if let Some(y)                            = list_to_vec(x)    {Some(y)} else {None},
-            TypeLabel::String    => if let Some(y)                            = list_to_string(x) {Some(y)} else {None},
-            TypeLabel::Symbol    => if let Some(PrimitiveValue::Symbol(y))    = x                 {Some(y)} else {None},
-            TypeLabel::Function  => if let Some(PrimitiveValue::Function(y))  = x                 {Some(y)} else {None},
-            TypeLabel::Trap      => if let Some(PrimitiveValue::Tryp(y))      = x                 {Some(y)} else {None},
-        }
+    ($x:expr, TypeLabel::Nil) => {
+        if $x.is_nil() {Some($x)} else {None}
+    };
+    ($x:expr, TypeLabel::Number) => {
+        if let Some(PrimitiveValue::Number(y)) = $x.get() {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::Character) => {
+        if let Some(PrimitiveValue::Character(y)) = $x.get() {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::Symbol) => {
+        if let Some(PrimitiveValue::Symbol(y)) = $x.get() {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::Cons) => {
+        if let Some(PrimitiveValue::Cons(y)) = $x.get() {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::String) => {
+        if let Some(y) = list_to_string($x) {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::List) => {
+        if let Some(y) = list_to_vec($x) {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::Function) => {
+        if let Some(PrimitiveValue::Function(y)) = $x.get() {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::Trap) => {
+        if let Some(PrimitiveValue::Trap(y)) = $x.get() {Some(y)} else {None}
+    };
+    ($x:expr, TypeLabel::Any) => {
+        Some($x)
     };
 }
 
 
-macro_rules! nth_arg {
-    ($mem:expr, $source:expr, $args:expr, $n:expr, $type:expr) => {
-        let arg = $args[$n].clone();
-        if let Some(x) = cast!(arg, $type) {
-            Ok(x)
+macro_rules! count {
+    ()                   => (0 as usize);
+    ( $x:tt $($xs:tt)* ) => (1 as usize + count!($($xs)*));
+}
+
+
+macro_rules! validate_args {
+    ($mem:expr, $source:expr, $args:expr, $((let $name:ident : $($params:tt)+)),*) => {
+        let mem: &mut Memory = $mem;
+        let source: &str = $source;
+        let args: &[GcRef] = $args;
+
+        if args.len() != count!($($($params)+)*) {
+            let error_details = vec![("expected", fit_to_number(mem, count!($($($params)+)*))), ("actual", fit_to_number(mem, args.len()))];
+            let error         = make_error(mem, "wrong-number-of-arguments", source, &error_details);
+            return Err(error);
         }
-        else {
-            let error_details = vec![("expected", mem.symbol_for($type.to_string())), ("actual", mem.symbol_for(extended_get_type(arg.clone()).to_string()))];
-            let error         = make_error(mem, "wrong-argument-type", $source, &error_details);
-            Err(error)
-        }
+
+        let mut arg_iter = args.iter();
+        $(
+            let arg = arg_iter.next().unwrap().clone();
+            let arg1 = arg.clone();
+            let $name =
+            {
+                if let Some(x) = cast!(arg1, $($params)+) {
+                    x
+                }
+                else {
+                    let error_details = vec![("expected", mem.symbol_for($($params)+.to_string())), ("actual", mem.symbol_for(extended_get_type(arg.clone()).to_string()))];
+                    let error         = make_error(mem, "wrong-argument-type", source, &error_details);
+                    return Err(error);
+                }
+            };
+        )*
     };
 }
 

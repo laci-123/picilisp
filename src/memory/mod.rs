@@ -233,6 +233,7 @@ impl Trap {
 
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub enum TypeLabel {
+    Any,
     Nil,
     Number,
     Character,
@@ -247,6 +248,7 @@ pub enum TypeLabel {
 impl TypeLabel {
     pub fn to_string(self) -> &'static str {
         match self {
+            Self::Any       => "unknown-type",
             Self::Nil       => "nil-type",
             Self::Number    => "number-type",
             Self::Character => "character-type",
