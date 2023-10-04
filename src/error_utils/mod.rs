@@ -41,34 +41,34 @@ pub fn extended_get_type(thing: GcRef) -> TypeLabel {
 
 
 macro_rules! _cast {
-    ($x:expr, TypeLabel::Nil) => {
+    ($x:expr, $(TypeLabel::)?Nil) => {
         if $x.is_nil() {Some($x)} else {None}
     };
-    ($x:expr, TypeLabel::Number) => {
+    ($x:expr, $(TypeLabel::)?Number) => {
         if let Some(PrimitiveValue::Number(y)) = $x.get() {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::Character) => {
+    ($x:expr, $(TypeLabel::)?Character) => {
         if let Some(PrimitiveValue::Character(y)) = $x.get() {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::Symbol) => {
+    ($x:expr, $(TypeLabel::)?Symbol) => {
         if let Some(PrimitiveValue::Symbol(y)) = $x.get() {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::Cons) => {
+    ($x:expr, $(TypeLabel::)?Cons) => {
         if let Some(PrimitiveValue::Cons(y)) = $x.get() {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::String) => {
+    ($x:expr, $(TypeLabel::)?String) => {
         if let Some(y) = list_to_string($x) {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::List) => {
+    ($x:expr, $(TypeLabel::)?List) => {
         if let Some(y) = list_to_vec($x) {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::Function) => {
+    ($x:expr, $(TypeLabel::)?Function) => {
         if let Some(PrimitiveValue::Function(y)) = $x.get() {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::Trap) => {
+    ($x:expr, $(TypeLabel::)?Trap) => {
         if let Some(PrimitiveValue::Trap(y)) = $x.get() {Some(y)} else {None}
     };
-    ($x:expr, TypeLabel::Any) => {
+    ($x:expr, $(TypeLabel::)?Any) => {
         Some($x)
     };
 }
@@ -78,7 +78,7 @@ pub(crate) use _cast as cast;
 
 macro_rules! _count {
     ()                   => (0 as usize);
-    ( $x:tt $($xs:tt)* ) => (1 as usize + count!($($xs)*));
+    ( $x:tt $($xs:tt)* ) => (1 + count!($($xs)*));
 }
 
 pub(crate) use _count as count;
@@ -103,7 +103,7 @@ macro_rules! _validate_args {
         let mem: &mut Memory = $mem;
         let source: &str = $source;
         let args: &[GcRef] = $args;
-        let params_count = count!($($($params)+)*) / 3; // count! counts the whole token-sequence, so e.g. "let x: TypeLabel::Number" is counted as 3 separate tokens (constant delimiters ("let", ":", "::") don't count)
+        let params_count = count!($($name)*);
 
         if args.len() != params_count {
             let error_details = vec![("expected", fit_to_number(mem, params_count)), ("actual", fit_to_number(mem, args.len()))];
