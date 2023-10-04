@@ -115,8 +115,8 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                             if nf.is_the_same_as(eval) {
                                 // prevent `eval` from calling itself as regular native function;
                                 // instead "reuse" this instance of `eval`
-                                validate_arguments(mem, EVAL.name, &vec![ParameterType::Any], &list_elems[1..])?;
-                                let mut expanded = list_elems[1].clone();
+                                validate_args!(mem, EVAL.name, &list_elems[1..], (let x: TypeLabel::Any));
+                                let mut expanded = x;
                                 loop {
                                     let mut changed  = false;
                                     expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;

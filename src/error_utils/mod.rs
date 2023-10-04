@@ -40,12 +40,6 @@ pub fn extended_get_type(thing: GcRef) -> TypeLabel {
 }
 
 
-pub enum ParameterType {
-    Any,
-    Type(TypeLabel),
-}
-
-
 macro_rules! _cast {
     ($x:expr, TypeLabel::Nil) => {
         if $x.is_nil() {Some($x)} else {None}
@@ -137,25 +131,3 @@ macro_rules! _validate_args {
 }
 
 pub(crate) use _validate_args as validate_args;
-
-
-pub fn validate_arguments(mem: &mut Memory, source: &str, parameters: &[ParameterType], arguments: &[GcRef]) -> Result<GcRef, GcRef> {
-    if parameters.len() != arguments.len() {
-        let error_details = vec![("expected", fit_to_number(mem, parameters.len())), ("actual", fit_to_number(mem, arguments.len()))];
-        let error         = make_error(mem, "wrong-number-of-arguments", source, &error_details);
-        return Err(error);
-    }
-
-    for (p, arg) in parameters.iter().zip(arguments) {
-        let a_type = arg.get_type();
-        if let ParameterType::Type(p_type) = p {
-            if a_type != *p_type {
-                let error_details = vec![("expected", mem.symbol_for(p_type.to_string())), ("actual", mem.symbol_for(a_type.to_string()))];
-                let error         = make_error(mem, "wrong-argument-type", source, &error_details);
-                return Err(error);
-            }
-        }
-    }
-
-    Ok(GcRef::nil())
-}
