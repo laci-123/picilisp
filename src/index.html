@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        <title>Picilisp</title>
+        <style>
+         body {
+            color: white;
+            background-color: black;
+         }
+        </style>
+    </head>
+    <body>
+        <h1>Picilisp</h1>
+        <div>
+            <button id="start-button">Start</button>
+            <button id="stop-button">Stop</button>
+            <button id="quit-button">Quit</button>
+            <div id="main-editor"></div>
+        </div>
+
+        <script>
+         async function fetch_post(url, data) {
+             try {
+                const response = await fetch(url, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data),
+                });
+                return response.json();
+             }
+             catch (e) {
+                 return null;
+             }
+         }
+
+         async function button_click_listener() {
+             const event = { which_button: this.id };
+             const response = await fetch_post("http://localhost:8000/update", event);
+             main_editor.innerHTML = response?.html ??  "<span style='color: orange;'>Server unreachable</span>";
+         }
+
+         let start_button = document.getElementById("start-button");
+         let stop_button  = document.getElementById("stop-button");
+         let quit_button  = document.getElementById("quit-button");
+         let main_editor  = document.getElementById("main-editor");
+         start_button.addEventListener("click", button_click_listener);
+         stop_button.addEventListener("click", button_click_listener);
+         quit_button.addEventListener("click", button_click_listener);
+        </script>
+    </body>
+</html>
