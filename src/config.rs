@@ -13,3 +13,10 @@ pub const ALLOCATION_RATIO: f32 = 1.0;
 
 /// maximum depth of recursion before a evaluation is interrupted and a stackoverflow signal is emitted
 pub const MAX_RECURSION_DEPTH: usize = 700;
+
+pub const SERVER_ADDRESS: &str = "0.0.0.0";
+
+pub const SERVER_PORT: u32  = 8000;
+
+/// stop server if browser has been idle for this many seconds
+pub const SERVER_TIMEOUT: u64 = 60;
