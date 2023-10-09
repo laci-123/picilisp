@@ -4,19 +4,33 @@
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <title>Picilisp</title>
         <style>
-         body {
-            color: white;
-            background-color: black;
+         #wrapper {
+             position: relative;
+         }
+         .editor {
+             background-color: black;
+             color: white;
+             position: absolute;
+             font-family: monospace, monospace;
+             font-size: 14px;
+         }
+         #text-editor {
+             background-color: rgba(0, 0, 0, 0);
+             color: rgba(0, 0, 0, 0);
+             caret-color: white;
+             border: none;
+             outline: none;
          }
         </style>
     </head>
     <body>
         <h1>Picilisp</h1>
         <div>
-            <button id="start-button">Start</button>
-            <button id="stop-button">Stop</button>
             <button id="quit-button">Quit</button>
-            <div id="main-editor"></div>
+        </div>
+        <div id="wrapper">
+            <div id="text-editor-back" class="editor"></div>
+            <textarea id="text-editor" class="editor" rows="20" cols="50"></textarea>
         </div>
 
         <script>
@@ -36,19 +50,38 @@
              }
          }
 
-         async function button_click_listener() {
-             const event = { which_button: this.id };
-             const response = await fetch_post("http://localhost:8000/update", event);
-             main_editor.innerHTML = response?.html ??  "<span style='color: orange;'>Server unreachable</span>";
+         let quit_button      = document.getElementById("quit-button");
+         let text_editor      = document.getElementById("text-editor");
+         let text_editor_back = document.getElementById("text-editor-back");
+         
+         function Client(quit) {
+             this.text_editor = text_editor.value;
+             this.cursor = text_editor.selectionStart;
+             this.quit = quit;
          }
 
-         let start_button = document.getElementById("start-button");
-         let stop_button  = document.getElementById("stop-button");
-         let quit_button  = document.getElementById("quit-button");
-         let main_editor  = document.getElementById("main-editor");
-         start_button.addEventListener("click", button_click_listener);
-         stop_button.addEventListener("click", button_click_listener);
-         quit_button.addEventListener("click", button_click_listener);
+
+         let cursor_position = 0;
+         async function cursor_moved() {
+            const new_position = text_editor.selectionStart;
+            if (new_position !== cursor_position) {
+                cursor_position = new_position;
+                const client = new Client(false);
+                const response = await fetch_post("http://localhost:8000/update", client);
+                text_editor_back.innerHTML = response?.text_editor ??  "<span style='color: red;'>Server unreachable</span>";
+            }
+         }
+
+         text_editor.addEventListener('keyup',     cursor_moved); 
+         text_editor.addEventListener('mousedown', cursor_moved); 
+         text_editor.addEventListener('paste',     cursor_moved); 
+         text_editor.addEventListener('cut',       cursor_moved);
+
+         quit_button.addEventListener("click", async function() {
+             const client = new Client(true);
+             const response = await fetch_post("http://localhost:8000/update", client);
+             text_editor_back.innerHTML = response?.text_editor ??  "<span style='color: red;'>Server unreachable</span>";
+         });
         </script>
     </body>
 </html>

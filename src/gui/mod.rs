@@ -6,12 +6,14 @@ use std::time::Duration;
 
 #[derive(Deserialize)]
 struct FromClient {
-    which_button: String,
+    text_editor: String,
+    cursor: usize,
+    quit: bool,
 }
 
 #[derive(Serialize)]
 struct ToClient {
-    html: String,
+    text_editor: String,
 }
 
 
@@ -38,23 +40,17 @@ pub fn run() {
             "/update" => {
                 let mut request_body = String::new();
                 request.as_reader().read_to_string(&mut request_body).expect("could not read client POST request");
-                let event: FromClient = serde_json::from_str(&request_body).expect("could not deserialize client POST request");
+                let client: FromClient = serde_json::from_str(&request_body).expect("could not deserialize client POST request");
 
-                let to_client = 
-                match event.which_button.as_str() {
-                    "start-button" => ToClient{ html: format!("<span style='color: red;'>Started</span>") },
-                    "stop-button"  => ToClient{ html: format!("<span style='color: green;'>Stopped</span>") },
-                    "quit-button"  => {
-                        keep_running = false;
-                        ToClient{ html: format!("<span style='color: cyan;'>Server stopped</span>") }
-                    },
-                    s       => ToClient{ html: format!("<span style='color: yellow;'>Unknown button: '{s}'</span>") },
-                };
+                let to_client = ToClient{ text_editor: highlight_parens(&client.text_editor, client.cursor, "color: #00ff00;", "color: red;") };
 
                 let json_string = serde_json::to_string(&to_client).unwrap();
                 let response    = Response::from_string(json_string);
                 request.respond(response).expect("could not send response");
 
+                if client.quit {
+                    keep_running = false;
+                }
             },
             url => {
                 let response = Response::from_string(&format!("unknown address: {url}"));
@@ -75,7 +71,6 @@ pub fn run() {
 fn highlight_parens(string: &str, cursor: usize, ok_style: &str, unbalanced_style: &str) -> String {
     let mut open_paren  = 0;
     let mut close_paren = 0;
-    let mut balanced    = true;
     let mut open_parens = vec![];
     
     for (j, c) in string.chars().enumerate() {
@@ -99,16 +94,12 @@ fn highlight_parens(string: &str, cursor: usize, ok_style: &str, unbalanced_styl
                         close_paren = i;
                     }
                 }
-                else {
-                    balanced = false;
-                }
             },
             _   => {/* just keep going */},
         }
     }
 
-    balanced = balanced && open_parens.len() == 0;
-    let style = if balanced {ok_style} else {unbalanced_style};
+    let style = if open_paren != 0 && close_paren != 0 {ok_style} else {unbalanced_style};
 
     let mut result = String::new();
     if open_paren != 0 {
