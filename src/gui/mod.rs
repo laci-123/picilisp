@@ -70,3 +70,76 @@ pub fn run() {
         println!("Stopping because client has exited.");
     }
 }
+
+
+fn highlight_parens(string: &str, cursor: usize, ok_style: &str, unbalanced_style: &str) -> String {
+    let mut open_paren  = 0;
+    let mut close_paren = 0;
+    let mut balanced    = true;
+    let mut open_parens = vec![];
+    
+    for (j, c) in string.chars().enumerate() {
+        let i = j + 1; // editor strings are indexed form 1
+        match c {
+            '(' => {
+                if i == cursor {
+                    open_paren = i;
+                }
+                open_parens.push(i);
+            },
+            ')' => {
+                if i == cursor {
+                    close_paren = i;
+                }
+                if let Some(last) = open_parens.pop() {
+                    if open_paren == 0 && i == cursor {
+                        open_paren = last;
+                    }
+                    if open_paren == last {
+                        close_paren = i;
+                    }
+                }
+                else {
+                    balanced = false;
+                }
+            },
+            _   => {/* just keep going */},
+        }
+    }
+
+    balanced = balanced && open_parens.len() == 0;
+    let style = if balanced {ok_style} else {unbalanced_style};
+
+    let mut result = String::new();
+    if open_paren != 0 {
+        let op = open_paren - 1; // editor strings are indexed form 1
+        result.push_str(&string[..op]);
+        result.push_str(&format!("<span style='{}'>(</span>", style));
+        if close_paren != 0 {
+            let cp = close_paren - 1; // editor strings are indexed form 1
+            result.push_str(&string[(op + 1)..cp]);
+            result.push_str(&format!("<span style='{}'>)</span>", style));
+            result.push_str(&string[(cp + 1)..]);
+        }
+        else {
+            result.push_str(&string[(op + 1)..]);
+        }
+    }
+    else {
+        if close_paren != 0 {
+            let cp = close_paren - 1; // editor strings are indexed form 1
+            result.push_str(&string[..cp]);
+            result.push_str(&format!("<span style='{}'>)</span>", style));
+            result.push_str(&string[(cp + 1)..]);
+        }
+        else {
+            result.push_str(string);
+        }
+    }
+    
+    result
+}
+
+
+#[cfg(test)]
+mod tests;
