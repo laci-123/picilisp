@@ -42,7 +42,10 @@ impl Window {
             Ok(x) => {
                 self.result_text = list_to_string(x).unwrap()
             },
-            Err(x) => self.signal_text = Some(x),
+            Err(x) => {
+                self.result_text = String::new();
+                self.signal_text = Some(x);
+            },
         }
     }
 }
@@ -54,14 +57,15 @@ impl App for Window {
 
             ui.spacing_mut().text_edit_width = ui.available_width();
             ui.heading("Picilisp");
+            ui.add_space(10.0);
 
-            ui.text_edit_multiline(&mut self.program_text);
+            ui.add(egui::TextEdit::multiline(&mut self.program_text).font(egui::FontId::monospace(12.0)));
             ui.add_space(10.0);
             if ui.button("Evaluate").clicked() {
                 self.eval();
             }
             ui.add_space(10.0);
-            ui.text_edit_multiline(&mut self.result_text);
+            ui.add(egui::TextEdit::multiline(&mut self.result_text).font(egui::FontId::monospace(12.0)));
             if let Some(x) = &self.signal_text {
                 // passing a mutable reference to an immutable str to TextEdit::multiline
                 // makes it selectable/copyable but not editable
