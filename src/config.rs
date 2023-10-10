@@ -15,4 +15,4 @@ pub const ALLOCATION_RATIO: f32 = 1.0;
 pub const MAX_RECURSION_DEPTH: usize = 700;
 
 /// the name of the whole application, e.g. it is displayed on the GUI widnow titlebar
-pub const APPLICATION_NAME: &str = "picilisp";
+pub const APPLICATION_NAME: &str = env!("CARGO_PKG_NAME");
