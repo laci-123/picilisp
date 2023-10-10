@@ -13,3 +13,6 @@ pub const ALLOCATION_RATIO: f32 = 1.0;
 
 /// maximum depth of recursion before a evaluation is interrupted and a stackoverflow signal is emitted
 pub const MAX_RECURSION_DEPTH: usize = 700;
+
+/// the name of the whole application, e.g. it is displayed on the GUI widnow titlebar
+pub const APPLICATION_NAME: &str = "picilisp";
