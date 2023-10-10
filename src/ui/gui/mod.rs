@@ -15,25 +15,19 @@ struct Window {
 }
 
 impl Window {
-    pub fn new() -> Self {
+    fn new() -> Self {
         let mut this = Self{ mem: Memory::new(), program_text: String::new(), result_text: String::new(), signal_text: None };
 
         load_native_functions(&mut this.mem);
 
-        // (load-all "prelude contents..." (quote prelude))
-        let prelude_str = include_str!("../prelude.lisp");  
-        let prelude     = string_to_proper_list(&mut this.mem, prelude_str);
-        let source_name = vec![this.mem.symbol_for("quote"), this.mem.symbol_for("prelude")];
-        let vec         = vec![this.mem.symbol_for("load-all"), prelude, vec_to_list(&mut this.mem, &source_name)];
-        let expression  = vec_to_list(&mut this.mem, &vec);
-        if let Err(err) = eval_external(&mut this.mem, expression) {
+        if let Err(err) = super::load_prelude(&mut this.mem) {
             this.signal_text = Some(err);
         }
 
         this
     }
 
-    pub fn eval(&mut self) {
+    fn eval(&mut self) {
         self.signal_text = None;
         
         // (read-eval-print "input string...")
