@@ -244,3 +244,15 @@ Stop the loop when end of input (EOF) is reached."
    (catch-all
     (lambda (error) (block (output (concat "ERROR: " (print error)))
                            (repl ">>> " nil))))))
+
+(defun read-eval-print (string)
+  "Read a string, evaluate it then print it into a string"
+  (let (read-result (read string))
+    (let (read-status (get-property 'status read-result))
+      (case ((= read-status 'invalid)    (throw 'kind 'invalid-string, 'source 'repl))
+            ((= read-status 'nothing)    "")
+            ((= read-status 'incomplete) (throw 'kind 'syntax-error,   'source 'read-eval-print, 'details 'incomplete-input))
+            ((= read-status 'error)      (throw 'kind 'syntax-error,   'source 'repl,            'details (get-property 'error read-result)))
+            ((= read-status 'ok)         (print (eval (get-property 'result read-result))))
+            (t                           (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status))))))
+      
