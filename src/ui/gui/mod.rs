@@ -38,10 +38,10 @@ impl Window {
 
             match super::load_prelude(&mut mem) {
                 Ok(_) => {
-                    from_worker_tx.send(Ok("\"loaded prelude\"".to_string())).expect("no receiver for worker thread messages");
+                    from_worker_tx.send(Ok("\"loaded prelude\"".to_string())).expect("main thread disappeared");
                 },
                 Err(err) => {
-                    from_worker_tx.send(Err(err)).expect("no receiver for worker thread messages");
+                    from_worker_tx.send(Err(err)).expect("main thread disappeared");
                 },
             }
 
@@ -55,7 +55,7 @@ impl Window {
                         from_worker_tx.send(Ok(output)).expect("no receiver for worker-thread messages");
                     },
                     Err(err) => {
-                        from_worker_tx.send(Err(err)).expect("no receiver for worker thread messages");
+                        from_worker_tx.send(Err(err)).expect("main thread disappeared");
                     },
                 }
             }

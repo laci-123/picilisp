@@ -165,10 +165,15 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                 Some(PrimitiveValue::Trap(trap)) => {
                     match eval_internal(mem, trap.get_normal_body(), env.clone(), recursion_depth + 1) {
                         Err(signal) => {
-                            let key       = mem.symbol_for("*trapped-signal*");
-                            let param_arg = mem.allocate_cons(key, signal);
-                            let new_env   = mem.allocate_cons(param_arg, env);
-                            return eval_internal(mem, trap.get_trap_body(), new_env, recursion_depth + 1);
+                            if signal.is_nil() {
+                                return Err(signal);
+                            }
+                            else {
+                                let key       = mem.symbol_for("*trapped-signal*");
+                                let param_arg = mem.allocate_cons(key, signal);
+                                let new_env   = mem.allocate_cons(param_arg, env);
+                                return eval_internal(mem, trap.get_trap_body(), new_env, recursion_depth + 1);
+                            }
                         },
                         Ok(x) => return Ok(x),
                     }
@@ -321,7 +326,14 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     
     match eval(mem, &[tree], empty_env.clone(), recursion_depth) {
         Ok(x)       => Ok(x),
-        Err(signal) => Err(format!("Unhandled signal: {}", list_to_string(crate::native::print::print(mem, &[signal], empty_env, recursion_depth).ok().unwrap()).unwrap())),
+        Err(signal) => {
+            if signal.is_nil() {
+                Err(format!("Evaluation aborted."))
+            }
+            else {
+                Err(format!("Unhandled signal: {}", list_to_string(crate::native::print::print(mem, &[signal], empty_env, recursion_depth).ok().unwrap()).unwrap()))
+            }
+        },
     }
 }
 
