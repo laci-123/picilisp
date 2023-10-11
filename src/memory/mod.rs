@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 
 use std::collections::{HashSet, HashMap};
+use std::io::Write;
+use std::sync::{Arc, RwLock};
 use crate::metadata::*;
 use crate::config;
 
@@ -460,6 +462,7 @@ pub struct Memory {
     symbols: HashMap<String, *const CellContent>,
     cells: Vec<Cell>,
     first_free: usize,
+    pub stdout: Arc<RwLock<dyn Write>>,
 }
 
 impl Memory {
@@ -467,7 +470,12 @@ impl Memory {
         Self { globals:    HashMap::new(),
                symbols:    HashMap::new(),
                cells:      (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
-               first_free: 0}
+               first_free: 0,
+               stdout:     Arc::new(RwLock::new(std::io::stdout()))}
+    }
+
+    pub fn set_stdout(&mut self, stdout: Arc<RwLock<dyn Write>>) {
+        self.stdout = stdout;
     }
 
     pub fn define_global(&mut self, name: &str, value: GcRef) {
