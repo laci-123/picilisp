@@ -1,3 +1,5 @@
+use crate::debug::DebugCommand;
+use crate::debug::Umbilical;
 use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
@@ -77,6 +79,14 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<S
 fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     if recursion_depth > config::MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
+    }
+
+    if let Some(umb) = &mem.umbilical {
+        if let Ok(cmd) = umb.to_inferior.try_recv() {
+            match cmd {
+                DebugCommand::Abort => return Err(GcRef::nil()),
+            }
+        }
     }
 
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once

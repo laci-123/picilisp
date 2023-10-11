@@ -1,6 +1,8 @@
+use crate::config::GUI_OUTPUT_BUFFER_SIZE;
 use crate::memory::*;
+use crate::debug::*;
 use crate::io::OutputBuffer;
-use crate::util::{vec_to_list, string_to_proper_list, list_to_string};
+use crate::util::*;
 use crate::native::eval::eval_external;
 use crate::native::load_native_functions;
 use crate::config;
@@ -14,6 +16,7 @@ use std::time::Duration;
 struct Window {
     to_worker: mpsc::Sender<String>,
     from_worker: mpsc::Receiver<Result<String, String>>,
+    umbilical_tx: mpsc::Sender<DebugCommand>,
     program_text: String,
     result_text: String,
     signal_text: Option<String>,
@@ -25,16 +28,16 @@ impl Window {
     fn new() -> Self {
         let (to_worker_tx,   to_worker_rx)   = mpsc::channel::<String>();
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
-        let output = Arc::new(RwLock::new(OutputBuffer::new(100)));
+        let (umbilical_tx, umbilical_rx)     = mpsc::channel::<DebugCommand>();
+        let output = Arc::new(RwLock::new(OutputBuffer::new(GUI_OUTPUT_BUFFER_SIZE)));
         let output_clone = Arc::clone(&output);
 
         thread::spawn(move || {
             let mut mem = Memory::new();
             mem.set_stdout(output_clone);
+            mem.attach_umbilical(Umbilical::new(umbilical_rx));
 
             load_native_functions(&mut mem);
-
-            thread::sleep(std::time::Duration::from_secs(2));
 
             match super::load_prelude(&mut mem) {
                 Ok(_) => {
@@ -68,6 +71,7 @@ impl Window {
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
             output,
+            umbilical_tx,
             working: true,
         }
     }
@@ -113,9 +117,12 @@ impl App for Window {
                 if ui.button("Evaluate").clicked() {
                     self.eval();
                 }
+                if ui.button("Force stop").clicked() {
+                    self.umbilical_tx.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                }
                 if self.working {
                     ui.label("working...");
-                    ctx.request_repaint_after(Duration::from_millis(500));
+                    ctx.request_repaint_after(Duration::from_millis(100));
                 }
             });
             ui.add_space(10.0);

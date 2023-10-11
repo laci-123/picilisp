@@ -28,3 +28,4 @@ mod parser;
 mod config;
 mod ui;
 mod io;
+mod debug;

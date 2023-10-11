@@ -16,3 +16,6 @@ pub const MAX_RECURSION_DEPTH: usize = 700;
 
 /// the name of the whole application, e.g. it is displayed on the GUI widnow titlebar
 pub const APPLICATION_NAME: &str = env!("CARGO_PKG_NAME");
+
+/// size of the output buffer in the graphical interface (in bytes)
+pub const GUI_OUTPUT_BUFFER_SIZE: usize = 512;

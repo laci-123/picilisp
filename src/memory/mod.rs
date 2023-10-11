@@ -3,6 +3,7 @@
 use std::collections::{HashSet, HashMap};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
+use crate::debug::Umbilical;
 use crate::metadata::*;
 use crate::config;
 
@@ -463,6 +464,7 @@ pub struct Memory {
     cells: Vec<Cell>,
     first_free: usize,
     pub stdout: Arc<RwLock<dyn Write>>,
+    pub umbilical: Option<Umbilical>,
 }
 
 impl Memory {
@@ -471,11 +473,16 @@ impl Memory {
                symbols:    HashMap::new(),
                cells:      (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
                first_free: 0,
-               stdout:     Arc::new(RwLock::new(std::io::stdout()))}
+               stdout:     Arc::new(RwLock::new(std::io::stdout())),
+               umbilical:  None}
     }
 
     pub fn set_stdout(&mut self, stdout: Arc<RwLock<dyn Write>>) {
         self.stdout = stdout;
+    }
+
+    pub fn attach_umbilical(&mut self, umbilical: Umbilical) {
+        self.umbilical = Some(umbilical);
     }
 
     pub fn define_global(&mut self, name: &str, value: GcRef) {
