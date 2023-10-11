@@ -1,10 +1,11 @@
 use crate::memory::*;
+use crate::io::OutputBuffer;
 use crate::util::{vec_to_list, string_to_proper_list, list_to_string};
 use crate::native::eval::eval_external;
 use crate::native::load_native_functions;
 use crate::config;
 use eframe::{App, Frame, egui, epaint, NativeOptions, run_native};
-use std::sync::mpsc;
+use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
 
@@ -16,6 +17,7 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: Option<String>,
+    output: Arc<RwLock<OutputBuffer>>,
     working: bool,
 }
 
@@ -23,9 +25,12 @@ impl Window {
     fn new() -> Self {
         let (to_worker_tx,   to_worker_rx)   = mpsc::channel::<String>();
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
+        let output = Arc::new(RwLock::new(OutputBuffer::new(100)));
+        let output_clone = Arc::clone(&output);
 
         thread::spawn(move || {
             let mut mem = Memory::new();
+            mem.set_stdout(output_clone);
 
             load_native_functions(&mut mem);
 
@@ -62,6 +67,7 @@ impl Window {
             signal_text: None,
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
+            output,
             working: true,
         }
     }
@@ -120,6 +126,12 @@ impl App for Window {
                 // makes it selectable/copyable but not editable
                 ui.add(egui::TextEdit::multiline(&mut x.as_str()).text_color(epaint::Color32::RED));
             }
+            ui.add_space(10.0);
+
+            ui.label("Output");
+            egui::scroll_area::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
+                ui.text_edit_multiline(&mut self.output.read().expect("RwLock poisioned").to_string().expect("invalid unicode in stdout"));
+            });
         });
     }
 }
