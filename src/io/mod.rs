@@ -22,6 +22,10 @@ impl OutputBuffer {
         }
     }
 
+    pub fn is_truncated(&self) -> bool {
+        self.data.len() == self.capacity
+    }
+
     pub fn clear(&mut self) {
         self.data.clear();
         self.start = 0;

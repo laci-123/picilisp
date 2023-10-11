@@ -120,18 +120,30 @@ impl App for Window {
             });
             ui.add_space(10.0);
 
-            ui.add(egui::TextEdit::multiline(&mut self.result_text).font(egui::FontId::monospace(12.0)));
+            egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
+                ui.add(egui::TextEdit::multiline(&mut self.result_text.as_str()).font(egui::FontId::monospace(12.0)));
+            });
             if let Some(x) = &self.signal_text {
                 // passing a mutable reference to an immutable str to TextEdit::multiline
                 // makes it selectable/copyable but not editable
-                ui.add(egui::TextEdit::multiline(&mut x.as_str()).text_color(epaint::Color32::RED));
+                ui.add(egui::TextEdit::multiline(&mut x.as_str()).desired_rows(2).text_color(epaint::Color32::RED));
             }
             ui.add_space(10.0);
 
             ui.label("Output");
             egui::scroll_area::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
-                ui.text_edit_multiline(&mut self.output.read().expect("RwLock poisioned").to_string().expect("invalid unicode in stdout"));
+                egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
+                    let outputbuffer = self.output.read().expect("RwLock poisoned");
+                    let mut output = outputbuffer.to_string().expect("invalid unicode in stdout");
+                    if outputbuffer.is_truncated() {
+                        output.insert_str(0, "...");
+                    }
+                    ui.text_edit_multiline(&mut output.as_str());
+                });
             });
+            if ui.button("Clear").clicked() {
+                self.output.write().expect("RwLock poisoned").clear();
+            }
         });
     }
 }
