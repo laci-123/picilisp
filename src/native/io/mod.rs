@@ -20,9 +20,14 @@ Error if `string` is not a valid string."
 pub fn output(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, OUTPUT.name, args, (let msg: TypeLabel::String));
     
-    println!("{msg}");
-
-    Ok(mem.symbol_for("ok"))
+    let x = writeln!(mem.stdout.write().expect("RwLock poisoned"), "{msg}");
+    match x {
+        Ok(_)    => Ok(mem.symbol_for("ok")),
+        Err(err) => {
+            let vec = vec![("details", string_to_list(mem, &err.kind().to_string()))];
+            Err(make_error(mem, "cannot-write-file", OUTPUT.name, &vec))
+        },
+    }
 }
 
 
@@ -49,7 +54,7 @@ pub fn input(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: us
     match status {
         Err(err) => {
             let details = vec![("details", string_to_list(mem, &err.kind().to_string()))];
-            Err(make_error(mem, "input-error", INPUT.name, &details))
+            Err(make_error(mem, "cannot-read-file", INPUT.name, &details))
         },
         Ok(0) => Err(make_error(mem, "eof", INPUT.name, &vec![])),
         Ok(_) => Ok(string_to_list(mem, &line)),
