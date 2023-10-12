@@ -117,6 +117,9 @@ impl App for Window {
                 if ui.button("Evaluate").clicked() {
                     self.eval();
                 }
+                if ui.button("Stop").clicked() {
+                    self.umbilical_tx.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                }
                 if ui.button("Force stop").clicked() {
                     self.umbilical_tx.send(DebugCommand::Abort).expect("worker thread dissappeared");
                 }

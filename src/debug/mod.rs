@@ -2,6 +2,7 @@ use std::sync::mpsc::Receiver;
 
 pub enum DebugCommand {
     Abort,
+    InterruptSignal,
 }
 
 
