@@ -1,36 +1,3 @@
-pub struct InputBuffer {
-    data: Vec<u8>,
-    start: usize,
-}
-
-impl InputBuffer {
-    pub fn new() -> Self {
-        Self{ data: Vec::new(), start: 0 }
-    }
-
-    pub fn push_string(&mut self, string: &str) {
-        self.data.extend_from_slice(string.as_bytes());
-    }
-
-    pub fn all_is_read(&self) -> bool {
-        self.start == self.data.len()
-    }
-
-    pub fn clear(&mut self) {
-        self.data.clear();
-        self.start = 0;
-    }
-}
-
-impl std::io::Read for InputBuffer {
-    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
-        let n = (&self.data[self.start..]).read(buf)?;
-        self.start += n;
-        Ok(n)
-    }
-}
-
-
 pub struct OutputBuffer {
     data: Vec<u8>,
     start: usize,

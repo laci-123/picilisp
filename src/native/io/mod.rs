@@ -43,10 +43,16 @@ then read a line from standard input."
 
 pub fn input(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, INPUT.name, args, (let prompt: TypeLabel::String));
-    
-    print!("{prompt}");
-    io::stdout().flush().unwrap();
 
+    let status = {
+        let mut stdout = mem.stdout.write().expect("RwLock poisoned");
+        write!(stdout, "{prompt}").and_then(|_| stdout.flush())
+    };
+    if let Err(err) = status {
+        let vec = vec![("details", string_to_list(mem, &err.kind().to_string()))];
+        return Err(make_error(mem, "cannot-write-file", OUTPUT.name, &vec));
+    }
+    
     let stdin = io::stdin();
     let mut line = String::new();
     let status = stdin.lock().read_line(&mut line);

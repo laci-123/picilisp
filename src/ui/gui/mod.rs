@@ -20,6 +20,7 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: Option<String>,
+    input_text: String,
     output: Arc<RwLock<OutputBuffer>>,
     working: bool,
 }
@@ -68,6 +69,7 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: None,
+            input_text: String::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
             output,
