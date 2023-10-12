@@ -108,6 +108,64 @@ pub fn print(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usi
 }
 
 
+pub fn print_to_rust_string(expression: GcRef, recursion_depth: usize) -> Result<String, String> {
+    if recursion_depth > config::MAX_RECURSION_DEPTH {
+        return Err(format!("stackoverflow"));
+    }
+
+    if expression.is_nil() {
+        Ok(format!("()"))
+    }
+    else if let Some(string) = list_to_string(expression.clone()) {
+        Ok(format!("\"{string}\""))
+    }
+    else if let Some(elems) = list_to_vec(expression.clone()) {
+        let mut strings = vec![format!("(")];
+        for elem in elems.iter() {
+            strings.push(print_to_rust_string(elem.clone(), recursion_depth + 1)?);
+        }
+        strings.push(format!(")"));
+        Ok(strings.join(" "))
+    }
+    else {
+        if expression.is_nil() {
+            return Ok(format!("()"));
+        }
+
+        match expression.get().unwrap() {
+            PrimitiveValue::Nil          => Ok(format!("()")),
+            PrimitiveValue::Number(x)    => Ok(format!("{x}")),
+            PrimitiveValue::Character(x) => {
+                let y =
+                match x {
+                    '\t'  => "\\t".to_string(),
+                    '\n'  => "\\n".to_string(),
+                    '\r'  => "\\r".to_string(),
+                    '\\' => "\\\\".to_string(),
+                    _    => format!("{x}"),
+                };
+                Ok(format!("%{y}"))
+            },
+            PrimitiveValue::Symbol(x)    => Ok(format!("{}", x.get_name())),
+            PrimitiveValue::Trap(_)      => Ok(format!("#<trap>")),
+            PrimitiveValue::Function(f)  => {
+                match f.get_kind() {
+                    FunctionKind::Lambda        => Ok(format!("#<lambda>")),
+                    FunctionKind::SpecialLambda => Ok(format!("#<special-lambda>")),
+                    FunctionKind::Macro         => Ok(format!("#<macro>")),
+                    FunctionKind::Syntax        => Ok(format!("#<syntax-macro>")),
+                }
+            },
+            PrimitiveValue::Cons(x)      => {
+                let car = print_to_rust_string(x.get_car(), recursion_depth + 1)?;
+                let cdr = print_to_rust_string(x.get_cdr(), recursion_depth + 1)?;
+                Ok(format!("(cons {car} {cdr})"))
+            },
+        }
+    }
+}
+
+
 
 #[cfg(test)]
 mod tests;

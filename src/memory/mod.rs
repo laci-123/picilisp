@@ -1,11 +1,11 @@
 #![allow(dead_code)]
 
-use std::collections::{HashSet, HashMap};
+use crate::metadata::*;
+use crate::debug::*;
+use crate::config;
+use std::collections::{HashSet, HashMap, hash_map};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
-use crate::debug::UmbilicalLowEnd;
-use crate::metadata::*;
-use crate::config;
 
 
 
@@ -499,6 +499,10 @@ impl Memory {
 
     pub fn is_global_defined(&self, name: &str) -> bool {
         self.globals.contains_key(name)
+    }
+
+    pub fn all_globals(&self) -> hash_map::Iter<String, GcRef> {
+        self.globals.iter()
     }
 
     pub fn symbol_for(&mut self, name: &str) -> GcRef {

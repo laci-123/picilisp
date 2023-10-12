@@ -7,6 +7,7 @@ use crate::native::eval::eval_external;
 use crate::native::load_native_functions;
 use crate::config;
 use eframe::{App, Frame, egui, epaint, NativeOptions, run_native};
+use std::collections::BTreeMap;
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -20,6 +21,7 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
+    globals: BTreeMap<String, String>,
     output: Arc<RwLock<OutputBuffer>>,
     working: bool,
 }
@@ -68,6 +70,7 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
+            globals: BTreeMap::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
             output,
@@ -90,6 +93,21 @@ impl Window {
             },
             Err(_)       => {},
         }
+
+        match self.umbilical.from_low_end.try_recv() {
+            Ok(DiagnosticData::GlobalDefined { name, value, .. }) => {
+                let value_str =
+                match value {
+                    Ok(x) => x,
+                    Err(err) => format!("ERROR converting to string: {err}"),
+                };
+                self.globals.insert(name, format!("{value_str}"));
+            },
+            Ok(DiagnosticData::GlobalUndefined { name }) => {
+                self.globals.remove(&name);
+            },
+            Err(_) => {},
+        }
     }
 
     fn eval(&mut self) {
@@ -101,14 +119,27 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
+        self.update();
+
+        egui::SidePanel::left("Program State").show(ctx, |ui| {
+            ui.collapsing("Global constants", |ui| {
+                egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                    for (name, value) in self.globals.iter() {
+                        ui.horizontal(|ui| {
+                            ui.label(name);
+                            ui.label(value);
+                        });
+                    }
+                });
+            });
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ctx.set_pixels_per_point(1.5);
 
             ui.spacing_mut().text_edit_width = ui.available_width();
             ui.heading(config::APPLICATION_NAME);
             ui.add_space(10.0);
-
-            self.update();
 
             ui.add(egui::TextEdit::multiline(&mut self.program_text).font(egui::FontId::monospace(12.0)));
             ui.add_space(10.0);
