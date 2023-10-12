@@ -171,6 +171,7 @@ pub struct NativeFunction {
     kind: FunctionKind,
               // memory,     argumetns, environment, recursion depth           value  signal
     function: fn(&mut Memory, &[GcRef], GcRef,       usize)          -> Result<GcRef, GcRef>,
+    parameters: Vec<String>,
     environment: *mut CellContent,
 }
 
@@ -213,6 +214,37 @@ impl Function {
         match self {
             Self::NormalFunction(nf) => nf.kind,
             Self::NativeFunction(nf) => nf.kind,
+        }
+    }
+
+    pub fn get_param_names(&self) -> Vec<String> {
+        match self {
+            Self::NormalFunction(nf) => {
+                let mut param_names = vec![];
+                for p in nf.non_rest_params() {
+                    if let Some(PrimitiveValue::Symbol(s)) = p.get() {
+                        param_names.push(s.get_name());
+                    }
+                    else {
+                        param_names.push(format!("#<invalid-parameter-name>"));
+                    }
+                }
+                
+                if let Some(rp) = nf.rest_param() {
+                    if let Some(PrimitiveValue::Symbol(s)) = rp.get() {
+                        param_names.push("&".to_string());
+                        param_names.push(s.get_name());
+                    }
+                    else {
+                        param_names.push(format!("#<invalid-parameter-name>"));
+                    }
+                }
+
+                param_names
+            },
+            Self::NativeFunction(nf) => {
+                nf.parameters.clone()
+            },
         }
     }
 }
@@ -564,8 +596,8 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_native_function(&mut self, kind: FunctionKind, function: fn(&mut Self, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>, environment: GcRef) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, function, environment: environment.pointer })));
+    pub fn allocate_native_function(&mut self, kind: FunctionKind, parameters: Vec<String>, function: fn(&mut Self, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>, environment: GcRef) -> GcRef {
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, parameters, function, environment: environment.pointer })));
         GcRef::new(ptr)
     }
 

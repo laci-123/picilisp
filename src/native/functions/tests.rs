@@ -9,7 +9,7 @@ use super::*;
 fn make_lambda() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, vec!["params".to_string(), "body".to_string()], lambda, GcRef::nil());
 
     // (lambda (x y) y)
     let params = vec![mem.symbol_for("x"), mem.symbol_for("y")];
@@ -28,7 +28,7 @@ fn make_lambda() {
 fn make_lambda_bad_param_list() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, vec!["params".to_string(), "body".to_string()], lambda, GcRef::nil());
 
     // (lambda x y)
     let vec    = vec![lambda, mem.symbol_for("x"), mem.symbol_for("y")];
@@ -42,7 +42,7 @@ fn make_lambda_bad_param_list() {
 fn make_lambda_bad_param() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, vec!["params".to_string(), "body".to_string()], lambda, GcRef::nil());
 
     // (lambda (1) x)
     let params = vec![mem.allocate_number(10)];
@@ -57,7 +57,7 @@ fn make_lambda_bad_param() {
 fn make_lambda_not_enough_args() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, vec!["params".to_string(), "body".to_string()], lambda, GcRef::nil());
 
     // (lambda (x y))
     let params = vec![mem.symbol_for("x"), mem.symbol_for("y")];
@@ -72,7 +72,7 @@ fn make_lambda_not_enough_args() {
 fn make_lambda_too_many_args() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, vec!["params".to_string(), "body".to_string()], lambda, GcRef::nil());
 
     // (lambda (x y) x y)
     let params = vec![mem.symbol_for("x"), mem.symbol_for("y")];
@@ -87,7 +87,7 @@ fn make_lambda_too_many_args() {
 fn eval_lambda() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, lambda, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::SpecialLambda, vec!["params".to_string(), "body".to_string()], lambda, GcRef::nil());
 
     // ((lambda (x y) y) 1 2)
     let params     = vec![mem.symbol_for("x"), mem.symbol_for("y")];

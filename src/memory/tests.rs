@@ -230,11 +230,11 @@ fn mem_allocate_meta() {
     
     {
         let loc1 = Location::Stdin { line: 23, column: 42 };
-        let md1  = Metadata{ read_name: "".to_string(), location: loc1, documentation: "".to_string(), parameters: vec![] };
+        let md1  = Metadata{ read_name: "".to_string(), location: loc1, documentation: "".to_string() };
         let x1   = mem.allocate_number(1370).with_metadata(md1);
 
         let loc2 = Location::File { path: PathBuf::from("~/the/input/file.lisp"), line: 41, column: 42 };
-        let md2  = Metadata{ read_name: "".to_string(), location: loc2, documentation: "Very important information".to_string(), parameters: vec![] };
+        let md2  = Metadata{ read_name: "".to_string(), location: loc2, documentation: "Very important information".to_string() };
         let x2   = mem.allocate_character(' ').with_metadata(md2);
 
         let y    = mem.symbol_for("thing");

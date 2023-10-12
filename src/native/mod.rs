@@ -46,9 +46,8 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
         read_name:     nfmd.name.to_string(),
         location:      Location::Native,
         documentation: nfmd.documentation.to_string(),
-        parameters:    nfmd.parameters.iter().map(|s| s.to_string()).collect()
     };
-    let nf = mem.allocate_native_function(nfmd.kind, nfmd.function, empty_env).with_metadata(md);
+    let nf = mem.allocate_native_function(nfmd.kind, nfmd.parameters.iter().map(|s| s.to_string()).collect(), nfmd.function, empty_env).with_metadata(md);
     mem.define_global(nfmd.name, nf);
 }
 

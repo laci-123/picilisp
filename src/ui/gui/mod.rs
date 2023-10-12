@@ -18,7 +18,6 @@ struct GlobalConstant {
     value: Result<String, String>,
     value_type: String,
     location: Option<String>,
-    parameters: Option<String>,
     documentation: Option<String>,
 }
 
@@ -109,7 +108,6 @@ impl Window {
                     value,
                     value_type: value_type.to_string().to_string(),
                     location: metadata.as_ref().map(|md| md.location.to_string()),
-                    parameters: metadata.as_ref().map(|md| md.parameters.join(", ")),
                     documentation: metadata.as_ref().map(|md| md.documentation.clone()),
                 });
             },
@@ -143,9 +141,6 @@ impl App for Window {
                             ui.label(&value.value_type);
                             if let Some(loc) = &value.location {
                                 ui.label(format!("Defined in: {loc}"));
-                            }
-                            if let Some(par) = &value.parameters {
-                                ui.label(format!("Parameters: {par}"));
                             }
                             if let Some(doc) = &value.documentation {
                                 ui.label(doc);

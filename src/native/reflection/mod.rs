@@ -51,11 +51,10 @@ NativeFunctionMetaData{
 pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, GET_METADATA.name, args, (let x: TypeLabel::Any));
 
-    let metadata    = x.get_metadata();
-    let param_names = get_param_names(mem, x.clone());
+    let metadata = x.get_metadata();
 
-    match (metadata, param_names.clone()) {
-        (Some(md), _) => {
+    match metadata {
+        Some(md) => {
             let doc     = string_to_list(mem, &md.documentation);
             let file;
             let line;
@@ -92,8 +91,9 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
                 vec.push(("column", column));
             }
 
-            if let Some(pn) = param_names {
-                vec.insert(0, ("parameters", pn));
+            if let Some(PrimitiveValue::Function(f)) = x.get() {
+                let pns = f.get_param_names().iter().map(|pn| string_to_list(mem, pn)).collect::<Vec<GcRef>>();
+                vec.insert(0, ("parameters", vec_to_list(mem, &pns)));
             }
 
             if let Some(PrimitiveValue::Function(f)) = args[0].get() {
@@ -109,32 +109,9 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
  
             Ok(make_plist(mem, &vec))
         },
-        (None, Some(pn)) => {
-            Ok(make_plist(mem, &vec![("parameters", pn)]))
-        },
-        (None, None) => {
+        None => {
             Ok(GcRef::nil())
         },
     }
 }
 
-
-fn get_param_names(mem: &mut Memory, x: GcRef) -> Option<GcRef> {
-    if let Some(PrimitiveValue::Function(Function::NormalFunction(nf))) = x.get() {
-        let mut param_names = nf.non_rest_params().collect::<Vec<GcRef>>();
-        if let Some(rp) = nf.rest_param() {
-            param_names.push(mem.symbol_for("&"));
-            param_names.push(rp);
-        }
-
-        return Some(vec_to_list(mem, &param_names));
-    }
-    else if let Some(md) = x.get_metadata() {
-        if md.parameters.len() > 0 {
-            let param_names = md.parameters.iter().map(|p| mem.symbol_for(p)).collect::<Vec<GcRef>>();
-            return Some(vec_to_list(mem, &param_names));
-        }
-    }
-
-    None
-}

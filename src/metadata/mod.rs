@@ -72,5 +72,4 @@ pub struct Metadata {
     pub read_name: String,
     pub location: Location,
     pub documentation: String,
-    pub parameters: Vec<String>,
 }
