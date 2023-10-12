@@ -20,6 +20,15 @@ impl Location {
         }
     }
 
+    pub fn to_string(&self) -> String {
+        match self {
+            Self::Native => format!("Rust source"),
+            Self::Prelude{line, column} => format!("Prelude:{line}:{column}"),
+            Self::Stdin{line, column} => format!("stdin:{line}:{column}"),
+            Self::File{path, line, column} => format!("{}:{line}:{column}", path.to_str().unwrap_or("<ERROR reading filepath>")),
+        }
+    }
+
     pub fn get_line(&self) -> Option<usize> {
         match self {
             Self::Native                         => None,

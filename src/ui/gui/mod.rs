@@ -14,6 +14,15 @@ use std::time::Duration;
 
 
 
+struct GlobalConstant {
+    value: Result<String, String>,
+    value_type: String,
+    location: Option<String>,
+    parameters: Option<String>,
+    documentation: Option<String>,
+}
+
+
 struct Window {
     to_worker: mpsc::Sender<String>,
     from_worker: mpsc::Receiver<Result<String, String>>,
@@ -21,7 +30,7 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
-    globals: BTreeMap<String, String>,
+    globals: BTreeMap<String, GlobalConstant>,
     output: Arc<RwLock<OutputBuffer>>,
     working: bool,
 }
@@ -95,13 +104,14 @@ impl Window {
         }
 
         match self.umbilical.from_low_end.try_recv() {
-            Ok(DiagnosticData::GlobalDefined { name, value, .. }) => {
-                let value_str =
-                match value {
-                    Ok(x) => x,
-                    Err(err) => format!("ERROR converting to string: {err}"),
-                };
-                self.globals.insert(name, format!("{value_str}"));
+            Ok(DiagnosticData::GlobalDefined { name, value, value_type, metadata }) => {
+                self.globals.insert(name, GlobalConstant {
+                    value,
+                    value_type: value_type.to_string().to_string(),
+                    location: metadata.as_ref().map(|md| md.location.to_string()),
+                    parameters: metadata.as_ref().map(|md| md.parameters.join(", ")),
+                    documentation: metadata.as_ref().map(|md| md.documentation.clone()),
+                });
             },
             Ok(DiagnosticData::GlobalUndefined { name }) => {
                 self.globals.remove(&name);
@@ -125,9 +135,21 @@ impl App for Window {
             ui.collapsing("Global constants", |ui| {
                 egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                     for (name, value) in self.globals.iter() {
-                        ui.horizontal(|ui| {
-                            ui.label(name);
-                            ui.label(value);
+                        ui.collapsing(name, |ui| {
+                            match &value.value {
+                                Ok(x)    => ui.label(x),
+                                Err(err) => ui.label(egui::RichText::new(format!("ERROR while converting to string: {err}")).color(epaint::Color32::RED)),
+                            };
+                            ui.label(&value.value_type);
+                            if let Some(loc) = &value.location {
+                                ui.label(format!("Defined in: {loc}"));
+                            }
+                            if let Some(par) = &value.parameters {
+                                ui.label(format!("Parameters: {par}"));
+                            }
+                            if let Some(doc) = &value.documentation {
+                                ui.label(doc);
+                            }
                         });
                     }
                 });
