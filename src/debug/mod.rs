@@ -1,4 +1,4 @@
-use crate::{metadata::Metadata, memory::TypeLabel};
+use crate::memory::TypeLabel;
 use std::sync::mpsc::{Receiver, Sender, channel};
 
 pub enum DebugCommand {
@@ -12,7 +12,6 @@ pub enum DiagnosticData {
         name: String,
         value: Result<String, String>,
         value_type: TypeLabel,
-        metadata: Option<Metadata>,
     },
     GlobalUndefined {
         name: String,

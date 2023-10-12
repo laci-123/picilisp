@@ -17,8 +17,6 @@ use std::time::Duration;
 struct GlobalConstant {
     value: Result<String, String>,
     value_type: String,
-    location: Option<String>,
-    documentation: Option<String>,
 }
 
 
@@ -29,6 +27,7 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
+    metadata_text: String,
     globals: BTreeMap<String, GlobalConstant>,
     output: Arc<RwLock<OutputBuffer>>,
     working: bool,
@@ -78,6 +77,7 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
+            metadata_text: "nothing selected".to_string(),
             globals: BTreeMap::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
@@ -103,12 +103,10 @@ impl Window {
         }
 
         match self.umbilical.from_low_end.try_recv() {
-            Ok(DiagnosticData::GlobalDefined { name, value, value_type, metadata }) => {
+            Ok(DiagnosticData::GlobalDefined { name, value, value_type }) => {
                 self.globals.insert(name, GlobalConstant {
                     value,
                     value_type: value_type.to_string().to_string(),
-                    location: metadata.as_ref().map(|md| md.location.to_string()),
-                    documentation: metadata.as_ref().map(|md| md.documentation.clone()),
                 });
             },
             Ok(DiagnosticData::GlobalUndefined { name }) => {
@@ -134,17 +132,15 @@ impl App for Window {
                 egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                     for (name, value) in self.globals.iter() {
                         ui.collapsing(name, |ui| {
+                            let value_label =
                             match &value.value {
-                                Ok(x)    => ui.label(x),
+                                Ok(x)    => ui.add(egui::Label::new(x).sense(egui::Sense::click())).on_hover_text("click to show metadata"),
                                 Err(err) => ui.label(egui::RichText::new(format!("ERROR while converting to string: {err}")).color(epaint::Color32::RED)),
                             };
+                            if value_label.clicked() {
+                                self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
+                            }
                             ui.label(&value.value_type);
-                            if let Some(loc) = &value.location {
-                                ui.label(format!("Defined in: {loc}"));
-                            }
-                            if let Some(doc) = &value.documentation {
-                                ui.label(doc);
-                            }
                         });
                     }
                 });

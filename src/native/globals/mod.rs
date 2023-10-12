@@ -25,24 +25,20 @@ pub fn define(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: us
         return Err(mem.symbol_for("already-defined"));
     }
 
-    let new_md = 
     if let Some(meta) = args[0].get_metadata() {
         let mut new_md         = meta.clone();
         new_md.documentation   = documentation;
-        mem.define_global(&name.get_name(), value.clone().with_metadata(new_md.clone()));
-        Some(new_md)
+        mem.define_global(&name.get_name(), value.clone().with_metadata(new_md));
     }
     else {
         mem.define_global(&name.get_name(), value.clone());
-        None
-    };
+    }
 
     if let Some(umb) = &mem.umbilical {
         let dd = DiagnosticData::GlobalDefined {
             name: name.get_name(),
             value_type: value.get_type(),
             value: print_to_rust_string(value, recursion_depth + 1),
-            metadata: new_md,
         };
         umb.to_high_end.send(dd).expect("supervisor thread disappeared");
     }
