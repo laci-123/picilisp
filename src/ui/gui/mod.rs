@@ -16,7 +16,7 @@ use std::time::Duration;
 struct Window {
     to_worker: mpsc::Sender<String>,
     from_worker: mpsc::Receiver<Result<String, String>>,
-    umbilical_tx: mpsc::Sender<DebugCommand>,
+    umbilical: UmbilicalHighEnd,
     program_text: String,
     result_text: String,
     signal_text: String,
@@ -28,14 +28,14 @@ impl Window {
     fn new() -> Self {
         let (to_worker_tx,   to_worker_rx)   = mpsc::channel::<String>();
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
-        let (umbilical_tx, umbilical_rx)     = mpsc::channel::<DebugCommand>();
+        let (umbilical_high_end, umbilical_low_end) = make_umbilical();
         let output = Arc::new(RwLock::new(OutputBuffer::new(GUI_OUTPUT_BUFFER_SIZE)));
         let output_clone = Arc::clone(&output);
 
         thread::spawn(move || {
             let mut mem = Memory::new();
             mem.set_stdout(output_clone);
-            mem.attach_umbilical(Umbilical::new(umbilical_rx));
+            mem.attach_umbilical(umbilical_low_end);
 
             load_native_functions(&mut mem);
 
@@ -71,7 +71,7 @@ impl Window {
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
             output,
-            umbilical_tx,
+            umbilical: umbilical_high_end,
             working: true,
         }
     }
@@ -118,10 +118,10 @@ impl App for Window {
                     self.eval();
                 }
                 if ui.button("Stop").clicked() {
-                    self.umbilical_tx.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                    self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
                 }
                 if ui.button("Force stop").clicked() {
-                    self.umbilical_tx.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                    self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
                 }
                 if self.working {
                     ui.label("working...");

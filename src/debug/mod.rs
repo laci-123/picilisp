@@ -1,4 +1,4 @@
-use std::sync::mpsc::Receiver;
+use std::sync::mpsc::{Receiver, Sender, channel};
 
 pub enum DebugCommand {
     Abort,
@@ -6,17 +6,24 @@ pub enum DebugCommand {
 }
 
 
-pub struct Umbilical {
-    pub to_inferior: Receiver<DebugCommand>,
+pub struct UmbilicalHighEnd {
+    pub to_low_end: Sender<DebugCommand>,
 }
 
-impl Umbilical {
-    pub fn new(to_inferior: Receiver<DebugCommand>) -> Self {
-        Self{ to_inferior }
-    }
 
+pub struct UmbilicalLowEnd {
+    pub from_high_end: Receiver<DebugCommand>,
+}
+
+impl UmbilicalLowEnd {
     pub fn init(&self) {
         // discard all messages that arrived earlier
-        while let Ok(_) = self.to_inferior.try_recv() {}
+        while let Ok(_) = self.from_high_end.try_recv() {}
     }
+}
+
+
+pub fn make_umbilical() -> (UmbilicalHighEnd, UmbilicalLowEnd) {
+    let (high_to_low_tx, high_to_low_rx) = channel();
+    (UmbilicalHighEnd{ to_low_end: high_to_low_tx }, UmbilicalLowEnd{ from_high_end: high_to_low_rx })
 }

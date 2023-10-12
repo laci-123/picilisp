@@ -81,7 +81,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
     }
 
     if let Some(umb) = &mem.umbilical {
-        if let Ok(cmd) = umb.to_inferior.try_recv() {
+        if let Ok(cmd) = umb.from_high_end.try_recv() {
             match cmd {
                 DebugCommand::Abort => return Err(GcRef::nil()),
                 DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),

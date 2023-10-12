@@ -3,7 +3,7 @@
 use std::collections::{HashSet, HashMap};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
-use crate::debug::Umbilical;
+use crate::debug::UmbilicalLowEnd;
 use crate::metadata::*;
 use crate::config;
 
@@ -464,7 +464,7 @@ pub struct Memory {
     cells: Vec<Cell>,
     first_free: usize,
     pub stdout: Arc<RwLock<dyn Write>>,
-    pub umbilical: Option<Umbilical>,
+    pub umbilical: Option<UmbilicalLowEnd>,
 }
 
 impl Memory {
@@ -481,7 +481,7 @@ impl Memory {
         self.stdout = stdout;
     }
 
-    pub fn attach_umbilical(&mut self, umbilical: Umbilical) {
+    pub fn attach_umbilical(&mut self, umbilical: UmbilicalLowEnd) {
         self.umbilical = Some(umbilical);
     }
 
