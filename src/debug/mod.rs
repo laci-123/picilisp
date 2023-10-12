@@ -13,4 +13,9 @@ impl Umbilical {
     pub fn new(to_inferior: Receiver<DebugCommand>) -> Self {
         Self{ to_inferior }
     }
+
+    pub fn init(&self) {
+        // discard all messages that arrived earlier
+        while let Ok(_) = self.to_inferior.try_recv() {}
+    }
 }

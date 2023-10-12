@@ -19,8 +19,7 @@ struct Window {
     umbilical_tx: mpsc::Sender<DebugCommand>,
     program_text: String,
     result_text: String,
-    signal_text: Option<String>,
-    input_text: String,
+    signal_text: String,
     output: Arc<RwLock<OutputBuffer>>,
     working: bool,
 }
@@ -68,8 +67,7 @@ impl Window {
         Self {
             program_text: String::new(),
             result_text: String::new(),
-            signal_text: None,
-            input_text: String::new(),
+            signal_text: String::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
             output,
@@ -82,11 +80,11 @@ impl Window {
         match self.from_worker.try_recv() {
             Ok(Ok(x))    => {
                 self.result_text = x;
-                self.signal_text = None;
+                self.signal_text.clear();
                 self.working = false;
             },
             Ok(Err(err)) => {
-                self.signal_text = Some(err);
+                self.signal_text = err;
                 self.result_text.clear();
                 self.working = false;
             },
@@ -95,7 +93,7 @@ impl Window {
     }
 
     fn eval(&mut self) {
-        self.signal_text = None;
+        self.signal_text.clear();
         self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
         self.working = true;
     }
@@ -132,10 +130,10 @@ impl App for Window {
             egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
                 ui.add(egui::TextEdit::multiline(&mut self.result_text.as_str()).font(egui::FontId::monospace(12.0)));
             });
-            if let Some(x) = &self.signal_text {
+            if self.signal_text.len() > 0 {
                 // passing a mutable reference to an immutable str to TextEdit::multiline
                 // makes it selectable/copyable but not editable
-                ui.add(egui::TextEdit::multiline(&mut x.as_str()).desired_rows(2).text_color(epaint::Color32::RED));
+                ui.add(egui::TextEdit::multiline(&mut self.signal_text.as_str()).desired_rows(2).text_color(epaint::Color32::RED));
             }
             ui.add_space(10.0);
 

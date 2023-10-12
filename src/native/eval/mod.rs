@@ -1,5 +1,4 @@
 use crate::debug::DebugCommand;
-use crate::debug::Umbilical;
 use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
@@ -333,6 +332,10 @@ pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth
 pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     let empty_env = GcRef::nil();
     let recursion_depth = 0;
+
+    if let Some(umb) = &mem.umbilical {
+        umb.init();
+    }
     
     match eval(mem, &[tree], empty_env.clone(), recursion_depth) {
         Ok(x)       => Ok(x),

@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use std::io::{Read, Write};
+use std::io::Write;
 use super::*;
 
 
