@@ -1,4 +1,8 @@
+use std::time::Duration;
+use std::time::Instant;
+
 use crate::debug::DebugCommand;
+use crate::debug::DiagnosticData;
 use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
@@ -80,12 +84,18 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
 
-    if let Some(umb) = &mem.umbilical {
+    let fc = mem.free_count();
+    let uc = mem.used_count();
+    if let Some(umb) = &mut mem.umbilical {
         if let Ok(cmd) = umb.from_high_end.try_recv() {
             match cmd {
                 DebugCommand::Abort => return Err(GcRef::nil()),
                 DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
             }
+        }
+        if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
+            umb.to_high_end.send(DiagnosticData::Memory { free_cells: fc, used_cells: uc }).expect("supervisor thread disappeared");
+            umb.last_memory_send = Instant::now();
         }
     }
 

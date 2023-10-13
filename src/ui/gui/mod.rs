@@ -1,13 +1,13 @@
-use crate::config::GUI_OUTPUT_BUFFER_SIZE;
+use crate::config;
 use crate::memory::*;
 use crate::debug::*;
 use crate::io::OutputBuffer;
 use crate::util::*;
 use crate::native::eval::eval_external;
 use crate::native::load_native_functions;
-use crate::config;
 use eframe::{App, Frame, egui, epaint, NativeOptions, run_native};
 use std::collections::BTreeMap;
+use std::collections::VecDeque;
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
 use std::time::Duration;
@@ -27,9 +27,10 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
-    metadata_text: String,
     globals: BTreeMap<String, GlobalConstant>,
     output: Arc<RwLock<OutputBuffer>>,
+    free_memory_sapmles: VecDeque<usize>,
+    used_memory_sapmles: VecDeque<usize>,
     working: bool,
 }
 
@@ -38,7 +39,7 @@ impl Window {
         let (to_worker_tx,   to_worker_rx)   = mpsc::channel::<String>();
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
         let (umbilical_high_end, umbilical_low_end) = make_umbilical();
-        let output = Arc::new(RwLock::new(OutputBuffer::new(GUI_OUTPUT_BUFFER_SIZE)));
+        let output = Arc::new(RwLock::new(OutputBuffer::new(config::GUI_OUTPUT_BUFFER_SIZE)));
         let output_clone = Arc::clone(&output);
 
         thread::spawn(move || {
@@ -77,11 +78,12 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
-            metadata_text: "nothing selected".to_string(),
             globals: BTreeMap::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
             output,
+            free_memory_sapmles: VecDeque::with_capacity(100),
+            used_memory_sapmles: VecDeque::with_capacity(100),
             umbilical: umbilical_high_end,
             working: true,
         }
@@ -112,6 +114,17 @@ impl Window {
             Ok(DiagnosticData::GlobalUndefined { name }) => {
                 self.globals.remove(&name);
             },
+            Ok(DiagnosticData::Memory { free_cells, used_cells }) => {
+                if self.free_memory_sapmles.len() > 100 {
+                    self.free_memory_sapmles.pop_front();
+                }
+                self.free_memory_sapmles.push_back(free_cells);
+
+                if self.used_memory_sapmles.len() > 100 {
+                    self.used_memory_sapmles.pop_front();
+                }
+                self.used_memory_sapmles.push_back(used_cells);
+            },
             Err(_) => {},
         }
     }
@@ -126,7 +139,6 @@ impl Window {
 impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         self.update();
-
         egui::SidePanel::left("Program State").show(ctx, |ui| {
             ui.collapsing("Global constants", |ui| {
                 egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
@@ -144,6 +156,17 @@ impl App for Window {
                         });
                     }
                 });
+            });
+            ui.add_space(10.0);
+
+            let free_points = egui_plot::PlotPoints::new(self.free_memory_sapmles.range(..).enumerate().map(|(x, y)| [x as f64, *y as f64]).collect());
+            let free_line = egui_plot::Line::new(free_points).color(epaint::Color32::GREEN);
+            let used_points = egui_plot::PlotPoints::new(self.used_memory_sapmles.range(..).enumerate().map(|(x, y)| [x as f64, *y as f64]).collect());
+            let used_line = egui_plot::Line::new(used_points).color(epaint::Color32::RED);
+            egui_plot::Plot::new("Some graph").allow_scroll(false).show(ui, |plot_ui| {
+                plot_ui.line(free_line);
+                plot_ui.line(used_line);
+                // plot_ui.vline(egui_plot::VLine::new(1.0));
             });
         });
 
