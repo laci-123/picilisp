@@ -255,4 +255,9 @@ Stop the loop when end of input (EOF) is reached."
             ((= read-status 'error)      (throw 'kind 'syntax-error,   'source 'repl,            'details (get-property 'error read-result)))
             ((= read-status 'ok)         (print (eval (get-property 'result read-result))))
             (t                           (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status))))))
-      
+
+(defun infinite-loop (x)
+  "for testing purposes"
+  (block
+    (output (print x))
+    (infinite-loop (+ x 1))))

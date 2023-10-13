@@ -192,7 +192,7 @@ impl App for Window {
                 }
                 if self.working {
                     ui.label("working...");
-                    ctx.request_repaint_after(Duration::from_millis(100));
+                    ctx.request_repaint();
                 }
             });
             ui.add_space(10.0);
