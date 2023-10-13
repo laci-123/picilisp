@@ -94,8 +94,9 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
             }
         }
         if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
-            umb.to_high_end.send(DiagnosticData::Memory { free_cells: fc, used_cells: uc }).expect("supervisor thread disappeared");
+            umb.to_high_end.send(DiagnosticData::Memory { free_cells: fc, used_cells: uc, serial_number: umb.serial_number }).expect("supervisor thread disappeared");
             umb.last_memory_send = Instant::now();
+            umb.serial_number += 1;
         }
     }
 

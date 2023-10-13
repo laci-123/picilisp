@@ -10,7 +10,6 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
-use std::time::Duration;
 
 
 
@@ -29,8 +28,8 @@ struct Window {
     signal_text: String,
     globals: BTreeMap<String, GlobalConstant>,
     output: Arc<RwLock<OutputBuffer>>,
-    free_memory_sapmles: VecDeque<usize>,
-    used_memory_sapmles: VecDeque<usize>,
+    free_memory_sapmles: VecDeque<(usize, usize)>,
+    used_memory_sapmles: VecDeque<(usize, usize)>,
     working: bool,
 }
 
@@ -114,16 +113,16 @@ impl Window {
             Ok(DiagnosticData::GlobalUndefined { name }) => {
                 self.globals.remove(&name);
             },
-            Ok(DiagnosticData::Memory { free_cells, used_cells }) => {
+            Ok(DiagnosticData::Memory { free_cells, used_cells, serial_number }) => {
                 if self.free_memory_sapmles.len() > 100 {
                     self.free_memory_sapmles.pop_front();
                 }
-                self.free_memory_sapmles.push_back(free_cells);
+                self.free_memory_sapmles.push_back((serial_number, free_cells));
 
                 if self.used_memory_sapmles.len() > 100 {
                     self.used_memory_sapmles.pop_front();
                 }
-                self.used_memory_sapmles.push_back(used_cells);
+                self.used_memory_sapmles.push_back((serial_number, used_cells));
             },
             Err(_) => {},
         }
@@ -159,14 +158,24 @@ impl App for Window {
             });
             ui.add_space(10.0);
 
-            let free_points = egui_plot::PlotPoints::new(self.free_memory_sapmles.range(..).enumerate().map(|(x, y)| [x as f64, *y as f64]).collect());
-            let free_line = egui_plot::Line::new(free_points).color(epaint::Color32::GREEN);
-            let used_points = egui_plot::PlotPoints::new(self.used_memory_sapmles.range(..).enumerate().map(|(x, y)| [x as f64, *y as f64]).collect());
-            let used_line = egui_plot::Line::new(used_points).color(epaint::Color32::RED);
-            egui_plot::Plot::new("Some graph").allow_scroll(false).show(ui, |plot_ui| {
+            let free_points = egui_plot::PlotPoints::new(self.free_memory_sapmles.range(..).map(|(x, y)| [*x as f64, *y as f64]).collect());
+            let free_line = egui_plot::Line::new(free_points).color(epaint::Color32::GREEN).name("free cells");
+            let used_points = egui_plot::PlotPoints::new(self.used_memory_sapmles.range(..).map(|(x, y)| [*x as f64, *y as f64]).collect());
+            let used_line = egui_plot::Line::new(used_points).color(epaint::Color32::RED).name("used cells");
+            let legend = egui_plot::Legend{ position: egui_plot::Corner::LeftTop, ..Default::default() };
+            egui_plot::Plot::new("Memory usage").x_axis_label("samples").y_axis_label("number of cells").allow_scroll(false).legend(legend).show(ui, |plot_ui| {
                 plot_ui.line(free_line);
                 plot_ui.line(used_line);
-                // plot_ui.vline(egui_plot::VLine::new(1.0));
+                let mut xy = vec![];
+                let mut prev_y = 0;
+                for (x, y) in self.used_memory_sapmles.range(..) {
+                    if *y < prev_y {
+                        xy.push([*x as f64, prev_y as f64]);
+                    }
+                    prev_y = *y;
+                }
+                let points = egui_plot::Points::new(xy).color(epaint::Color32::BLUE).shape(egui_plot::MarkerShape::Down).radius(5.0).name("GC collect");
+                plot_ui.points(points);
             });
         });
 
