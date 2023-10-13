@@ -227,6 +227,28 @@ that catches the signal."
         (cons 'list
               body)))
 
+(defun pretty-print-error (error)
+  "Print `erorr` in a more human-readable format.
+If `error` is not a valid property-list then just simply print it using the `print` function."
+  (if error
+      (try
+       (let (key (car error), value (car (cdr error)))
+         (concat (print key)
+                 ":\n"
+                 (if (= key 'symbol)
+                     (let (md (get-metadata value))
+                       (concat (print value)
+                               "\n at: "
+                               (print (get-property 'file md))
+                               (if (get-property 'line md)
+                                   (concat ":" (print (get-property 'line md)) ":" (print (get-property 'column md)))
+                                   nil)))
+                     (print value))
+                 "\n\n"
+                 (pretty-print-error (cdr (cdr error)))))
+       (catch-all (lambda (_) (print error))))
+      ""))
+
 (defun repl (prompt initial-input)
   "(R)ead an expression from standard input,
 (E)valuated it,
@@ -248,7 +270,7 @@ Stop the loop when end of input (EOF) is reached."
      (lambda (_) (block (output "")
                         'ok)))
    (catch-all
-    (lambda (error) (block (output (concat "ERROR: " (print error)))
+    (lambda (error) (block (output (concat "UNHANDLED ERROR:\n\n" (pretty-print-error error)))
                            (repl ">>> " nil))))))
 
 (defun read-eval-print (string)
