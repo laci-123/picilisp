@@ -92,7 +92,7 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
             }
 
             if let Some(PrimitiveValue::Function(f)) = x.get() {
-                let pns = f.get_param_names().iter().map(|pn| string_to_list(mem, pn)).collect::<Vec<GcRef>>();
+                let pns = f.get_param_names().iter().map(|pn| mem.symbol_for(pn)).collect::<Vec<GcRef>>();
                 vec.insert(0, ("parameters", vec_to_list(mem, &pns)));
 
                 let kind =
