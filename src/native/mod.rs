@@ -1,4 +1,5 @@
 use crate::memory::*;
+use crate::debug::*;
 use crate::metadata::*;
 
 
@@ -49,6 +50,20 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
     };
     let nf = mem.allocate_native_function(nfmd.kind, nfmd.parameters.iter().map(|s| s.to_string()).collect(), nfmd.function, empty_env).with_metadata(md);
     mem.define_global(nfmd.name, nf);
+
+    if let Some(umb) = &mem.umbilical {
+        let dd = DiagnosticData::GlobalDefined {
+            name: nfmd.name.to_string(),
+            value_type: TypeLabel::Function,
+            value: Ok(match nfmd.kind {
+                FunctionKind::Macro         => "#<macro>",
+                FunctionKind::Syntax        => "#<syntax>",
+                FunctionKind::SpecialLambda => "#<special-lambda>",
+                FunctionKind::Lambda        => "#<lambda>",
+            }.to_string()),
+        };
+        umb.to_high_end.send(dd).expect("supervisor thread disappeared");
+    }
 }
 
 

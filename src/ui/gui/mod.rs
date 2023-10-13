@@ -145,24 +145,24 @@ impl Window {
 impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         self.update();
-        egui::SidePanel::left("Program State").show(ctx, |ui| {
-            ui.collapsing("Global constants", |ui| {
-                egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                    for (name, value) in self.globals.iter() {
-                        ui.collapsing(name, |ui| {
-                            let value_label =
-                            match &value.value {
-                                Ok(x)    => ui.add(egui::Label::new(x).sense(egui::Sense::click())).on_hover_text("click to show metadata"),
-                                Err(err) => ui.label(egui::RichText::new(format!("ERROR while converting to string: {err}")).color(epaint::Color32::RED)),
-                            };
-                            if value_label.clicked() {
-                                self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
-                                self.working = true;
-                            }
-                            ui.label(&value.value_type);
-                        });
-                    }
-                });
+
+        egui::SidePanel::left("Program State").default_width(300.0).show(ctx, |ui| {
+            ui.heading("Global constants");
+            egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
+                for (name, value) in self.globals.iter() {
+                    ui.collapsing(name, |ui| {
+                        let value_label =
+                        match &value.value {
+                            Ok(x)    => ui.add(egui::Label::new(x).sense(egui::Sense::click())).on_hover_text("click to show metadata"),
+                            Err(err) => ui.label(egui::RichText::new(format!("ERROR while converting to string: {err}")).color(epaint::Color32::RED)),
+                        };
+                        if value_label.clicked() {
+                            self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
+                            self.working = true;
+                        }
+                        ui.label(&value.value_type);
+                    });
+                }
             });
             ui.add_space(20.0);
 
@@ -185,10 +185,10 @@ impl App for Window {
                 plot_ui.line(free_line);
                 plot_ui.line(used_line);
                 let mut xy = vec![];
-                let mut prev_y = usize::MAX;
+                let mut prev_y = 0;
                 for (x, y) in self.used_memory_sapmles.range(..) {
                     if *y < prev_y {
-                        xy.push([*x as f64, *y as f64]);
+                        xy.push([*x as f64, prev_y as f64]);
                     }
                     prev_y = *y;
                 }
