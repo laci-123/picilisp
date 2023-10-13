@@ -9,6 +9,9 @@ use std::sync::{Arc, RwLock};
 
 
 
+pub const CELL_SIZE_BYTES: usize = std::mem::size_of::<Cell>() + std::mem::size_of::<CellContent>();
+
+
 #[derive(Default)]
 pub struct Cell {
     content: Box<CellContent>,

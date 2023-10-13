@@ -30,6 +30,8 @@ struct Window {
     output: Arc<RwLock<OutputBuffer>>,
     free_memory_sapmles: VecDeque<(usize, usize)>,
     used_memory_sapmles: VecDeque<(usize, usize)>,
+    used_cells: usize,
+    free_cells: usize,
     working: bool,
 }
 
@@ -83,6 +85,8 @@ impl Window {
             output,
             free_memory_sapmles: VecDeque::with_capacity(100),
             used_memory_sapmles: VecDeque::with_capacity(100),
+            used_cells: 0,
+            free_cells: 0,
             umbilical: umbilical_high_end,
             working: true,
         }
@@ -123,6 +127,9 @@ impl Window {
                     self.used_memory_sapmles.pop_front();
                 }
                 self.used_memory_sapmles.push_back((serial_number, used_cells));
+
+                self.free_cells = free_cells;
+                self.used_cells = used_cells;
             },
             Err(_) => {},
         }
@@ -150,13 +157,24 @@ impl App for Window {
                             };
                             if value_label.clicked() {
                                 self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
+                                self.working = true;
                             }
                             ui.label(&value.value_type);
                         });
                     }
                 });
             });
-            ui.add_space(10.0);
+            ui.add_space(20.0);
+
+            ui.heading("Memory useage");
+            let uc = self.used_cells;
+            let fc = self.free_cells;
+            let tc = uc + fc;
+            let upt = uc as f32 / tc as f32;
+            ui.label(format!("Used cells:  {} ({} kb)", uc, uc * CELL_SIZE_BYTES / 1024));
+            ui.label(format!("Free cells:  {} ({} kb)", fc, fc * CELL_SIZE_BYTES / 1024));
+            ui.label(format!("Total cells: {} ({} kb)", tc, tc * CELL_SIZE_BYTES / 1024));
+            ui.label(format!("{:.1}% used", upt * 100.0));
 
             let free_points = egui_plot::PlotPoints::new(self.free_memory_sapmles.range(..).map(|(x, y)| [*x as f64, *y as f64]).collect());
             let free_line = egui_plot::Line::new(free_points).color(epaint::Color32::GREEN).name("free cells");
@@ -167,10 +185,10 @@ impl App for Window {
                 plot_ui.line(free_line);
                 plot_ui.line(used_line);
                 let mut xy = vec![];
-                let mut prev_y = 0;
+                let mut prev_y = usize::MAX;
                 for (x, y) in self.used_memory_sapmles.range(..) {
                     if *y < prev_y {
-                        xy.push([*x as f64, prev_y as f64]);
+                        xy.push([*x as f64, *y as f64]);
                     }
                     prev_y = *y;
                 }
