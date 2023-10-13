@@ -35,7 +35,7 @@ fn make_lambda_bad_param_list() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-argument-type source lambda expected list-type actual symbol-type)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-argument-type source lambda expected list-type actual symbol-type)");
 }
 
 #[test]
@@ -50,7 +50,7 @@ fn make_lambda_bad_param() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind param-is-not-symbol source lambda param 10)");
+    assert_eq!(value.err().unwrap(), "(kind param-is-not-symbol source lambda param 10)");
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn make_lambda_not_enough_args() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source lambda expected 2 actual 1)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-number-of-arguments source lambda expected 2 actual 1)");
 }
 
 #[test]
@@ -80,7 +80,7 @@ fn make_lambda_too_many_args() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source lambda expected 2 actual 3)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-number-of-arguments source lambda expected 2 actual 3)");
 }
 
 #[test]
@@ -114,5 +114,5 @@ fn eval_not_lambda() {
     let tree       = vec_to_list(&mut mem, &vec2);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind unbound-symbol source eval symbol mu)");
+    assert_eq!(value.err().unwrap(), "(kind unbound-symbol source eval symbol mu)");
 }

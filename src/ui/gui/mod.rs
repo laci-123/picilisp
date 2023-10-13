@@ -100,7 +100,7 @@ impl Window {
                 self.working = false;
             },
             Ok(Err(err)) => {
-                self.signal_text = err;
+                self.signal_text = format!("ERROR:\n\n{err}");
                 self.result_text.clear();
                 self.working = false;
             },

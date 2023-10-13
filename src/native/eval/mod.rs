@@ -356,7 +356,7 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
                 Err(format!("Evaluation aborted."))
             }
             else {
-                Err(format!("Unhandled signal: {}", list_to_string(crate::native::print::print(mem, &[signal], empty_env, recursion_depth).ok().unwrap()).unwrap()))
+                Err(list_to_string(crate::native::print::print(mem, &[signal], empty_env, recursion_depth).ok().unwrap()).unwrap())
             }
         },
     }

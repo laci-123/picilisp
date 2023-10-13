@@ -113,7 +113,7 @@ fn eval_unbound_symbol() {
 
     let tree  = mem.symbol_for("apple-tree");
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind unbound-symbol source eval symbol apple-tree)");
+    assert_eq!(value.err().unwrap(), "(kind unbound-symbol source eval symbol apple-tree)");
 }
 
 #[test]
@@ -160,7 +160,7 @@ fn eval_list_bad_operator() {
     let vec   = vec![mem.allocate_number(0), mem.allocate_number(-10), mem.allocate_number(-20), mem.allocate_number(-30)];
     let tree  = vec_to_list(&mut mem, &vec);
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind eval-bad-operator source eval symbol 0)");
+    assert_eq!(value.err().unwrap(), "(kind eval-bad-operator source eval symbol 0)");
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn eval_call_lambda_unbound_params() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind unbound-symbol source eval symbol no-value)");
+    assert_eq!(value.err().unwrap(), "(kind unbound-symbol source eval symbol no-value)");
 }
 
 #[test]
@@ -286,7 +286,7 @@ fn eval_native_function_not_enough_args() {
     let tree = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source test_native_function)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-number-of-arguments source test_native_function)");
 }
 
 #[test]
@@ -299,7 +299,7 @@ fn eval_native_function_too_many_args() {
     let tree = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source test_native_function)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-number-of-arguments source test_native_function)");
 }
 
 #[test]
@@ -342,7 +342,7 @@ fn eval_not_enough_args() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source #<function> expected 2 actual 1)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-number-of-arguments source #<function> expected 2 actual 1)");
 }
 
 #[test]
@@ -359,5 +359,5 @@ fn eval_too_many_args() {
     let tree    = vec_to_list(&mut mem, &vec);
 
     let value     = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "Unhandled signal: (kind wrong-number-of-arguments source #<function> expected 2 actual 3)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-number-of-arguments source #<function> expected 2 actual 3)");
 }
