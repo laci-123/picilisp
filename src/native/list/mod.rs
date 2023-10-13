@@ -114,7 +114,7 @@ pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
         Ok(result)
     }
     else {
-        Err(mem.symbol_for("wrong-plist-format"))
+        Err(make_error(mem, "wrong-plist-format", GET_PROPERTY.name, &vec![]))
     }
 }
 

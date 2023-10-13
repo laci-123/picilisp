@@ -182,13 +182,19 @@ If non of them is true then return `nil`."
         nil
         cases)) 
 
+(defun get-property-safe (key plist )
+  "Same as `get-property`, but return nil if either `key` is not found in `plist` or if `plist` is not a property-list"
+  (eval (trap
+   (get-property key plist)
+   nil)))
+
 (defmacro catch (kind body)
   "Catches any signal whose `kind` property is equal to `kind`.
 Meant to be used as part of the `try` macro.
 `body` should be a lambda with one parameter. This parameters will be set to the caught signal."
   (list 'test
         (list '=
-              (list 'get-property
+              (list 'get-property-safe
                     (list 'quote
                           'kind)
                     '*trapped-signal*)
