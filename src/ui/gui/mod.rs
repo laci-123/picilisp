@@ -26,6 +26,7 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
+    cursor: usize,
     globals: BTreeMap<String, GlobalConstant>,
     output: Arc<RwLock<OutputBuffer>>,
     free_memory_sapmles: VecDeque<(usize, usize)>,
@@ -79,6 +80,7 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
+            cursor: 0,
             globals: BTreeMap::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
@@ -204,7 +206,14 @@ impl App for Window {
             ui.heading(config::APPLICATION_NAME);
             ui.add_space(10.0);
 
-            ui.add(egui::TextEdit::multiline(&mut self.program_text).font(egui::FontId::monospace(12.0)));
+            let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
+                let layout_job = highlight_parens_layout(self.cursor.saturating_sub(1), string);
+                ui.fonts(|f| f.layout_job(layout_job))
+            };
+            let program_textedit = egui::TextEdit::multiline(&mut self.program_text).font(egui::FontId::monospace(12.0)).layouter(&mut layouter).show(ui);
+            if let Some(cr) = program_textedit.cursor_range {
+                self.cursor = cr.primary.ccursor.index;
+            }
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
@@ -257,3 +266,89 @@ pub fn run() -> Result<(), String> {
     let window = Box::new(Window::new());
     run_native(config::APPLICATION_NAME, NativeOptions::default(), Box::new(|_| window)).map_err(|err| err.to_string())
 }
+
+
+struct StringWithCursor<'a> {
+    string: &'a str,
+    cursor: usize,
+}
+
+
+#[derive(Debug)]
+enum HighlightedParens {
+    None,
+    Ok(usize, usize),
+    UnbalancedOpen(usize),
+    UnbalancedClose(usize),
+}
+
+
+fn highlight_parens_layout(cursor: usize, text: &str) -> egui::text::LayoutJob {
+    let mut layout_job: egui::text::LayoutJob = Default::default();
+
+    match highlight_parens(StringWithCursor { string: text, cursor }) {
+        HighlightedParens::None       => layout_job.append(text, 0.0, Default::default()),
+        HighlightedParens::Ok(op, cp) => {
+            layout_job.append(&text.chars().take(op).collect::<String>(),                       0.0, Default::default());
+            layout_job.append(&format!("{}", text.chars().nth(op).unwrap()),                    0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, ..Default::default() });
+            layout_job.append(&text.chars().skip(op + 1).take(cp - op - 1).collect::<String>(), 0.0, Default::default());
+            layout_job.append(&format!("{}", text.chars().nth(cp).unwrap()),                    0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, ..Default::default() });
+            layout_job.append(&text.chars().skip(cp + 1).collect::<String>(),                   0.0, Default::default());
+        },
+        HighlightedParens::UnbalancedOpen(x) | HighlightedParens::UnbalancedClose(x) => {
+            layout_job.append(&text.chars().take(x).collect::<String>(),     0.0, Default::default());
+            layout_job.append(&format!("{}", text.chars().nth(x).unwrap()),  0.0, egui::text::TextFormat{ color: epaint::Color32::RED, ..Default::default() });
+            layout_job.append(&text.chars().skip(x + 1).collect::<String>(), 0.0, Default::default());
+        },
+    }
+
+    layout_job
+}
+
+
+fn highlight_parens(sc: StringWithCursor) -> HighlightedParens {
+    if sc.string.len() == 0 {
+        return HighlightedParens::None;
+    }
+    
+    let chars = sc.string.chars().collect::<Vec<char>>();
+
+    let (step, this_paren, matching_paren) =
+    match chars.get(sc.cursor) {
+        Some('(') =>  (1, '(', ')'),
+        Some(')') => (-1, ')', '('),
+        _   => return HighlightedParens::None,
+    };
+
+    let mut level = 0;
+    let mut i = sc.cursor;
+    loop {
+        let ch = if let Some(c) = chars.get(i) {*c} else {break};
+
+        if ch == this_paren {
+            level += 1;
+        }
+        else if ch == matching_paren {
+            level -= 1;
+        }
+
+        if level == 0 {
+            return HighlightedParens::Ok(sc.cursor.min(i), sc.cursor.max(i));
+        }
+
+        i = if let Some(i_plus_step) = i.checked_add_signed(step) {i_plus_step} else {break};
+    }
+
+
+    if step > 0 {
+        HighlightedParens::UnbalancedOpen(sc.cursor)
+    }
+    else {
+        HighlightedParens::UnbalancedClose(sc.cursor)
+    }
+}
+
+
+
+#[cfg(test)]
+mod tests;
