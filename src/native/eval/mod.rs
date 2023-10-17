@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::time::Duration;
 use std::time::Instant;
+use std::rc::Rc;
 
 use crate::debug::DebugCommand;
 use crate::debug::DiagnosticData;
@@ -84,6 +86,25 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
 
+
+    // ---------------- DEBUGGING ----------------
+    let paused = Rc::new(RefCell::new(false));
+    let _defer =
+    if let Some(umb) = &mem.umbilical {
+        let to_high_end = umb.to_high_end.clone();
+        let paused = paused.clone();
+        Some(Defer::new(move || {
+            if *paused.borrow() {
+                to_high_end.send(DiagnosticData::PopStackFrame).expect("supervisor thread disappeared");
+            }
+        }))
+    }
+    else {
+        None
+    };
+    // ---------------- DEBUGGING ----------------
+
+    
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
     loop { 
 
@@ -93,7 +114,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
             let uc = mem.used_count();
             if let Some(umb) = &mut mem.umbilical {
                 let maybe_cmd =
-                if umb.paused {
+                if *paused.borrow() {
                     umb.from_high_end.recv().ok()
                 }
                 else {
@@ -104,10 +125,10 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                         DebugCommand::Abort           => return Err(GcRef::nil()),
                         DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
                         DebugCommand::Pause           => {
-                            umb.paused = true;
+                            *paused.borrow_mut() = true;
                             umb.to_high_end.send(DiagnosticData::CurrentStackFrame { content: crate::native::print::print_to_rust_string(expression.clone(), recursion_depth + 1) }).expect("supervisor thread disappeared");
                         },
-                        DebugCommand::Resume          => umb.paused = false,
+                        DebugCommand::Resume          => *paused.borrow_mut() = false,
                     }
                 }
                 if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
@@ -115,10 +136,10 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     umb.last_memory_send = Instant::now();
                     umb.serial_number += 1;
                 }
+            }
 
-                if !umb.paused {
-                    break;
-                }
+            if !*paused.borrow() {
+                break;
             }
         }
         // ---------------- DEBUGGING ----------------
