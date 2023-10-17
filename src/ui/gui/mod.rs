@@ -44,7 +44,7 @@ impl Window {
         let output = Arc::new(RwLock::new(OutputBuffer::new(config::GUI_OUTPUT_BUFFER_SIZE)));
         let output_clone = Arc::clone(&output);
 
-        thread::spawn(move || {
+        thread::Builder::new().stack_size(config::CALL_STACK_SIZE).spawn(move || {
             let mut mem = Memory::new();
             mem.set_stdout(output_clone);
             mem.attach_umbilical(umbilical_low_end);
@@ -74,7 +74,7 @@ impl Window {
                     },
                 }
             }
-        });
+        }).expect("could not start worker thread");
 
         Self {
             program_text: String::new(),
