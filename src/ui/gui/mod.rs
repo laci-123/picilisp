@@ -214,6 +214,9 @@ impl App for Window {
             if let Some(cr) = program_textedit.cursor_range {
                 self.cursor = cr.primary.ccursor.index;
             }
+            if ui.input(|i| i.key_pressed(egui::Key::F5)) {
+                self.eval();
+            }
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
