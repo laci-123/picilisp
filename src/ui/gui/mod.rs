@@ -13,6 +13,14 @@ use std::thread;
 
 
 
+#[derive(PartialEq, Eq)]
+enum WorkerState {
+    Ready,
+    Working,
+    Paused,
+}
+
+
 struct GlobalConstant {
     value: Result<String, String>,
     value_type: String,
@@ -33,8 +41,8 @@ struct Window {
     used_memory_sapmles: VecDeque<(usize, usize)>,
     used_cells: usize,
     free_cells: usize,
-    working: bool,
-    paused: bool,
+    stack: Vec<Result<String, String>>,
+    worker_state: WorkerState,
 }
 
 impl Window {
@@ -90,9 +98,9 @@ impl Window {
             used_memory_sapmles: VecDeque::with_capacity(100),
             used_cells: 0,
             free_cells: 0,
+            stack: Vec::new(),
             umbilical: umbilical_high_end,
-            working: true,
-            paused: false,
+            worker_state: WorkerState::Working,
         }
     }
 
@@ -101,12 +109,12 @@ impl Window {
             Ok(Ok(x))    => {
                 self.result_text = x;
                 self.signal_text.clear();
-                self.working = false;
+                self.worker_state = WorkerState::Ready;
             },
             Ok(Err(err)) => {
                 self.signal_text = format!("ERROR:\n\n{err}");
                 self.result_text.clear();
-                self.working = false;
+                self.worker_state = WorkerState::Ready;
             },
             Err(_)       => {},
         }
@@ -135,6 +143,12 @@ impl Window {
                 self.free_cells = free_cells;
                 self.used_cells = used_cells;
             },
+            Ok(DiagnosticData::CurrentStackFrame { content }) => {
+                self.stack.push(content);
+            },
+            Ok(DiagnosticData::PopStackFrame) => {
+                self.stack.pop();
+            }
             Err(_) => {},
         }
     }
@@ -142,7 +156,7 @@ impl Window {
     fn eval(&mut self) {
         self.signal_text.clear();
         self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
-        self.working = true;
+        self.worker_state = WorkerState::Working;
     }
 }
 
@@ -150,7 +164,7 @@ impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         self.update();
 
-        egui::SidePanel::left("Program State").default_width(300.0).show(ctx, |ui| {
+        egui::SidePanel::left("Left panel").default_width(300.0).show(ctx, |ui| {
             ui.heading("Global constants");
             egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
                 for (name, value) in self.globals.iter() {
@@ -162,7 +176,7 @@ impl App for Window {
                         };
                         if value_label.clicked() {
                             self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
-                            self.working = true;
+                            self.worker_state = WorkerState::Working;
                         }
                         ui.label(&value.value_type);
                     });
@@ -201,6 +215,20 @@ impl App for Window {
             });
         });
 
+        egui::SidePanel::right("Right panel").show(ctx, |ui| {
+            ui.heading("Call stack");
+            for frame in self.stack.iter() {
+                match frame {
+                    Ok(x) => {
+                        ui.label(x);
+                    },
+                    Err(err) => {
+                        ui.label(egui::RichText::new(err).color(epaint::Color32::RED));
+                    },
+                }
+            }
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ctx.set_pixels_per_point(1.5);
 
@@ -225,22 +253,22 @@ impl App for Window {
                 if ui.button("Evaluate").clicked() {
                     self.eval();
                 }
-                if self.working {
-                    if self.paused {
+                match self.worker_state {
+                    WorkerState::Paused => {
                         if ui.button("Resume").clicked() {
-                            self.paused = false;
+                            self.worker_state = WorkerState::Working;
                             self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
                         }
                     }
-                    else {
+                    WorkerState::Working => {
                         if ui.button("Pause").clicked() {
-                            self.paused = true;
+                            self.worker_state = WorkerState::Paused;
                             self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
                         }
                     }
-                }
-                else {
-                    ui.add_enabled(false, egui::Button::new("Pause"));
+                    WorkerState::Ready => {
+                        ui.add_enabled(false, egui::Button::new("Pause"));
+                    }
                 }
                 if ui.button("Stop").clicked() {
                     self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
@@ -248,9 +276,15 @@ impl App for Window {
                 if ui.button("Force stop").clicked() {
                     self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
                 }
-                if self.working {
-                    ui.label("working...");
-                    ctx.request_repaint();
+                match self.worker_state {
+                    WorkerState::Working => {
+                        ui.label("working...");
+                        ctx.request_repaint();
+                    },
+                    WorkerState::Paused => {
+                        ui.label("PAUSED");
+                    },
+                    WorkerState::Ready => {},
                 }
             });
             ui.add_space(10.0);

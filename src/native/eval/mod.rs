@@ -86,17 +86,28 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
 
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
     loop { 
-        let mut paused = false;
+
+        // ---------------- DEBUGGING ----------------
         loop {
             let fc = mem.free_count();
             let uc = mem.used_count();
             if let Some(umb) = &mut mem.umbilical {
-                if let Ok(cmd) = umb.from_high_end.try_recv() {
+                let maybe_cmd =
+                if umb.paused {
+                    umb.from_high_end.recv().ok()
+                }
+                else {
+                    umb.from_high_end.try_recv().ok()
+                };
+                if let Some(cmd) = maybe_cmd {
                     match cmd {
                         DebugCommand::Abort           => return Err(GcRef::nil()),
                         DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
-                        DebugCommand::Pause           => paused = true,
-                        DebugCommand::Resume          => paused = false,
+                        DebugCommand::Pause           => {
+                            umb.paused = true;
+                            umb.to_high_end.send(DiagnosticData::CurrentStackFrame { content: crate::native::print::print_to_rust_string(expression.clone(), recursion_depth + 1) }).expect("supervisor thread disappeared");
+                        },
+                        DebugCommand::Resume          => umb.paused = false,
                     }
                 }
                 if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
@@ -104,15 +115,14 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     umb.last_memory_send = Instant::now();
                     umb.serial_number += 1;
                 }
-            }
 
-            if paused {
-                std::thread::sleep(Duration::from_millis(20));
-            }
-            else {
-                break;
+                if !umb.paused {
+                    break;
+                }
             }
         }
+        // ---------------- DEBUGGING ----------------
+
 
         let name = expression.get_metadata().map(|md| md.read_name.clone());
 
