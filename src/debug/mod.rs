@@ -4,6 +4,8 @@ use std::{sync::mpsc::{Receiver, Sender, channel}, time::Instant};
 pub enum DebugCommand {
     Abort,
     InterruptSignal,
+    Pause,
+    Resume,
 }
 
 

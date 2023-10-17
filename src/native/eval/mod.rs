@@ -84,24 +84,36 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
 
-    let fc = mem.free_count();
-    let uc = mem.used_count();
-    if let Some(umb) = &mut mem.umbilical {
-        if let Ok(cmd) = umb.from_high_end.try_recv() {
-            match cmd {
-                DebugCommand::Abort => return Err(GcRef::nil()),
-                DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
-            }
-        }
-        if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
-            umb.to_high_end.send(DiagnosticData::Memory { free_cells: fc, used_cells: uc, serial_number: umb.serial_number }).expect("supervisor thread disappeared");
-            umb.last_memory_send = Instant::now();
-            umb.serial_number += 1;
-        }
-    }
-
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
     loop { 
+        let mut paused = false;
+        loop {
+            let fc = mem.free_count();
+            let uc = mem.used_count();
+            if let Some(umb) = &mut mem.umbilical {
+                if let Ok(cmd) = umb.from_high_end.try_recv() {
+                    match cmd {
+                        DebugCommand::Abort           => return Err(GcRef::nil()),
+                        DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
+                        DebugCommand::Pause           => paused = true,
+                        DebugCommand::Resume          => paused = false,
+                    }
+                }
+                if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
+                    umb.to_high_end.send(DiagnosticData::Memory { free_cells: fc, used_cells: uc, serial_number: umb.serial_number }).expect("supervisor thread disappeared");
+                    umb.last_memory_send = Instant::now();
+                    umb.serial_number += 1;
+                }
+            }
+
+            if paused {
+                std::thread::sleep(Duration::from_millis(20));
+            }
+            else {
+                break;
+            }
+        }
+
         let name = expression.get_metadata().map(|md| md.read_name.clone());
 
         if let Some(mut list_elems) = list_to_vec(expression.clone()) {

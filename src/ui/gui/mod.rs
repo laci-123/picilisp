@@ -34,6 +34,7 @@ struct Window {
     used_cells: usize,
     free_cells: usize,
     working: bool,
+    paused: bool,
 }
 
 impl Window {
@@ -91,6 +92,7 @@ impl Window {
             free_cells: 0,
             umbilical: umbilical_high_end,
             working: true,
+            paused: false,
         }
     }
 
@@ -222,6 +224,23 @@ impl App for Window {
             ui.horizontal(|ui| {
                 if ui.button("Evaluate").clicked() {
                     self.eval();
+                }
+                if self.working {
+                    if self.paused {
+                        if ui.button("Resume").clicked() {
+                            self.paused = false;
+                            self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
+                        }
+                    }
+                    else {
+                        if ui.button("Pause").clicked() {
+                            self.paused = true;
+                            self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
+                        }
+                    }
+                }
+                else {
+                    ui.add_enabled(false, egui::Button::new("Pause"));
                 }
                 if ui.button("Stop").clicked() {
                     self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
