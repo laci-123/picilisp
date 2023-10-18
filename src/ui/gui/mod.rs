@@ -237,6 +237,12 @@ impl App for Window {
                         StackFrame::Error(err) => {
                             ui.label(egui::RichText::new(err).color(epaint::Color32::RED));
                         },
+                        StackFrame::Expand{ from, to } => {
+                            ui.label(egui::RichText::new("Macroexpand from").color(epaint::Color32::LIGHT_BLUE));
+                            ui.label(from);
+                            ui.label(egui::RichText::new("to").color(epaint::Color32::LIGHT_BLUE));
+                            ui.label(to);
+                        },
                     }
                     ui.separator();
                 }

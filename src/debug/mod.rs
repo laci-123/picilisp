@@ -13,6 +13,7 @@ pub enum DebugCommand {
 #[derive(Clone)]
 pub enum StackFrame {
     Eval(String),
+    Expand{ from: String, to: String},
     Error(String),
 }
 
@@ -52,7 +53,6 @@ pub struct UmbilicalLowEnd {
     pub serial_number: usize,
     pub paused: bool,
     pub in_step: bool,
-    pub call_stack: Vec<StackFrame>,
 }
 
 
@@ -70,7 +70,6 @@ pub fn make_umbilical() -> (UmbilicalHighEnd, UmbilicalLowEnd) {
         serial_number:    0,
         paused:           false,
         in_step:          false,
-        call_stack:       Vec::new(),
     };
 
     (high, low)

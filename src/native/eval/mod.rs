@@ -97,7 +97,13 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
     }
 
     let _defer = Defer::new(|| {
-        CALL_STACK.with(|cs| cs.borrow_mut().pop());
+        CALL_STACK.with(|cs| {
+            let mut v = cs.borrow_mut();
+            v.pop();
+            while let Some(StackFrame::Expand{..}) = v.last() {
+                v.pop();
+            }
+        });
     });
 
     
@@ -331,13 +337,24 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
 
 
 fn macroexpand_completely(mem: &mut Memory, expression: GcRef, env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
-    let mut expanded = expression;
+    let mut expanded = expression.clone();
     loop {
         let mut changed  = false;
         expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
         if !changed {
             break;
         }
+    }
+
+    let from = crate::native::print::print_to_rust_string(expression,       recursion_depth + 1);
+    let to   = crate::native::print::print_to_rust_string(expanded.clone(), recursion_depth + 1);
+    match (from, to) {
+        (Ok(f), Ok(t)) => {
+            if f != t {
+                CALL_STACK.with(|cs| cs.borrow_mut().push(StackFrame::Expand{ from: f, to: t }))
+            }
+        },
+        (Err(err), _) | (_, Err(err)) => CALL_STACK.with(|cs| cs.borrow_mut().push(StackFrame::Error(err))),
     }
 
     Ok(expanded)
