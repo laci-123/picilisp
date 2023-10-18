@@ -302,30 +302,39 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
         (if (= symbol (car key-value))
             (cdr key-value)
             (lookup-symbol symbol (cdr environment))))
-      (throw 'kind 'unbound-symbol, 'source 'eval, 'symbol symbol)))
+      (eval symbol)))
 
+(defun add-to-env (params args environment)
+  ""
+  (if params
+      (cons (cons (car params) (car args))
+            (add-to-env (cdr params) (cdr args) environment))
+      environment))
 
 (defun debug-list (expression environment)
   ""
   (let (operator (debug (car expression) environment)
         operands (cdr expression))
     (let (op-type (type-of operator)
-          body    (get-body operator))
-      (case ((= op-type 'lambda-type) (if body
-                                          (debug (cons body     (map debug operands)))
-                                          (eval  (cons operator (map debug operands)))))
-            ('otherwise               (if body
-                                          (debug (cons body operands))
-                                          (eval  (cons body operands))))))))
+          body    (get-body operator)
+          params  (get-parameters operator))
+      (let (args (if (= op-type 'lambda-type)
+                     (map (lambda (x) (debug x environment)) operands)
+                     operands))
+        (if body
+            (debug (car body) (add-to-env params args environment))
+            (eval  (cons operator args)))))))
 
 (defun debug (expression environment)
   ""
   (block
     (output (concat "### " (print expression)))
     (let (type (type-of expression))
-      (case ((= type 'list-type) (debug-list expression environment))
-            ((= type 'cons-type) (cons (debug (car expression) environment)
-                                       (debug (cdr expression) environment)))
-            ('otherwise          (let (evaled (eval expression))
-                                   (block (output (concat "    " (print expression) " => " (print evaled)))
-                                          evaled)))))))
+      (case ((= type 'list-type)   (debug-list expression environment))
+            ((= type 'cons-type)   (cons (debug (car expression) environment)
+                                         (debug (cdr expression) environment)))
+            ((= type 'symbol-type) (let (evaled (lookup-symbol expression environment))
+                                     (block (output (concat "    " (print expression) " => " (print evaled)))
+                                            evaled)))
+            ('otherwise            (block (output (concat "    " (print expression) " => " (print expression)))
+                                          expression))))))
