@@ -322,14 +322,18 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
                      (map (lambda (x) (debug x environment)) operands)
                      operands))
         (if body
-            (debug (car body) (add-to-env params args environment))
-            (eval  (cons operator args)))))))
+            (let (environment (add-to-env params args environment))
+              (debug (car body) environment))
+            (eval (cons operator args)))))))
 
 (defun debug (expression environment)
   ""
   (block
     (output (concat "### " (print expression)))
-    (let (type (type-of expression))
+    (let (environment (cons (cons 'lambda
+                                  (special-lambda (params body) (make-function params body environment 'lambda-type)))
+                            environment)
+          type (type-of expression))
       (case ((= type 'list-type)   (debug-list expression environment))
             ((= type 'cons-type)   (cons (debug (car expression) environment)
                                          (debug (cdr expression) environment)))
