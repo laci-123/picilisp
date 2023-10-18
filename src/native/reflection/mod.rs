@@ -32,7 +32,15 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
             else {
                 Ok(mem.symbol_for("cons-type"))
             }
-        }
+        },
+        TypeLabel::Function => {
+            match x.get().unwrap().as_function().get_kind() {
+                FunctionKind::Macro         => Ok(mem.symbol_for("macro-type")),
+                FunctionKind::Syntax        => Ok(mem.symbol_for("syntax-type")),
+                FunctionKind::SpecialLambda => Ok(mem.symbol_for("special-lambda-type")),
+                FunctionKind::Lambda        => Ok(mem.symbol_for("lambda-type")),
+            }
+        },
         _ => {
             Ok(mem.symbol_for(x.get_type().to_string()))
         }
