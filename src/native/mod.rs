@@ -31,6 +31,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, reflection::GET_METADATA);
     load_native_function(mem, reflection::BREAK);
     load_native_function(mem, reflection::GET_BODY);
+    load_native_function(mem, reflection::GET_PARAMETERS);
     load_native_function(mem, io::INPUT);
     load_native_function(mem, io::OUTPUT);
     load_native_function(mem, io::INPUT_FILE);

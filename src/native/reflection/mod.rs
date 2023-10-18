@@ -92,6 +92,23 @@ pub fn get_body(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth:
 }
 
 
+pub const GET_PARAMETERS: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      get_parameters,
+    name:          "get-parameters",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["function"],
+    documentation: "Return a list of the formal parameters of `function`."
+};
+
+pub fn get_parameters(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GET_PARAMETERS.name, args, (let f: TypeLabel::Function));
+
+    let vec = f.get_param_names().iter().map(|pn| mem.symbol_for(&pn)).collect::<Vec<GcRef>>();
+    Ok(vec_to_list(mem, &vec))
+}
+
+
 pub const GET_METADATA: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      get_metadata,

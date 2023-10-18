@@ -295,20 +295,37 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
     (output (print x))
     (infinite-loop (+ x 1))))
 
-(defun debug-list (expression)
+(defun lookup-symbol (symbol environment)
   ""
-  (let (operator (debug (car expression)), operands (cdr expression))
-    (let (op-type (type-of operator))
-      (case ((= op-type 'lambda-type)         (eval (cons operator (map debug operands))))
-            ('otherwise (eval (cons operator operands)))))))
+  (if environment
+      (let (key-value (car environment))
+        (if (= symbol (car key-value))
+            (cdr key-value)
+            (lookup-symbol symbol (cdr environment))))
+      (throw 'kind 'unbound-symbol, 'source 'eval, 'symbol symbol)))
 
-(defun debug (expression)
+
+(defun debug-list (expression environment)
+  ""
+  (let (operator (debug (car expression) environment)
+        operands (cdr expression))
+    (let (op-type (type-of operator)
+          body    (get-body operator))
+      (case ((= op-type 'lambda-type) (if body
+                                          (debug (cons body     (map debug operands)))
+                                          (eval  (cons operator (map debug operands)))))
+            ('otherwise               (if body
+                                          (debug (cons body operands))
+                                          (eval  (cons body operands))))))))
+
+(defun debug (expression environment)
   ""
   (block
     (output (concat "### " (print expression)))
     (let (type (type-of expression))
-      (case ((= type 'list-type) (debug-list expression))
-            ((= type 'cons-type) (cons (debug (car expression)) (debug (cdr expression))))
+      (case ((= type 'list-type) (debug-list expression environment))
+            ((= type 'cons-type) (cons (debug (car expression) environment)
+                                       (debug (cdr expression) environment)))
             ('otherwise          (let (evaled (eval expression))
                                    (block (output (concat "    " (print expression) " => " (print evaled)))
                                           evaled)))))))
