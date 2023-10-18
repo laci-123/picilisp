@@ -1,10 +1,10 @@
 use std::cell::RefCell;
 use std::time::Duration;
 use std::time::Instant;
-use std::rc::Rc;
 
 use crate::debug::DebugCommand;
 use crate::debug::DiagnosticData;
+use crate::debug::StackFrame;
 use crate::memory::*;
 use crate::util::*;
 use crate::native::read::read;
@@ -13,6 +13,11 @@ use crate::error_utils::*;
 use crate::config;
 use super::NativeFunctionMetaData;
 
+
+
+thread_local! {
+    static CALL_STACK: RefCell<Vec<StackFrame>> = RefCell::new(Vec::new());
+}
 
 
 fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
@@ -86,23 +91,14 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
 
-
-    // ---------------- DEBUGGING ----------------
-    let paused = Rc::new(RefCell::new(false));
-    let _defer =
-    if let Some(umb) = &mem.umbilical {
-        let to_high_end = umb.to_high_end.clone();
-        let paused = paused.clone();
-        Some(Defer::new(move || {
-            if *paused.borrow() {
-                to_high_end.send(DiagnosticData::PopStackFrame).expect("supervisor thread disappeared");
-            }
-        }))
+    match crate::native::print::print_to_rust_string(expression.clone(), recursion_depth + 1) {
+        Ok(x)    => CALL_STACK.with(|cs| cs.borrow_mut().push(StackFrame::Eval(x))),
+        Err(err) => CALL_STACK.with(|cs| cs.borrow_mut().push(StackFrame::Error(err))),
     }
-    else {
-        None
-    };
-    // ---------------- DEBUGGING ----------------
+
+    let _defer = Defer::new(|| {
+        CALL_STACK.with(|cs| cs.borrow_mut().pop());
+    });
 
     
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
@@ -113,8 +109,12 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
             let fc = mem.free_count();
             let uc = mem.used_count();
             if let Some(umb) = &mut mem.umbilical {
+                if umb.paused {
+                    umb.to_high_end.send(DiagnosticData::CallStack{ content: CALL_STACK.with(|cs| cs.borrow().clone()) }).expect("supervisor thread disappeared");
+                }
+                
                 let maybe_cmd =
-                if *paused.borrow() {
+                if umb.paused {
                     umb.from_high_end.recv().ok()
                 }
                 else {
@@ -124,23 +124,27 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     match cmd {
                         DebugCommand::Abort           => return Err(GcRef::nil()),
                         DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
-                        DebugCommand::Pause           => {
-                            *paused.borrow_mut() = true;
-                            umb.to_high_end.send(DiagnosticData::CurrentStackFrame { content: crate::native::print::print_to_rust_string(expression.clone(), recursion_depth + 1) }).expect("supervisor thread disappeared");
+                        DebugCommand::Pause           => umb.paused = true,
+                        DebugCommand::Resume          => {
+                            umb.paused  = false;
+                            umb.in_step = false;
                         },
-                        DebugCommand::Resume          => *paused.borrow_mut() = false,
+                        DebugCommand::Step            => umb.in_step = true,
                     }
                 }
+
                 if umb.last_memory_send.elapsed() > Duration::from_millis(20) {
                     umb.to_high_end.send(DiagnosticData::Memory { free_cells: fc, used_cells: uc, serial_number: umb.serial_number }).expect("supervisor thread disappeared");
                     umb.last_memory_send = Instant::now();
                     umb.serial_number += 1;
                 }
+
+                if umb.paused && !umb.in_step {
+                    continue;
+                }
             }
 
-            if !*paused.borrow() {
-                break;
-            }
+            break;
         }
         // ---------------- DEBUGGING ----------------
 

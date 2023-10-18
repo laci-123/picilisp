@@ -41,7 +41,7 @@ struct Window {
     used_memory_sapmles: VecDeque<(usize, usize)>,
     used_cells: usize,
     free_cells: usize,
-    stack: Vec<Result<String, String>>,
+    stack: Vec<StackFrame>,
     worker_state: WorkerState,
 }
 
@@ -143,12 +143,9 @@ impl Window {
                 self.free_cells = free_cells;
                 self.used_cells = used_cells;
             },
-            Ok(DiagnosticData::CurrentStackFrame { content }) => {
-                self.stack.push(content);
+            Ok(DiagnosticData::CallStack { content }) => {
+                self.stack = content;
             },
-            Ok(DiagnosticData::PopStackFrame) => {
-                self.stack.pop();
-            }
             Err(_) => {},
         }
     }
@@ -157,6 +154,13 @@ impl Window {
         self.signal_text.clear();
         self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
         self.worker_state = WorkerState::Working;
+    }
+
+    fn eval_step_by_step(&mut self) {
+        self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
+        self.signal_text.clear();
+        self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
+        self.worker_state = WorkerState::Paused;
     }
 }
 
@@ -217,16 +221,19 @@ impl App for Window {
 
         egui::SidePanel::right("Right panel").show(ctx, |ui| {
             ui.heading("Call stack");
-            for frame in self.stack.iter() {
-                match frame {
-                    Ok(x) => {
-                        ui.label(x);
-                    },
-                    Err(err) => {
-                        ui.label(egui::RichText::new(err).color(epaint::Color32::RED));
-                    },
+            egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+                for frame in self.stack.iter() {
+                    match frame {
+                        StackFrame::Eval(x) => {
+                            ui.label(x);
+                        },
+                        StackFrame::Error(err) => {
+                            ui.label(egui::RichText::new(err).color(epaint::Color32::RED));
+                        },
+                    }
+                    ui.separator();
                 }
-            }
+            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -255,12 +262,17 @@ impl App for Window {
                         if ui.button("Evaluate").clicked() {
                             self.eval();
                         }
+                        if ui.button("Step by step").clicked() {
+                            self.eval_step_by_step();
+                        }
                         ui.add_enabled(false, egui::Button::new("Stop"));
                         ui.add_enabled(false, egui::Button::new("Force Stop"));
                         ui.add_enabled(false, egui::Button::new("Pause"));
+                        ui.add_enabled(false, egui::Button::new("Step"));
                     },
                     WorkerState::Working => {
                         ui.add_enabled(false, egui::Button::new("Evaluate"));
+                        ui.add_enabled(false, egui::Button::new("Step by step"));
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
                         }
@@ -271,11 +283,13 @@ impl App for Window {
                             self.worker_state = WorkerState::Paused;
                             self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
                         }
+                        ui.add_enabled(false, egui::Button::new("Step"));
                         ui.label("working...");
                         ctx.request_repaint();
                     },
                     WorkerState::Paused => {
                         ui.add_enabled(false, egui::Button::new("Evaluate"));
+                        ui.add_enabled(false, egui::Button::new("Step by step"));
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
                         }
@@ -285,6 +299,9 @@ impl App for Window {
                         if ui.button("Resume").clicked() {
                             self.worker_state = WorkerState::Working;
                             self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
+                        }
+                        if ui.button("Step").clicked() {
+                            self.umbilical.to_low_end.send(DebugCommand::Step).expect("worker thread dissappeared");
                         }
                         ui.label("PAUSED");
                     },
