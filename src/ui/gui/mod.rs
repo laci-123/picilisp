@@ -250,41 +250,44 @@ impl App for Window {
             ui.add_space(10.0);
 
             ui.horizontal(|ui| {
-                if ui.button("Evaluate").clicked() {
-                    self.eval();
-                }
                 match self.worker_state {
-                    WorkerState::Paused => {
-                        if ui.button("Resume").clicked() {
-                            self.worker_state = WorkerState::Working;
-                            self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
+                    WorkerState::Ready => {
+                        if ui.button("Evaluate").clicked() {
+                            self.eval();
                         }
-                    }
+                        ui.add_enabled(false, egui::Button::new("Stop"));
+                        ui.add_enabled(false, egui::Button::new("Force Stop"));
+                        ui.add_enabled(false, egui::Button::new("Pause"));
+                    },
                     WorkerState::Working => {
+                        ui.add_enabled(false, egui::Button::new("Evaluate"));
+                        if ui.button("Stop").clicked() {
+                            self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                        }
+                        if ui.button("Force stop").clicked() {
+                            self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                        }
                         if ui.button("Pause").clicked() {
                             self.worker_state = WorkerState::Paused;
                             self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
                         }
-                    }
-                    WorkerState::Ready => {
-                        ui.add_enabled(false, egui::Button::new("Pause"));
-                    }
-                }
-                if ui.button("Stop").clicked() {
-                    self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
-                }
-                if ui.button("Force stop").clicked() {
-                    self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
-                }
-                match self.worker_state {
-                    WorkerState::Working => {
                         ui.label("working...");
                         ctx.request_repaint();
                     },
                     WorkerState::Paused => {
+                        ui.add_enabled(false, egui::Button::new("Evaluate"));
+                        if ui.button("Stop").clicked() {
+                            self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                        }
+                        if ui.button("Force stop").clicked() {
+                            self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                        }
+                        if ui.button("Resume").clicked() {
+                            self.worker_state = WorkerState::Working;
+                            self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
+                        }
                         ui.label("PAUSED");
                     },
-                    WorkerState::Ready => {},
                 }
             });
             ui.add_space(10.0);

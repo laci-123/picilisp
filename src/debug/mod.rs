@@ -43,13 +43,6 @@ pub struct UmbilicalLowEnd {
     pub serial_number: usize,
 }
 
-impl UmbilicalLowEnd {
-    pub fn init(&self) {
-        // discard all messages that arrived earlier
-        while let Ok(_) = self.from_high_end.try_recv() {}
-    }
-}
-
 
 pub fn make_umbilical() -> (UmbilicalHighEnd, UmbilicalLowEnd) {
     let (high_to_low_tx, high_to_low_rx) = channel();

@@ -388,10 +388,6 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     let empty_env = GcRef::nil();
     let recursion_depth = 0;
 
-    if let Some(umb) = &mem.umbilical {
-        umb.init();
-    }
-    
     match eval(mem, &[tree], empty_env.clone(), recursion_depth) {
         Ok(x)       => Ok(x),
         Err(signal) => {
