@@ -294,3 +294,14 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
   (block
     (output (print x))
     (infinite-loop (+ x 1))))
+
+(defun debug (expression)
+  ""
+  (block
+    (output (concat "### " (print expression)))
+    (let (type (type-of expression))
+      (case ((= type 'list-type) (eval (cons (debug (car expression)) (map debug (cdr expression)))))
+            ((= type 'cons-type) (cons (debug (car expression)) (debug (cdr expression))))
+            ('otherwise          (let (evaled (eval expression))
+                                   (block (output (concat "    " (print expression) " => " (print evaled)))
+                                          evaled)))))))
