@@ -109,11 +109,13 @@ impl Window {
             Ok(Ok(x))    => {
                 self.result_text = x;
                 self.signal_text.clear();
+                self.stack.clear();
                 self.worker_state = WorkerState::Ready;
             },
             Ok(Err(err)) => {
                 self.signal_text = format!("ERROR:\n\n{err}");
                 self.result_text.clear();
+                self.stack.clear();
                 self.worker_state = WorkerState::Ready;
             },
             Err(_)       => {},
@@ -146,21 +148,26 @@ impl Window {
             Ok(DiagnosticData::CallStack { content }) => {
                 self.stack = content;
             },
+            Ok(DiagnosticData::Paused) => {
+                self.worker_state = WorkerState::Paused;
+            },
             Err(_) => {},
         }
     }
 
     fn eval(&mut self) {
+        self.result_text.clear();
         self.signal_text.clear();
         self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
         self.worker_state = WorkerState::Working;
     }
 
     fn eval_step_by_step(&mut self) {
-        self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
+        self.result_text.clear();
         self.signal_text.clear();
-        self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
-        self.worker_state = WorkerState::Paused;
+        let input = format!("(eval (break {}))", self.program_text);
+        self.to_worker.send(input).expect("worker thread dissappeared");
+        self.worker_state = WorkerState::Working;
     }
 }
 

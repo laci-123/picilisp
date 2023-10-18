@@ -392,6 +392,7 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
     let empty_env = GcRef::nil();
     let recursion_depth = 0;
 
+    let result =
     match eval(mem, &[tree], empty_env.clone(), recursion_depth) {
         Ok(x)       => Ok(x),
         Err(signal) => {
@@ -399,10 +400,18 @@ pub fn eval_external(mem: &mut Memory, tree: GcRef) -> Result<GcRef, String> {
                 Err(format!("Evaluation aborted."))
             }
             else {
+                // TODO: use print_to_rust_string
                 Err(list_to_string(crate::native::print::print(mem, &[signal], empty_env, recursion_depth).ok().unwrap()).unwrap())
             }
         },
+    };
+
+    if let Some(umb) = &mut mem.umbilical {
+        umb.paused  = false;
+        umb.in_step = false;
     }
+
+    result
 }
 
 

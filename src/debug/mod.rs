@@ -35,6 +35,7 @@ pub enum DiagnosticData {
     CallStack {
         content: Vec<StackFrame>,
     },
+    Paused,
 }
 
 

@@ -1,3 +1,4 @@
+use crate::debug::DiagnosticData;
 use crate::memory::*;
 use crate::metadata::*;
 use crate::util::*;
@@ -36,6 +37,28 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
             Ok(mem.symbol_for(x.get_type().to_string()))
         }
     }
+}
+
+pub const BREAK: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      break_point,
+    name:          "break",
+    kind:          FunctionKind::SpecialLambda,
+    parameters:    &["expression"],
+    documentation: "Add a breakpoint to `expression`.
+In debug-mode, debugging will pause at this expression.
+Has no effect when not debugging."
+};
+
+pub fn break_point(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, TYPE_OF.name, args, (let expression: TypeLabel::Any));
+
+    if let Some(umb) = &mut mem.umbilical {
+        umb.paused = true;
+        umb.to_high_end.send(DiagnosticData::Paused).expect("supervisor thread disappeared");
+    }
+
+    Ok(expression)
 }
 
 
