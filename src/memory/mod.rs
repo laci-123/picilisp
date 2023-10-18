@@ -250,6 +250,17 @@ impl Function {
             },
         }
     }
+
+    pub fn is_normal(&self) -> bool {
+        matches!(self, Self::NormalFunction(_))
+    }
+
+    pub fn get_body(&self) -> GcRef {
+        match self {
+            Self::NormalFunction(nf) => nf.get_body(),
+            _ => GcRef::nil(),
+        }
+    }
 }
 
 
