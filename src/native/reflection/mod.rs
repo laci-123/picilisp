@@ -51,7 +51,7 @@ Has no effect when not debugging."
 };
 
 pub fn break_point(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, TYPE_OF.name, args, (let expression: TypeLabel::Any));
+    validate_args!(mem, BREAK.name, args, (let expression: TypeLabel::Any));
 
     if let Some(umb) = &mut mem.umbilical {
         umb.paused = true;

@@ -16,7 +16,7 @@ use super::NativeFunctionMetaData;
 
 
 thread_local! {
-    static CALL_STACK: RefCell<Vec<StackFrame>> = RefCell::new(Vec::new());
+    pub static CALL_STACK: RefCell<Vec<StackFrame>> = RefCell::new(Vec::new());
 }
 
 
@@ -131,11 +131,11 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                         DebugCommand::Abort           => return Err(GcRef::nil()),
                         DebugCommand::InterruptSignal => return Err(make_error(mem, "interrupted", EVAL.name, &vec![])),
                         DebugCommand::Pause           => umb.paused = true,
+                        DebugCommand::Step            => umb.in_step = true,
                         DebugCommand::Resume          => {
                             umb.paused  = false;
                             umb.in_step = false;
                         },
-                        DebugCommand::Step            => umb.in_step = true,
                     }
                 }
 
