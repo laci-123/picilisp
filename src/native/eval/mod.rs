@@ -184,15 +184,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                                 // prevent `eval` from calling itself as regular native function;
                                 // instead "reuse" this instance of `eval`
                                 validate_args!(mem, EVAL.name, &list_elems[1..], (let x: TypeLabel::Any));
-                                let mut expanded = x;
-                                loop {
-                                    let mut changed  = false;
-                                    expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
-                                    if !changed {
-                                        break;
-                                    }
-                                }
-                                expression = expanded;
+                                expression = macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)?;
                                 continue;
                             }
                             else {
@@ -338,6 +330,20 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
 }
 
 
+fn macroexpand_completely(mem: &mut Memory, expression: GcRef, env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    let mut expanded = expression;
+    loop {
+        let mut changed  = false;
+        expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
+        if !changed {
+            break;
+        }
+    }
+
+    Ok(expanded)
+}
+
+
 pub const EVAL: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      eval,
@@ -350,14 +356,7 @@ NativeFunctionMetaData{
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, EVAL.name, args, (let x: TypeLabel::Any));
 
-    let mut expanded = x;
-    loop {
-        let mut changed  = false;
-        expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
-        if !changed {
-            break;
-        }
-    }
+    let expanded = macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)?;
 
     eval_internal(mem, expanded, env, recursion_depth + 1)
 }
@@ -375,16 +374,7 @@ NativeFunctionMetaData{
 pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, MACROEXPAND.name, args, (let x: TypeLabel::Any));
 
-    let mut expanded = x;
-    loop {
-        let mut changed = false;
-        expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
-        if !changed {
-            break;
-        }
-
-    }
-    Ok(expanded)
+    macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)
 }
 
 
