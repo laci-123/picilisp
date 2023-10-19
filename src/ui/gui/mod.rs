@@ -226,24 +226,26 @@ impl App for Window {
             });
         });
 
-        egui::SidePanel::right("Right panel").show(ctx, |ui| {
+        egui::SidePanel::right("Right panel").min_width(300.0).show(ctx, |ui| {
             ui.heading("Call stack");
             egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
                 for frame in self.stack.iter() {
+                    let response =
                     match frame {
                         StackFrame::Eval(x) => {
-                            ui.label(x);
+                            ui.label(x)
                         },
                         StackFrame::Error(err) => {
-                            ui.label(egui::RichText::new(err).color(epaint::Color32::RED));
+                            ui.label(egui::RichText::new(err).color(epaint::Color32::RED))
                         },
                         StackFrame::Expand{ from, to } => {
                             ui.label(egui::RichText::new("Macroexpand from").color(epaint::Color32::LIGHT_BLUE));
                             ui.label(from);
                             ui.label(egui::RichText::new("to").color(epaint::Color32::LIGHT_BLUE));
-                            ui.label(to);
+                            ui.label(to)
                         },
-                    }
+                    };
+                    response.scroll_to_me(None);
                     ui.separator();
                 }
             });
