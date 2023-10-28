@@ -149,4 +149,46 @@ fn util_append_lists() {
     assert_eq!(vec3.iter().map(|x| *x.get().unwrap().as_number()).collect::<Vec<i64>>(), vec![110, 120, 130, 140, 150, 160]);
 }
 
+#[test]
+fn util_string_iterator_empty() {
+    let mut it = StringIterator::new(GcRef::nil());
 
+    assert!(it.next().is_none());
+}
+
+#[test]
+fn util_string_iterator() {
+    let mut mem = Memory::new();
+    
+    let s = string_to_list(&mut mem, "öőüű");
+    let mut it = StringIterator::new(s);
+
+    let (c, r) = it.next().unwrap().unwrap();
+    assert_eq!(c, 'ö');
+    assert_eq!(list_to_string(r).unwrap(), "őüű");
+    let (c, r) = it.next().unwrap().unwrap();
+    assert_eq!(c, 'ő');
+    assert_eq!(list_to_string(r).unwrap(), "üű");
+    let (c, r) = it.next().unwrap().unwrap();
+    assert_eq!(c, 'ü');
+    assert_eq!(list_to_string(r).unwrap(), "ű");
+    let (c, r) = it.next().unwrap().unwrap();
+    assert_eq!(c, 'ű');
+    assert_eq!(list_to_string(r).unwrap(), "");
+    assert!(it.next().is_none());
+}
+
+#[test]
+fn util_string_iterator_invalid_string() {
+    let mut mem = Memory::new();
+    
+    let vec = vec![mem.allocate_character('a'), mem.allocate_character('b'), mem.allocate_number(3), mem.allocate_character('d')];
+    let s   = vec_to_list(&mut mem, &vec);
+    let mut it = StringIterator::new(s);
+
+    let (c, _) = it.next().unwrap().unwrap();
+    assert_eq!(c, 'a');
+    let (c, _) = it.next().unwrap().unwrap();
+    assert_eq!(c, 'b');
+    assert!(it.next().unwrap().is_none());
+}

@@ -1,6 +1,42 @@
 use crate::memory::*;
 
 
+
+pub struct StringIterator {
+    input: GcRef,
+}
+
+impl StringIterator {
+    pub fn new(input: GcRef) -> Self {
+        Self{ input }
+    }
+}
+
+impl Iterator for StringIterator {
+    type Item = Option<(char, GcRef)>; // Some(None): input is not a valid string
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.input.is_nil() {
+            return None;
+        }
+        
+        if let Some(PrimitiveValue::Cons(cons)) = self.input.get() {
+            if let Some(PrimitiveValue::Character(c)) = cons.get_car().get() {
+                let rest = cons.get_cdr();
+                self.input = cons.get_cdr();
+                Some(Some((*c, rest)))
+        }
+            else {
+                Some(None)
+            }
+        }
+        else {
+            Some(None)
+        }
+    }
+}
+
+
 /// Converts a vector of primitive values to a Lisp-style list of primitive values
 ///
 /// For example: [1, 2, 3] -> (cons 1 (cons 2 (cons 3 nil)))
