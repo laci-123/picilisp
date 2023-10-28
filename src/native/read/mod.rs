@@ -19,12 +19,12 @@ enum TokenValue {
     Number(i64),
     Symbol(String),
     String(String),
+    Quote,
 }
 
 struct Token {
     value: TokenValue,
     location: Location,
-    quoted: bool,
 }
 
 
@@ -34,16 +34,16 @@ struct TokenAndRest {
 }
 
 impl TokenAndRest {
-    fn new(value: TokenValue, location: Location, rest: GcRef, quoted: bool) -> Self {
+    fn new(value: TokenValue, location: Location, rest: GcRef) -> Self {
         Self {
-            token: Token { value, location, quoted },
+            token: Token { value, location },
             rest
         }
     }
 }
 
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Debug)]
 enum TokenIteratorStatus {
     WhiteSpace,
     Comment,
@@ -82,7 +82,7 @@ impl Iterator for TokenIterator {
 
         let mut status = WhiteSpace;
         let mut buffer = vec![];
-        let mut quoting = false;
+        let mut beginning_location = self.location.clone();
 
         while let Some(maybe_char_and_rest) = self.input.next() {
             let (ch, rest) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err(ReadError::InvalidString));};
@@ -94,10 +94,30 @@ impl Iterator for TokenIterator {
                 self.location = self.location.clone().step_column();
             }
 
+            println!("### ch = {}, line = {:?}, column = {:?}", ch, self.location.get_line(), self.location.get_column());
+
             if status == Comment {
                 if ch == '\n' {
                     status = WhiteSpace;
                 }
+                continue;
+            }
+            if status == StringStatus {
+                if ch != '"' && ch != '\\' {
+                    buffer.push(ch);
+                    continue;
+                }
+            }
+            if status == StringEscape {
+                match ch {
+                    '"'  => buffer.push('"'),
+                    'n'  => buffer.push('\n'),
+                    'r'  => buffer.push('\r'),
+                    't'  => buffer.push('\t'),
+                    '\\' => buffer.push('\\'),
+                    _    => return Some(Err(ReadError::Error{ msg: format!("'{ch}' is not a valid escape character in a string literal"), location: self.location.clone(), rest })),
+                }
+                status = StringStatus;
                 continue;
             }
 
@@ -109,43 +129,48 @@ impl Iterator for TokenIterator {
                     status = Comment;
                 },
                 '\'' => {
-                    quoting = true;
+                    return Some(Ok(TokenAndRest::new(TokenValue::Quote, self.location.clone(), rest)));
                 },
                 '(' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest, quoting)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest)));
                 },
                 ')' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest, quoting)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest)));
                 },
                 '"' => {
                     match status {
-                        StringEscape => {
-                            buffer.push('"');
-                        },
                         StringStatus => {
-                            return Some(Ok(TokenAndRest::new(TokenValue::String(buffer.iter().collect()), self.location.clone(), rest, quoting)));
+                            return Some(Ok(TokenAndRest::new(TokenValue::String(buffer.iter().collect()), beginning_location, rest)));
                         }
                         _ => {
                             status = StringStatus;
+                            beginning_location = self.location.clone();
                         }
                     }
                 },
                 '\\' => {
-                    if status == StringStatus {
-                        status = StringEscape;
-                    }
-                    else {
-                        return Some(Err(ReadError::Error{ msg: format!("unexpected character: '\\'"), location: self.location.clone(), rest }));
+                    match status {
+                        StringStatus => {
+                            status = StringEscape;
+                        },
+                        Character => {
+                            buffer.push(ch);
+                        },
+                        _ => {
+                            return Some(Err(ReadError::Error{ msg: format!("unexpected character: '\\'"), location: self.location.clone(), rest }));
+                        }
                     }
                 },
                 '%' => {
                     if status == WhiteSpace {
                         status = Character;
+                        beginning_location = self.location.clone();
                     }
                 },
                 c if c.is_ascii_digit() || c == '+' || c == '-' => {
                     if status == WhiteSpace {
                         status = Number;
+                        beginning_location = self.location.clone();
                     }
                     buffer.push(ch);
                 }
@@ -153,38 +178,35 @@ impl Iterator for TokenIterator {
                     match status {
                         WhiteSpace => {
                             status = Symbol;
+                            beginning_location = self.location.clone();
                             buffer.push(ch);
                         },
-                        StringEscape => {
-                            match ch {
-                                'n'  => buffer.push('\n'),
-                                'r'  => buffer.push('\r'),
-                                't'  => buffer.push('\t'),
-                                '\\' => buffer.push('\\'),
-                                _    => buffer.push(ch),
+                        Number => {
+                            if !ch.is_ascii_digit() {
+                                status = Symbol;
                             }
-                        }
+                            buffer.push(ch);
+                        },
                         _ => buffer.push(ch),
                     }
                 },
             }
 
             if buffer.len() > 0 {
-                let next_ch = if let Some(x) = self.input.peek() {x} else {return Some(Err(ReadError::InvalidString));};
-                if is_atom_ending(next_ch) {
-                    let token_and_rest =
+                let atom_ending = if let Some(x) = is_atom_ending(&self.input.peek()) {x} else {return Some(Err(ReadError::InvalidString));};
+                if atom_ending {
                     match status {
-                        Character => build_character(&buffer, self.location.clone(), rest.clone()).map(|x| TokenAndRest::new(TokenValue::Character(x), self.location.clone(), rest, quoting)),
-                        Number    => build_number(&buffer, self.location.clone(), rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Number(x),    self.location.clone(), rest, quoting)),
-                        Symbol    => build_symbol(&buffer, self.location.clone(), rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    self.location.clone(), rest, quoting)),
+                        Character => return Some(build_character(&buffer, self.location.clone(), rest.clone()).map(|x| TokenAndRest::new(TokenValue::Character(x), beginning_location, rest))),
+                        Number    => return Some(build_number(&buffer, self.location.clone(), rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Number(x),    beginning_location, rest))),
+                        Symbol    => return Some(build_symbol(&buffer, self.location.clone(), rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    beginning_location, rest))),
+                        StringStatus | StringEscape => { /* don't do anything */ },
                         _         => unreachable!(),
-                    };
-                    return Some(token_and_rest);
+                    }
                 }
             }
         }
         
-        if buffer.len() > 0 || quoting {
+        if buffer.len() > 0 {
             Some(Err(ReadError::Incomplete))
         }
         else {
@@ -194,16 +216,17 @@ impl Iterator for TokenIterator {
 }
 
 
-fn is_atom_ending(ch: &Option<(char, GcRef)>) -> bool {
+fn is_atom_ending(ch: &Option<&Option<(char, GcRef)>>) -> Option<bool> { // None: invalid string
     match ch {
-        None => true,
-        Some((c, _)) => {
+        None => Some(true),
+        Some(Some((c, _))) => {
             match c {
-                ';' | '(' | ')' | '"' | '\'' | ',' => true,
-                k if k.is_whitespace()             => true,
-                _                                  => false,
+                ';' | '(' | ')' | '"' | '\'' | ',' => Some(true),
+                k if k.is_whitespace()             => Some(true),
+                _                                  => Some(false),
             } 
-        }
+        },
+        Some(None) => None,
     }
 }
 
@@ -227,7 +250,7 @@ fn build_symbol(chars: &[char], _location: Location, _rest: GcRef) -> Result<Str
 
 
 fn build_number(chars: &[char], location: Location, rest: GcRef) -> Result<i64, ReadError> {
-    chars.iter().collect::<String>().parse::<i64>().map_err(|err| ReadError::Error{ msg: err.to_string(), location, rest })
+    chars.iter().collect::<String>().parse::<i64>().map_err(|err| ReadError::Error{ msg: format!("invalid number: '{err}'"), location, rest })
 }
 
 
@@ -266,25 +289,40 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: GcRef, 
 
 fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(GcRef, GcRef), ReadError> {
     let mut stack = vec![];
+    let mut quoted = false;
     
     for maybe_token_and_rest in TokenIterator::new(input, location) {
         let TokenAndRest{token, rest} = maybe_token_and_rest?;
 
         let result;
         match token.value {
+            TokenValue::Quote => {
+                quoted = true;
+                continue;
+            },
             TokenValue::OpenParen => {
-                stack.push(vec![]);
+                stack.push((vec![], quoted));
+                quoted = false;
                 continue;
             },
             TokenValue::CloseParen => {
-                if let Some(vec) = stack.pop() {
+                if let Some((vec, q)) = stack.pop() {
                     let list = vec_to_list(mem, &vec);
-                    if let Some(lower_vec) = stack.last_mut() {
-                        lower_vec.push(list);
+                    let qlist =
+                    if q {
+                        let vec = vec![mem.symbol_for("quote"), list];
+                        quoted = false;
+                        vec_to_list(mem, &vec)
+                    }
+                    else {
+                        list
+                    };
+                    if let Some((lower_vec, _)) = stack.last_mut() {
+                        lower_vec.push(qlist);
                         continue;
                     }
                     else {
-                        result = list;
+                        result = qlist;
                     }
                 }
                 else {
@@ -293,47 +331,83 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
             },
             TokenValue::Character(c) => {
                 let x = mem.allocate_character(c).with_metadata(Metadata{ read_name: format!("{c}"), location: token.location, documentation: String::new() });
-                if let Some(vec) = stack.last_mut() {
-                    vec.push(x);
+                let y =
+                if quoted {
+                    let vec = vec![mem.symbol_for("quote"), x];
+                    quoted = false;
+                    vec_to_list(mem, &vec)
+                }
+                else {
+                    x
+                };
+                if let Some((vec, _)) = stack.last_mut() {
+                    vec.push(y);
                     continue;
                 }
                 else {
-                    result = x;
+                    result = y;
                 }
             },
             TokenValue::Number(n) => {
                 let x = mem.allocate_number(n).with_metadata(Metadata{ read_name: format!("{n}"), location: token.location, documentation: String::new() });
-                if let Some(vec) = stack.last_mut() {
-                    vec.push(x);
+                let y =
+                if quoted {
+                    let vec = vec![mem.symbol_for("quote"), x];
+                    quoted = false;
+                    vec_to_list(mem, &vec)
+                }
+                else {
+                    x
+                };
+                if let Some((vec, _)) = stack.last_mut() {
+                    vec.push(y);
                     continue;
                 }
                 else {
-                    result = x;
+                    result = y;
                 }
             },
             TokenValue::Symbol(s) => {
                 let x = mem.symbol_for(s.as_str()).with_metadata(Metadata{ read_name: format!("{s}"), location: token.location, documentation: String::new() });
-                if let Some(vec) = stack.last_mut() {
-                    vec.push(x);
+                let y =
+                if quoted {
+                    let vec = vec![mem.symbol_for("quote"), x];
+                    quoted = false;
+                    vec_to_list(mem, &vec)
+                }
+                else {
+                    x
+                };
+                if let Some((vec, _)) = stack.last_mut() {
+                    vec.push(y);
                     continue;
                 }
                 else {
-                    result = x;
+                    result = y;
                 }
             },
             TokenValue::String(s) => {
                 let x = string_to_proper_list(mem, s.as_str()).with_metadata(Metadata{ read_name: String::new(), location: token.location, documentation: String::new() });
-                if let Some(vec) = stack.last_mut() {
-                    vec.push(x);
+                let y =
+                if quoted {
+                    let vec = vec![mem.symbol_for("quote"), x];
+                    quoted = false;
+                    vec_to_list(mem, &vec)
+                }
+                else {
+                    x
+                };
+                if let Some((vec, _)) = stack.last_mut() {
+                    vec.push(y);
                     continue;
                 }
                 else {
-                    result = x;
+                    result = y;
                 }
             },
         }
 
-        if token.quoted {
+        if quoted {
             let vec = vec![mem.symbol_for("quote"), result];
             return Ok((vec_to_list(mem, &vec), rest));
         }
@@ -432,7 +506,7 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
         }
     }
     else {
-        location = Location::Stdin { line: 1, column: 1 };
+        location = Location::Stdin { line: 1, column: 0 };
     }
 
     let input = args[0].clone();
@@ -443,19 +517,23 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Nothing) => {
+            println!("### nothing");
             let kv = vec![("status", mem.symbol_for("nothing"))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Incomplete) => {
+            println!("### incomplete");
             let kv = vec![("status", mem.symbol_for("incomplete"))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::InvalidString) => {
+            println!("### invalid");
             let kv = vec![("status", mem.symbol_for("invalid"))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Error{ msg, location, rest }) => {
-            Err(format_error(mem, location, msg, rest, 0, 0))
+            println!("### other: {msg}");
+            Ok(format_error(mem, location, msg, rest, 0, 0))
         },
     }
 }

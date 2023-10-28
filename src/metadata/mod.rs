@@ -50,9 +50,9 @@ impl Location {
     pub fn step_line(self) -> Self {
         match self {
             Self::Native                      => self,
-            Self::Prelude{line, column: _}    => Self::Prelude{    line: line + 1, column: 1 },
-            Self::Stdin{line, column: _}      => Self::Stdin{      line: line + 1, column: 1 },
-            Self::File{path, line, column: _} => Self::File{ path, line: line + 1, column: 1 },
+            Self::Prelude{line, column: _}    => Self::Prelude{    line: line + 1, column: 0 },
+            Self::Stdin{line, column: _}      => Self::Stdin{      line: line + 1, column: 0 },
+            Self::File{path, line, column: _} => Self::File{ path, line: line + 1, column: 0 },
         }
     }
 

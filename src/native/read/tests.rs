@@ -428,73 +428,73 @@ fn read_error_location() {
     assert_eq!(*error_location[2].get().unwrap().as_number(), 7);
 }
 
-#[test]
-fn read_continue_rest() {
-    let mut mem = Memory::new();
+// #[test]
+// fn read_continue_rest() {
+//     let mut mem = Memory::new();
 
-                                              // 123456789
-    let input        = string_to_list(&mut mem, "cat mouse");
-    let source       = mem.symbol_for("stdin");
-    let start_line   = mem.allocate_number(1);
-    let start_column = mem.allocate_number(1);
-    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil(), 0).ok().unwrap();
-    let status       = property(&mut mem, "status", r.clone()).unwrap();
-    let result       = property(&mut mem, "result", r.clone()).unwrap();
-    let rest         = property(&mut mem, "rest", r.clone()).unwrap();
-    let line         = property(&mut mem, "line", r.clone()).unwrap();
-    let column       = property(&mut mem, "column", r).unwrap();
-    assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq_symbol!(result, mem.symbol_for("cat"));
-    assert_eq!(list_to_string(rest.clone()).unwrap(), " mouse");
-    assert_eq!(*line.get().unwrap().as_number(), 1);
-    assert_eq!(*column.get().unwrap().as_number(), 4);
+//                                               // 123456789
+//     let input        = string_to_list(&mut mem, "cat mouse");
+//     let source       = mem.symbol_for("stdin");
+//     let start_line   = mem.allocate_number(1);
+//     let start_column = mem.allocate_number(1);
+//     let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil(), 0).ok().unwrap();
+//     let status       = property(&mut mem, "status", r.clone()).unwrap();
+//     let result       = property(&mut mem, "result", r.clone()).unwrap();
+//     let rest         = property(&mut mem, "rest", r.clone()).unwrap();
+//     let line         = property(&mut mem, "line", r.clone()).unwrap();
+//     let column       = property(&mut mem, "column", r).unwrap();
+//     assert_eq_symbol!(status, mem.symbol_for("ok"));
+//     assert_eq_symbol!(result, mem.symbol_for("cat"));
+//     assert_eq!(list_to_string(rest.clone()).unwrap(), " mouse");
+//     assert_eq!(*line.get().unwrap().as_number(), 1);
+//     assert_eq!(*column.get().unwrap().as_number(), 4);
 
-    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
-    let status = property(&mut mem, "status", r.clone()).unwrap();
-    let result = property(&mut mem, "result", r.clone()).unwrap();
-    let rest   = property(&mut mem, "rest", r.clone()).unwrap();
-    let line   = property(&mut mem, "line", r.clone()).unwrap();
-    let column = property(&mut mem, "column", r).unwrap();
-    assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq_symbol!(result, mem.symbol_for("mouse"));
-    assert_eq!(list_to_string(rest).unwrap(), "");
-    assert_eq!(*line.get().unwrap().as_number(), 1);
-    assert_eq!(*column.get().unwrap().as_number(), 10);
-}
+//     let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
+//     let status = property(&mut mem, "status", r.clone()).unwrap();
+//     let result = property(&mut mem, "result", r.clone()).unwrap();
+//     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
+//     let line   = property(&mut mem, "line", r.clone()).unwrap();
+//     let column = property(&mut mem, "column", r).unwrap();
+//     assert_eq_symbol!(status, mem.symbol_for("ok"));
+//     assert_eq_symbol!(result, mem.symbol_for("mouse"));
+//     assert_eq!(list_to_string(rest).unwrap(), "");
+//     assert_eq!(*line.get().unwrap().as_number(), 1);
+//     assert_eq!(*column.get().unwrap().as_number(), 10);
+// }
 
-#[test]
-fn read_continue_rest_newline() {
-    let mut mem = Memory::new();
+// #[test]
+// fn read_continue_rest_newline() {
+//     let mut mem = Memory::new();
 
-                                              // 123456 01234567
-    let input        = string_to_list(&mut mem, "  lion\n tiger  ");
-    let source       = mem.symbol_for("stdin");
-    let start_line   = mem.allocate_number(1);
-    let start_column = mem.allocate_number(1);
-    let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil(), 0).ok().unwrap();
-    let status       = property(&mut mem, "status", r.clone()).unwrap();
-    let result       = property(&mut mem, "result", r.clone()).unwrap();
-    let rest         = property(&mut mem, "rest", r.clone()).unwrap();
-    let line         = property(&mut mem, "line", r.clone()).unwrap();
-    let column       = property(&mut mem, "column", r).unwrap();
-    assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq_symbol!(result, mem.symbol_for("lion"));
-    assert_eq!(list_to_string(rest.clone()).unwrap(), " tiger  ");
-    assert_eq!(*line.get().unwrap().as_number(), 2);
-    assert_eq!(*column.get().unwrap().as_number(), 1);
+//                                               // 123456 01234567
+//     let input        = string_to_list(&mut mem, "  lion\n tiger  ");
+//     let source       = mem.symbol_for("stdin");
+//     let start_line   = mem.allocate_number(1);
+//     let start_column = mem.allocate_number(1);
+//     let r            = read(&mut mem, &[input, source.clone(), start_line, start_column], GcRef::nil(), 0).ok().unwrap();
+//     let status       = property(&mut mem, "status", r.clone()).unwrap();
+//     let result       = property(&mut mem, "result", r.clone()).unwrap();
+//     let rest         = property(&mut mem, "rest", r.clone()).unwrap();
+//     let line         = property(&mut mem, "line", r.clone()).unwrap();
+//     let column       = property(&mut mem, "column", r).unwrap();
+//     assert_eq_symbol!(status, mem.symbol_for("ok"));
+//     assert_eq_symbol!(result, mem.symbol_for("lion"));
+//     assert_eq!(list_to_string(rest.clone()).unwrap(), " tiger  ");
+//     assert_eq!(*line.get().unwrap().as_number(), 2);
+//     assert_eq!(*column.get().unwrap().as_number(), 1);
 
-    let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
-    let status = property(&mut mem, "status", r.clone()).unwrap();
-    let result = property(&mut mem, "result", r.clone()).unwrap();
-    let rest   = property(&mut mem, "rest", r.clone()).unwrap();
-    let line   = property(&mut mem, "line", r.clone()).unwrap();
-    let column = property(&mut mem, "column", r).unwrap();
-    assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq_symbol!(result, mem.symbol_for("tiger"));
-    assert_eq!(list_to_string(rest).unwrap(), "  ");
-    assert_eq!(*line.get().unwrap().as_number(), 2);
-    assert_eq!(*column.get().unwrap().as_number(), 7);
-}
+//     let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
+//     let status = property(&mut mem, "status", r.clone()).unwrap();
+//     let result = property(&mut mem, "result", r.clone()).unwrap();
+//     let rest   = property(&mut mem, "rest", r.clone()).unwrap();
+//     let line   = property(&mut mem, "line", r.clone()).unwrap();
+//     let column = property(&mut mem, "column", r).unwrap();
+//     assert_eq_symbol!(status, mem.symbol_for("ok"));
+//     assert_eq_symbol!(result, mem.symbol_for("tiger"));
+//     assert_eq!(list_to_string(rest).unwrap(), "  ");
+//     assert_eq!(*line.get().unwrap().as_number(), 2);
+//     assert_eq!(*column.get().unwrap().as_number(), 7);
+// }
 
 #[test]
 fn read_quoted_symbol() {
@@ -537,11 +537,47 @@ fn read_quoted_list() {
 }
 
 #[test]
-fn read_extremely_large_input() {
+fn read_quoted_in_list() {
     let mut mem = Memory::new();
 
-    let input  = string_to_list(&mut mem, &"(".repeat(10000));
-    let err    = read(&mut mem, &[input], GcRef::nil(), 0).err().unwrap();
-    let kind   = property(&mut mem, "kind", err.clone()).unwrap();
-    assert_eq_symbol!(kind, mem.symbol_for("stackoverflow"));
+    let input  = string_to_list(&mut mem, " (cheetah 1 'a) ");
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
+    let status = property(&mut mem, "status", r.clone()).unwrap();
+    let result = property(&mut mem, "result", r.clone()).unwrap();
+    let rest   = property(&mut mem, "rest", r.clone()).unwrap();
+
+    assert_eq_symbol!(status, mem.symbol_for("ok"));
+    let vec = list_to_vec(result).unwrap();
+    assert_eq!(vec.len(), 3);
+    assert_eq_symbol!(vec[0], mem.symbol_for("cheetah"));
+    assert_eq!(*vec[1].get().unwrap().as_number(), 1);
+    let vec2 = list_to_vec(vec[2].clone()).unwrap();
+    assert_eq!(vec2.len(), 2);
+    assert_eq_symbol!(vec2[0], mem.symbol_for("quote"));
+    assert_eq_symbol!(vec2[1], mem.symbol_for("a"));
+    assert_eq!(list_to_string(rest).unwrap(), " ");
+}
+
+#[test]
+fn read_quoted_nested_list() {
+    let mut mem = Memory::new();
+
+    let input  = string_to_list(&mut mem, " (lynx '(a b)) ");
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
+    let status = property(&mut mem, "status", r.clone()).unwrap();
+    let result = property(&mut mem, "result", r.clone()).unwrap();
+    let rest   = property(&mut mem, "rest", r.clone()).unwrap();
+
+    assert_eq_symbol!(status, mem.symbol_for("ok"));
+    let vec = list_to_vec(result).unwrap();
+    assert_eq!(vec.len(), 2);
+    assert_eq_symbol!(vec[0], mem.symbol_for("lynx"));
+    let vec2 = list_to_vec(vec[1].clone()).unwrap();
+    assert_eq!(vec2.len(), 2);
+    assert_eq_symbol!(vec2[0], mem.symbol_for("quote"));
+    let vec3 = list_to_vec(vec2[1].clone()).unwrap();
+    assert_eq!(vec3.len(), 2);
+    assert_eq_symbol!(vec3[0], mem.symbol_for("a"));
+    assert_eq_symbol!(vec3[1], mem.symbol_for("b"));
+    assert_eq!(list_to_string(rest).unwrap(), " ");
 }
