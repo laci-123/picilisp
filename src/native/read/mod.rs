@@ -5,327 +5,188 @@ use crate::metadata::*;
 use crate::util::*;
 use crate::native::list::make_plist;
 use crate::error_utils::*;
-use crate::parser::*;
 use crate::config;
 use super::NativeFunctionMetaData;
 use std::path::PathBuf;
+use std::iter::Peekable;
 
 
 
-fn whitespace_character(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
+enum TokenValue {
+    OpenParen,
+    CloseParen,
+    Character(char),
+    Number(i64),
+    Symbol(String),
+    Quote,
+    String(String),
+    Incomplete,
+}
 
-    fn p(x: GcRef) -> bool {
-        let ch = x.get().unwrap().as_character();
-        ch.is_whitespace() || *ch == ','
+struct Token {
+    value: TokenValue,
+    location: Location,
+}
+
+
+struct TokenAndRest {
+    token: Token,
+    rest: GcRef,
+}
+
+impl TokenAndRest {
+    fn new(value: TokenValue, location: Location, rest: GcRef) -> Self {
+        Self {
+            token: Token { value, location },
+            rest
+        }
     }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
 }
 
 
-fn whitespace(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    (at_least_once(&whitespace_character))(mem, input, recursion_depth + 1)
+#[derive(PartialEq, Eq)]
+enum TokenIteratorStatus {
+    WhiteSpace,
+    Comment,
+    Character,
+    Number,
+    Symbol,
 }
 
 
-fn comment_start(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
+struct TokenIterator {
+    input: Peekable<StringIterator>,
+    location: Location,
+}
 
-    fn p(x: GcRef) -> bool {
-        *x.get().unwrap().as_character() == ';'
+impl TokenIterator {
+    fn new(input: GcRef, location: Location) -> Self {
+        Self{ input: StringIterator::new(input).peekable(), location }
     }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
 }
 
+impl Iterator for TokenIterator {
+    type Item = Result<TokenAndRest, String>;
 
-fn inside_comment(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
+    fn next(&mut self) -> Option<Self::Item> {
+        use TokenIteratorStatus::*;
 
-    fn p(x: GcRef) -> bool {
-        *x.get().unwrap().as_character() != '\n'
+        let mut status = WhiteSpace;
+        let mut buffer = vec![];
+
+        while let Some(maybe_char_and_rest) = self.input.next() {
+            let (ch, rest) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err("invalid-string".to_string()));};
+
+            if ch == '\n' {
+                self.location = self.location.clone().step_line();
+            }
+            else {
+                self.location = self.location.clone().step_column();
+            }
+
+            if status == Comment {
+                if ch == '\n' {
+                    status = WhiteSpace;
+                }
+                continue;
+            }
+            
+            match ch {
+                c if c.is_whitespace() || c == ',' => {
+                    status = WhiteSpace;
+                },
+                ';' => {
+                    status = Comment;
+                },
+                '\'' => {
+                    return Some(Ok(TokenAndRest::new(TokenValue::Quote, self.location.clone(), rest)));
+                },
+                '(' => {
+                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest)));
+                },
+                ')' => {
+                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest)));
+                },
+                '%' => {
+                    if status == WhiteSpace {
+                        status = Character;
+                    }
+                },
+                c if c.is_ascii_digit() || c == '+' || c == '-' => {
+                    if status == WhiteSpace {
+                        status = Number;
+                    }
+                    buffer.push(ch);
+                }
+                _ => {
+                    if status == WhiteSpace {
+                        status = Symbol;
+                    }
+                    buffer.push(ch);
+                },
+            }
+
+            if buffer.len() > 0 {
+                let next_ch = if let Some(x) = self.input.peek() {x} else {return Some(Err("invalid-string".to_string()));};
+                if is_atom_ending(next_ch) {
+                    let token_and_rest =
+                    match status {
+                        Character => build_character(&buffer).map(|x| TokenAndRest::new(TokenValue::Character(x), self.location.clone(), rest)),
+                        Number    => build_number(&buffer).map(   |x| TokenAndRest::new(TokenValue::Number(x),    self.location.clone(), rest)),
+                        Symbol    => build_symbol(&buffer).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    self.location.clone(), rest)),
+                        _         => unreachable!(),
+                    };
+                    return Some(token_and_rest);
+                }
+            }
+        }
+        
+        if buffer.len() > 0 {
+            Some(Ok(TokenAndRest::new(TokenValue::Incomplete, self.location.clone(), GcRef::nil())))
+        }
+        else {
+            None
+        }
     }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
 }
 
 
-fn comment(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let start = comment_start(mem, input, recursion_depth + 1)?;
-
-    (zero_or_more_times(&inside_comment))(mem, start.rest_of_input, recursion_depth + 1)
-}
-
-
-fn number_sign(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        let ch = x.get().unwrap().as_character();
-        *ch == '-' || *ch == '+'
+fn is_atom_ending(ch: &Option<(char, GcRef)>) -> bool {
+    match ch {
+        None => true,
+        Some((c, _)) => {
+            match c {
+                ';' | '(' | ')' | '\'' | ',' => true,
+                k if k.is_whitespace() => true,
+                _ => false,
+            } 
+        }
     }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
 }
 
 
-fn digit(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        x.get().unwrap().as_character().is_digit(10)
+fn build_character(chars: &[char]) -> Result<char, String> {
+    match chars.iter().collect::<String>().as_str() {
+        ""   => Err(format!("invalid character: '%' (empty literal)")),
+        "\\n" => Ok('\n'),
+        "\\t" => Ok('\t'),
+        "\\r" => Ok('\r'),
+        "\\\\" => Ok('\\'),
+        c if c.len() == 1 => Ok(c.chars().next().unwrap()),
+        c    => Err(format!("invalid character: '%{c}'")),
     }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
 }
 
 
-fn number(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let default_sign = mem.allocate_character('+');
-    let sign         = (parse_or_default(&number_sign, &default_sign))(mem, input.clone(), recursion_depth + 1)?;
-    let sign_n       = if *sign.value.get().unwrap().as_character() == '+' { 1 } else { -1 };
-
-    let lisp_string = (at_least_once(&digit))(mem, sign.rest_of_input, recursion_depth + 1)?;
-    let rust_string = list_to_vec(lisp_string.value).unwrap().iter().map(|x| *x.get().unwrap().as_character()).collect::<String>();
-    let rust_number = rust_string.parse::<i64>().unwrap();
-    let md          = Metadata{ read_name: rust_string, location: input.location.clone(), documentation: "".to_string() };
-    let lisp_number = mem.allocate_number(rust_number * sign_n).with_metadata(md);
-
-    Ok(ParserOk{ value: lisp_number, location: input.location, rest_of_input: lisp_string.rest_of_input })
+fn build_symbol(chars: &[char]) -> Result<String, String> {
+    Ok(chars.iter().collect())
 }
 
 
-fn character_start(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        *x.get().unwrap().as_character() == '%'
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
+fn build_number(chars: &[char]) -> Result<i64, String> {
+    chars.iter().collect::<String>().parse::<i64>().map_err(|err| err.to_string())
 }
 
-
-fn escape_character(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        let ch = x.get().unwrap().as_character();
-        *ch == 'n' || *ch == 'r' || *ch == 't' || *ch == '\\'
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
-}
-
-
-fn character(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let start = character_start(mem, input.clone(), recursion_depth + 1)?;
-
-    let x1 = any_character(mem, start.rest_of_input, recursion_depth + 1)?;
-    let c1 = x1.value.get().unwrap().as_character(); 
-    
-    let ch;
-    let rest;
-    if *c1 == '\\' {
-        let x2 = escape_character(mem, x1.rest_of_input, recursion_depth + 1)?;
-        let c2 = x2.value.get().unwrap().as_character(); 
-        ch =
-        match c2 {
-            'n'  => '\n',
-            'r'  => '\r',
-            't'  => '\t',
-            '\\' => '\\',
-            _    => unreachable!()
-        };
-        rest = x2.rest_of_input;
-    }
-    else {
-        ch   = *c1;
-        rest = x1.rest_of_input;
-    };
-
-
-    let md      = Metadata{ read_name: format!("%{ch}"), location: input.location.clone(), documentation: "".to_string() };
-    let lisp_ch = mem.allocate_character(ch).with_metadata(md);
-
-    Ok(ParserOk{ value: lisp_ch, location: input.location, rest_of_input: rest })
-}
-
-
-fn symbol_char(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        let ch = x.get().unwrap().as_character();
-        *ch != '(' && *ch != ')' && *ch != '"' && !ch.is_whitespace() && *ch != ','
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
-}
-
-fn quote_syntax_macro(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let exp   = expression(mem, input, recursion_depth + 1)?;
-    let vec   = vec![mem.symbol_for("quote"), exp.value];
-    let q_exp = vec_to_list(mem, &vec);
-    Ok(ParserOk { value: q_exp, location: exp.location, rest_of_input: exp.rest_of_input })
-}
-
-
-fn symbol(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let lisp_string = (at_least_once(&symbol_char))(mem, input.clone(), recursion_depth + 1)?;
-    let rust_string = list_to_vec(lisp_string.value).unwrap().iter().map(|x| *x.get().unwrap().as_character()).collect::<String>();
-
-    if rust_string.starts_with("'") {
-        return quote_syntax_macro(mem, input.next(), recursion_depth + 1)
-    }
-
-    let md  = Metadata{ read_name: rust_string.clone(), location: input.location.clone(), documentation: "".to_string() };
-    let sym = mem.symbol_for(&rust_string).with_metadata(md);
-    Ok(ParserOk{ value: sym, location: input.location, rest_of_input: lisp_string.rest_of_input })
-}
-
-
-fn atom(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    (one_of_these_three(&number, &character, &symbol))(mem, input.clone(), recursion_depth + 1)
-}
-
-
-fn open_paren(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        *x.get().unwrap().as_character() == '('
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
-}
-
-
-fn close_paren(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        *x.get().unwrap().as_character() == ')'
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
-}
-
-
-fn list(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let op  = open_paren(mem, input.clone(), recursion_depth + 1)?;
-    let lst = (zero_or_more_times(&expression))(mem, op.rest_of_input, recursion_depth + 1)?;
-    let jnk = (zero_or_more_times(&junk))(mem, lst.rest_of_input, recursion_depth + 1)?;
-    let cp  = close_paren(mem, jnk.rest_of_input, recursion_depth + 1)?;
-
-    Ok(ParserOk{ value: lst.value, location: input.location, rest_of_input: cp.rest_of_input} )
-}
-
-
-fn quote(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        *x.get().unwrap().as_character() == '"'
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
-}
-
-
-fn string_normal(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        let ch = x.get().unwrap().as_character();
-        *ch != '"' && *ch != '\\'
-    }
-
-    (satisfy(&any_character, &p))(mem, input, recursion_depth + 1)
-}
-
-fn string_escape(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    fn p(x: GcRef) -> bool {
-        let ch = x.get().unwrap().as_character();
-        *ch == '\\'
-    }
-
-    let backslash = (satisfy(&any_character, &p))(mem, input.clone(), recursion_depth + 1)?;
-    let ech = any_character(mem, backslash.rest_of_input, recursion_depth + 1)?;
-
-    let ch =
-    match ech.value.get().unwrap().as_character() {
-        '"'  => '"',
-        'n'  => '\n',
-        'r'  => '\t',
-        '\\' => '\\',
-        c    => return Err(ParserError::Fatal{ message: format!("'{c}' is not a valid escape character in a string literal"), location: ech.location, rest_of_input: ech.rest_of_input })
-    };
-
-    Ok(ParserOk{ value: mem.allocate_character(ch), location: input.location, rest_of_input: ech.rest_of_input} )
-}
-
-fn string_char(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    (one_of_these_two(&string_escape, &string_normal))(mem, input, recursion_depth + 1)
-}
-
-
-fn string(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let oq  = quote(mem, input.clone(), recursion_depth + 1)?;
-    let chs = (zero_or_more_times(&string_char))(mem, oq.rest_of_input, recursion_depth + 1)?;
-    let cq  = quote(mem, chs.rest_of_input, recursion_depth + 1)?;
-
-    let md  = Metadata{ read_name: "".to_string(), location: input.location.clone(), documentation: "".to_string() };
-
-    let list_symbol = mem.symbol_for("list");
-    let the_string  = mem.allocate_cons(list_symbol, chs.value).with_metadata(md);
-    Ok(ParserOk{ value: the_string, location: input.location, rest_of_input: cq.rest_of_input} )
-}
-
-
-fn junk(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    (one_of_these_two(&whitespace, &comment))(mem, input, recursion_depth + 1)
-}
-
-
-fn nothing(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    (one_of_these_two(&end_of_input, &junk))(mem, input, recursion_depth + 1)
-}
-
-
-fn expression(mem: &mut Memory, input: StringWithLocation, recursion_depth: usize) -> Result<ParserOk, ParserError> {
-    check_stack_overflow(recursion_depth)?;
-
-    let jnk = (zero_or_more_times(&junk))(mem, input, recursion_depth + 1)?;
-    (one_of_these_three(&string, &atom, &list))(mem, jnk.rest_of_input, recursion_depth + 1)
-}
 
 
 fn format_error(mem: &mut Memory, location: Location, msg: String, rest: GcRef, rest_line: usize, rest_column: usize) -> GcRef {
@@ -446,69 +307,7 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
 
     let input = args[0].clone();
 
-    match close_paren(mem, StringWithLocation { string: input.clone(), location: location.clone() }, recursion_depth + 1) {
-        Ok(output) => {
-            let rest = output.rest_of_input.trim();
-            return Ok(format_error(mem, rest.location.clone(), "too many closing parentheses".to_string(), rest.string, rest.location.get_line().unwrap(), rest.location.get_column().unwrap()))
-        }
-        Err(ParserError::StackOverflow) => {
-            return Err(make_error(mem, "stackoverflow", READ.name, &vec![]));
-        },
-        Err(_) => {
-            // continue
-        }
-    }
-
-
-    match expression(mem, StringWithLocation { string: input.clone(), location: location.clone() }, recursion_depth + 1) {
-        Ok(output) => {
-            let rest = output.rest_of_input.trim();
-            let mut vec = vec![("status", mem.symbol_for("ok")), ("result", output.value), ("rest", rest.string)];
-            if let Some(line) = rest.location.get_line() {
-                vec.push(("line", fit_to_number(mem, line)));
-            }
-            if let Some(column) = rest.location.get_column() {
-                vec.push(("column", fit_to_number(mem, column)));
-            }
-            Ok(make_plist(mem, &vec))
-        },
-        Err(err)   => {
-            match err {
-                ParserError::NoMatch => {
-                    let vec = vec![("status", mem.symbol_for("incomplete"))];
-                    Ok(make_plist(mem, &vec))
-                },
-                ParserError::Incomplete => {
-                    match nothing(mem, StringWithLocation { string: input, location}, recursion_depth + 1) {
-                        Ok(_) => {
-                            let vec = vec![("status", mem.symbol_for("nothing"))];
-                            Ok(make_plist(mem, &vec))
-                        },
-                        Err(err) => {
-                            match err {
-                                ParserError::NoMatch | ParserError::Incomplete => {
-                                    let vec = vec![("status", mem.symbol_for("incomplete"))];
-                                    Ok(make_plist(mem, &vec))
-                                }
-                                ParserError::Fatal{ message, location, rest_of_input } => {
-                                    Ok(format_error(mem, location, message, rest_of_input.string, rest_of_input.location.get_line().unwrap(), rest_of_input.location.get_column().unwrap()))
-                                },
-                                ParserError::StackOverflow => {
-                                    Err(make_error(mem, "stackoverflow", READ.name, &vec![]))
-                                }
-                            }
-                        },
-                    }
-                }
-                ParserError::Fatal{ message, location, rest_of_input } => {
-                    Ok(format_error(mem, location, message, rest_of_input.string, rest_of_input.location.get_line().unwrap(), rest_of_input.location.get_column().unwrap()))
-                }
-                ParserError::StackOverflow => {
-                    Err(make_error(mem, "stackoverflow", READ.name, &vec![]))
-                }
-            }
-        },
-    }
+    todo!()
 }
 
 
