@@ -18,14 +18,13 @@ enum TokenValue {
     Character(char),
     Number(i64),
     Symbol(String),
-    Quote,
     String(String),
-    Incomplete,
 }
 
 struct Token {
     value: TokenValue,
     location: Location,
+    quoted: bool,
 }
 
 
@@ -35,9 +34,9 @@ struct TokenAndRest {
 }
 
 impl TokenAndRest {
-    fn new(value: TokenValue, location: Location, rest: GcRef) -> Self {
+    fn new(value: TokenValue, location: Location, rest: GcRef, quoted: bool) -> Self {
         Self {
-            token: Token { value, location },
+            token: Token { value, location, quoted },
             rest
         }
     }
@@ -51,6 +50,16 @@ enum TokenIteratorStatus {
     Character,
     Number,
     Symbol,
+    StringStatus,
+    StringEscape,
+}
+
+
+enum ReadError {
+    InvalidString,
+    Incomplete,
+    Nothing,
+    Error{ msg: String, location: Location, rest: GcRef },
 }
 
 
@@ -66,16 +75,17 @@ impl TokenIterator {
 }
 
 impl Iterator for TokenIterator {
-    type Item = Result<TokenAndRest, String>;
+    type Item = Result<TokenAndRest, ReadError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         use TokenIteratorStatus::*;
 
         let mut status = WhiteSpace;
         let mut buffer = vec![];
+        let mut quoting = false;
 
         while let Some(maybe_char_and_rest) = self.input.next() {
-            let (ch, rest) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err("invalid-string".to_string()));};
+            let (ch, rest) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err(ReadError::InvalidString));};
 
             if ch == '\n' {
                 self.location = self.location.clone().step_line();
@@ -90,7 +100,7 @@ impl Iterator for TokenIterator {
                 }
                 continue;
             }
-            
+
             match ch {
                 c if c.is_whitespace() || c == ',' => {
                     status = WhiteSpace;
@@ -99,13 +109,34 @@ impl Iterator for TokenIterator {
                     status = Comment;
                 },
                 '\'' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::Quote, self.location.clone(), rest)));
+                    quoting = true;
                 },
                 '(' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest, quoting)));
                 },
                 ')' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest, quoting)));
+                },
+                '"' => {
+                    match status {
+                        StringEscape => {
+                            buffer.push('"');
+                        },
+                        StringStatus => {
+                            return Some(Ok(TokenAndRest::new(TokenValue::String(buffer.iter().collect()), self.location.clone(), rest, quoting)));
+                        }
+                        _ => {
+                            status = StringStatus;
+                        }
+                    }
+                },
+                '\\' => {
+                    if status == StringStatus {
+                        status = StringEscape;
+                    }
+                    else {
+                        return Some(Err(ReadError::Error{ msg: format!("unexpected character: '\\'"), location: self.location.clone(), rest }));
+                    }
                 },
                 '%' => {
                     if status == WhiteSpace {
@@ -119,21 +150,33 @@ impl Iterator for TokenIterator {
                     buffer.push(ch);
                 }
                 _ => {
-                    if status == WhiteSpace {
-                        status = Symbol;
+                    match status {
+                        WhiteSpace => {
+                            status = Symbol;
+                            buffer.push(ch);
+                        },
+                        StringEscape => {
+                            match ch {
+                                'n'  => buffer.push('\n'),
+                                'r'  => buffer.push('\r'),
+                                't'  => buffer.push('\t'),
+                                '\\' => buffer.push('\\'),
+                                _    => buffer.push(ch),
+                            }
+                        }
+                        _ => buffer.push(ch),
                     }
-                    buffer.push(ch);
                 },
             }
 
             if buffer.len() > 0 {
-                let next_ch = if let Some(x) = self.input.peek() {x} else {return Some(Err("invalid-string".to_string()));};
+                let next_ch = if let Some(x) = self.input.peek() {x} else {return Some(Err(ReadError::InvalidString));};
                 if is_atom_ending(next_ch) {
                     let token_and_rest =
                     match status {
-                        Character => build_character(&buffer).map(|x| TokenAndRest::new(TokenValue::Character(x), self.location.clone(), rest)),
-                        Number    => build_number(&buffer).map(   |x| TokenAndRest::new(TokenValue::Number(x),    self.location.clone(), rest)),
-                        Symbol    => build_symbol(&buffer).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    self.location.clone(), rest)),
+                        Character => build_character(&buffer, self.location.clone(), rest.clone()).map(|x| TokenAndRest::new(TokenValue::Character(x), self.location.clone(), rest, quoting)),
+                        Number    => build_number(&buffer, self.location.clone(), rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Number(x),    self.location.clone(), rest, quoting)),
+                        Symbol    => build_symbol(&buffer, self.location.clone(), rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    self.location.clone(), rest, quoting)),
                         _         => unreachable!(),
                     };
                     return Some(token_and_rest);
@@ -141,8 +184,8 @@ impl Iterator for TokenIterator {
             }
         }
         
-        if buffer.len() > 0 {
-            Some(Ok(TokenAndRest::new(TokenValue::Incomplete, self.location.clone(), GcRef::nil())))
+        if buffer.len() > 0 || quoting {
+            Some(Err(ReadError::Incomplete))
         }
         else {
             None
@@ -156,35 +199,35 @@ fn is_atom_ending(ch: &Option<(char, GcRef)>) -> bool {
         None => true,
         Some((c, _)) => {
             match c {
-                ';' | '(' | ')' | '\'' | ',' => true,
-                k if k.is_whitespace() => true,
-                _ => false,
+                ';' | '(' | ')' | '"' | '\'' | ',' => true,
+                k if k.is_whitespace()             => true,
+                _                                  => false,
             } 
         }
     }
 }
 
 
-fn build_character(chars: &[char]) -> Result<char, String> {
+fn build_character(chars: &[char], location: Location, rest: GcRef) -> Result<char, ReadError> {
     match chars.iter().collect::<String>().as_str() {
-        ""   => Err(format!("invalid character: '%' (empty literal)")),
+        ""   => Err(ReadError::Error{ msg: format!("invalid character: '%' (empty literal)"), location, rest }),
         "\\n" => Ok('\n'),
         "\\t" => Ok('\t'),
         "\\r" => Ok('\r'),
         "\\\\" => Ok('\\'),
         c if c.len() == 1 => Ok(c.chars().next().unwrap()),
-        c    => Err(format!("invalid character: '%{c}'")),
+        c    => Err(ReadError::Error{ msg: format!("invalid character: '%{c}'"), location, rest }),
     }
 }
 
 
-fn build_symbol(chars: &[char]) -> Result<String, String> {
+fn build_symbol(chars: &[char], _location: Location, _rest: GcRef) -> Result<String, ReadError> {
     Ok(chars.iter().collect())
 }
 
 
-fn build_number(chars: &[char]) -> Result<i64, String> {
-    chars.iter().collect::<String>().parse::<i64>().map_err(|err| err.to_string())
+fn build_number(chars: &[char], location: Location, rest: GcRef) -> Result<i64, ReadError> {
+    chars.iter().collect::<String>().parse::<i64>().map_err(|err| ReadError::Error{ msg: err.to_string(), location, rest })
 }
 
 
@@ -218,6 +261,93 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: GcRef, 
     let ln        = mem.allocate_number(rest_line as i64);
     let cn        = mem.allocate_number(rest_column as i64);
     make_plist(mem, &vec![("status", error_sym), ("error", error), ("rest", rest), ("line", ln), ("column", cn)])
+}
+
+
+fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(GcRef, GcRef), ReadError> {
+    let mut stack = vec![];
+    
+    for maybe_token_and_rest in TokenIterator::new(input, location) {
+        let TokenAndRest{token, rest} = maybe_token_and_rest?;
+
+        let result;
+        match token.value {
+            TokenValue::OpenParen => {
+                stack.push(vec![]);
+                continue;
+            },
+            TokenValue::CloseParen => {
+                if let Some(vec) = stack.pop() {
+                    let list = vec_to_list(mem, &vec);
+                    if let Some(lower_vec) = stack.last_mut() {
+                        lower_vec.push(list);
+                        continue;
+                    }
+                    else {
+                        result = list;
+                    }
+                }
+                else {
+                    return Err(ReadError::Error{ msg: format!("too many closing parentheses"), location: token.location, rest });
+                }
+            },
+            TokenValue::Character(c) => {
+                let x = mem.allocate_character(c).with_metadata(Metadata{ read_name: format!("{c}"), location: token.location, documentation: String::new() });
+                if let Some(vec) = stack.last_mut() {
+                    vec.push(x);
+                    continue;
+                }
+                else {
+                    result = x;
+                }
+            },
+            TokenValue::Number(n) => {
+                let x = mem.allocate_number(n).with_metadata(Metadata{ read_name: format!("{n}"), location: token.location, documentation: String::new() });
+                if let Some(vec) = stack.last_mut() {
+                    vec.push(x);
+                    continue;
+                }
+                else {
+                    result = x;
+                }
+            },
+            TokenValue::Symbol(s) => {
+                let x = mem.symbol_for(s.as_str()).with_metadata(Metadata{ read_name: format!("{s}"), location: token.location, documentation: String::new() });
+                if let Some(vec) = stack.last_mut() {
+                    vec.push(x);
+                    continue;
+                }
+                else {
+                    result = x;
+                }
+            },
+            TokenValue::String(s) => {
+                let x = string_to_proper_list(mem, s.as_str()).with_metadata(Metadata{ read_name: String::new(), location: token.location, documentation: String::new() });
+                if let Some(vec) = stack.last_mut() {
+                    vec.push(x);
+                    continue;
+                }
+                else {
+                    result = x;
+                }
+            },
+        }
+
+        if token.quoted {
+            let vec = vec![mem.symbol_for("quote"), result];
+            return Ok((vec_to_list(mem, &vec), rest));
+        }
+        else {
+            return Ok((result, rest));
+        }
+    }
+
+    if stack.len() > 0 {
+        Err(ReadError::Incomplete)
+    }
+    else {
+        Err(ReadError::Nothing)
+    }
 }
 
 
@@ -307,7 +437,27 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
 
     let input = args[0].clone();
 
-    todo!()
+    match read_internal(mem, input, location) {
+        Ok((result, rest)) => {
+            let kv = vec![("status", mem.symbol_for("ok")), ("result", result), ("rest", rest)];
+            Ok(make_plist(mem, &kv))
+        },
+        Err(ReadError::Nothing) => {
+            let kv = vec![("status", mem.symbol_for("nothing"))];
+            Ok(make_plist(mem, &kv))
+        },
+        Err(ReadError::Incomplete) => {
+            let kv = vec![("status", mem.symbol_for("incomplete"))];
+            Ok(make_plist(mem, &kv))
+        },
+        Err(ReadError::InvalidString) => {
+            let kv = vec![("status", mem.symbol_for("invalid"))];
+            Ok(make_plist(mem, &kv))
+        },
+        Err(ReadError::Error{ msg, location, rest }) => {
+            Err(format_error(mem, location, msg, rest, 0, 0))
+        },
+    }
 }
 
 
