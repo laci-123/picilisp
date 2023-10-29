@@ -22,26 +22,37 @@ enum TokenValue {
     Quote,
 }
 
+
 struct Token {
     value: TokenValue,
     location: Location,
 }
 
 
+#[derive(Clone)]
+struct StringWithPosition {
+    string: GcRef,
+    line: usize,
+    column: usize,
+}
+
+impl StringWithPosition {
+    fn new(string: GcRef, line: usize, column: usize) -> Self {
+        Self{ string, line, column }
+    }
+}
+
+
 struct TokenAndRest {
     token: Token,
-    rest: GcRef,
-    rest_line: usize,
-    rest_column: usize,
+    rest: StringWithPosition,
 }
 
 impl TokenAndRest {
-    fn new(value: TokenValue, location: Location, rest: GcRef, rest_line: usize, rest_column: usize) -> Self {
+    fn new(value: TokenValue, location: Location, rest: StringWithPosition) -> Self {
         Self {
             token: Token { value, location },
             rest,
-            rest_line,
-            rest_column,
         }
     }
 }
@@ -55,7 +66,7 @@ enum TokenIteratorStatus {
     Number,
     Symbol,
     SymbolOrNumber,
-    StringStatus,
+    StringNormal,
     StringEscape,
 }
 
@@ -64,7 +75,7 @@ enum ReadError {
     InvalidString,
     Incomplete,
     Nothing,
-    Error{ msg: String, location: Location, rest: GcRef, rest_line: usize, rest_column: usize },
+    Error{ msg: String, location: Location, rest: StringWithPosition },
 }
 
 
@@ -99,7 +110,7 @@ impl Iterator for TokenIterator {
                 self.location = self.location.clone().step_column();
             }
 
-            let rest =
+            let rest_string =
             if let Some(PrimitiveValue::Cons(cons)) = rest.get() {
                 if let Some(PrimitiveValue::Character(c)) = cons.get_car().get() {
                     if *c == '\n' {
@@ -130,13 +141,15 @@ impl Iterator for TokenIterator {
                 (self.location.get_line().unwrap(), self.location.get_column().unwrap() + 1)
             };
 
+            let rest = StringWithPosition::new(rest_string, rest_line, rest_column);
+
             if status == Comment {
                 if ch == '\n' {
                     status = WhiteSpace;
                 }
                 continue;
             }
-            if status == StringStatus {
+            if status == StringNormal {
                 if ch != '"' && ch != '\\' {
                     buffer.push(ch);
                     continue;
@@ -149,9 +162,9 @@ impl Iterator for TokenIterator {
                     'r'  => buffer.push('\r'),
                     't'  => buffer.push('\t'),
                     '\\' => buffer.push('\\'),
-                    _    => return Some(Err(ReadError::Error{ msg: format!("'{ch}' is not a valid escape character in a string literal"), location: self.location.clone(), rest, rest_line, rest_column })),
+                    _    => return Some(Err(ReadError::Error{ msg: format!("'{ch}' is not a valid escape character in a string literal"), location: self.location.clone(), rest })),
                 }
-                status = StringStatus;
+                status = StringNormal;
                 continue;
             }
 
@@ -163,35 +176,35 @@ impl Iterator for TokenIterator {
                     status = Comment;
                 },
                 '\'' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::Quote, self.location.clone(), rest, rest_line, rest_column)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::Quote, self.location.clone(), rest)));
                 },
                 '(' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest, rest_line, rest_column)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::OpenParen, self.location.clone(), rest)));
                 },
                 ')' => {
-                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest, rest_line, rest_column)));
+                    return Some(Ok(TokenAndRest::new(TokenValue::CloseParen, self.location.clone(), rest)));
                 },
                 '"' => {
                     match status {
-                        StringStatus => {
-                            return Some(Ok(TokenAndRest::new(TokenValue::String(buffer.iter().collect()), beginning_location, rest, rest_line, rest_column)));
+                        StringNormal => {
+                            return Some(Ok(TokenAndRest::new(TokenValue::String(buffer.iter().collect()), beginning_location, rest)));
                         }
                         _ => {
-                            status = StringStatus;
+                            status = StringNormal;
                             beginning_location = self.location.clone();
                         }
                     }
                 },
                 '\\' => {
                     match status {
-                        StringStatus => {
+                        StringNormal => {
                             status = StringEscape;
                         },
                         Character => {
                             buffer.push(ch);
                         },
                         _ => {
-                            return Some(Err(ReadError::Error{ msg: format!("unexpected character: '\\'"), location: self.location.clone(), rest, rest_line, rest_column }));
+                            return Some(Err(ReadError::Error{ msg: format!("unexpected character: '\\'"), location: self.location.clone(), rest }));
                         }
                     }
                 },
@@ -245,11 +258,11 @@ impl Iterator for TokenIterator {
                 let atom_ending = if let Some(x) = is_atom_ending(&self.input.peek()) {x} else {return Some(Err(ReadError::InvalidString));};
                 if atom_ending {
                     match status {
-                        Character => return Some(build_character(&buffer, self.location.clone(), rest.clone(), rest_line, rest_column).map(|x| TokenAndRest::new(TokenValue::Character(x), beginning_location, rest, rest_line, rest_column))),
-                        Number    => return Some(build_number(&buffer, self.location.clone(),    rest.clone(), rest_line, rest_column).map(   |x| TokenAndRest::new(TokenValue::Number(x),    beginning_location, rest, rest_line, rest_column))),
-                        Symbol | SymbolOrNumber    => return Some(build_symbol(&buffer, self.location.clone(),    rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    beginning_location, rest, rest_line, rest_column))),
-                        StringStatus | StringEscape => { /* don't do anything */ },
-                        _         => unreachable!(),
+                        Character                   => return Some(build_character(&buffer, self.location.clone(), rest.clone()).map(|x| TokenAndRest::new(TokenValue::Character(x), beginning_location, rest))),
+                        Number                      => return Some(build_number(   &buffer, self.location.clone(), rest.clone()).map(|x| TokenAndRest::new(TokenValue::Number(x),    beginning_location, rest))),
+                        Symbol | SymbolOrNumber     => return Some(build_symbol(   &buffer, self.location.clone(), rest.clone()).map(|x| TokenAndRest::new(TokenValue::Symbol(x),    beginning_location, rest))),
+                        StringNormal | StringEscape => { /* don't do anything */ },
+                        _                           => unreachable!(),
                     }
                 }
             }
@@ -280,31 +293,31 @@ fn is_atom_ending(ch: &Option<&Option<(char, GcRef)>>) -> Option<bool> { // None
 }
 
 
-fn build_character(chars: &[char], location: Location, rest: GcRef, rest_line: usize, rest_column: usize) -> Result<char, ReadError> {
+fn build_character(chars: &[char], location: Location, rest: StringWithPosition) -> Result<char, ReadError> {
     match chars.iter().collect::<String>().as_str() {
-        ""   => Err(ReadError::Error{ msg: format!("invalid character: '%' (empty literal)"), location, rest, rest_line, rest_column }),
+        ""   => Err(ReadError::Error{ msg: format!("invalid character: '%' (empty literal)"), location, rest }),
         "\\n" => Ok('\n'),
         "\\t" => Ok('\t'),
         "\\r" => Ok('\r'),
         "\\\\" => Ok('\\'),
         c if c.len() == 1 => Ok(c.chars().next().unwrap()),
-        c    => Err(ReadError::Error{ msg: format!("invalid character: '%{c}'"), location, rest, rest_line, rest_column }),
+        c    => Err(ReadError::Error{ msg: format!("invalid character: '%{c}'"), location, rest }),
     }
 }
 
 
-fn build_symbol(chars: &[char], _location: Location, _rest: GcRef) -> Result<String, ReadError> {
+fn build_symbol(chars: &[char], _location: Location, _rest: StringWithPosition) -> Result<String, ReadError> {
     Ok(chars.iter().collect())
 }
 
 
-fn build_number(chars: &[char], location: Location, rest: GcRef, rest_line: usize, rest_column: usize) -> Result<i64, ReadError> {
-    chars.iter().collect::<String>().parse::<i64>().map_err(|err| ReadError::Error{ msg: format!("invalid number: '{err}'"), location, rest, rest_line, rest_column })
+fn build_number(chars: &[char], location: Location, rest: StringWithPosition) -> Result<i64, ReadError> {
+    chars.iter().collect::<String>().parse::<i64>().map_err(|err| ReadError::Error{ msg: format!("invalid number: '{err}'"), location, rest })
 }
 
 
 
-fn format_error(mem: &mut Memory, location: Location, msg: String, rest: GcRef, rest_line: usize, rest_column: usize) -> GcRef {
+fn format_error(mem: &mut Memory, location: Location, msg: String, rest: StringWithPosition) -> GcRef {
     let error_sym = mem.symbol_for("error");
     let error_msg = string_to_list(mem, &msg);
     let file;
@@ -330,18 +343,18 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: GcRef, 
     }
     let error_loc = vec_to_list(mem, &vec![file, line, column]);
     let error     = make_plist(mem, &vec![("location", error_loc), ("message", error_msg)]);
-    let ln        = mem.allocate_number(rest_line as i64);
-    let cn        = mem.allocate_number(rest_column as i64);
-    make_plist(mem, &vec![("status", error_sym), ("error", error), ("rest", rest), ("line", ln), ("column", cn)])
+    let ln        = mem.allocate_number(rest.line as i64);
+    let cn        = mem.allocate_number(rest.column as i64);
+    make_plist(mem, &vec![("status", error_sym), ("error", error), ("rest", rest.string), ("line", ln), ("column", cn)])
 }
 
 
-fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(GcRef, GcRef, usize, usize), ReadError> {
+fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(GcRef, StringWithPosition), ReadError> {
     let mut stack = vec![];
     let mut quoted = false;
     
     for maybe_token_and_rest in TokenIterator::new(input, location) {
-        let TokenAndRest{token, rest, rest_line, rest_column} = maybe_token_and_rest?;
+        let TokenAndRest{token, rest} = maybe_token_and_rest?;
 
         let result;
         match token.value {
@@ -375,7 +388,7 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
                     }
                 }
                 else {
-                    return Err(ReadError::Error{ msg: format!("too many closing parentheses"), location: token.location, rest, rest_line, rest_column });
+                    return Err(ReadError::Error{ msg: format!("too many closing parentheses"), location: token.location, rest });
                 }
             },
             TokenValue::Character(c) => {
@@ -458,10 +471,10 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
 
         if quoted {
             let vec = vec![mem.symbol_for("quote"), result];
-            return Ok((vec_to_list(mem, &vec), rest, rest_line, rest_column));
+            return Ok((vec_to_list(mem, &vec), rest));
         }
         else {
-            return Ok((result, rest, rest_line, rest_column));
+            return Ok((result, rest));
         }
     }
 
@@ -561,8 +574,8 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
     let input = args[0].clone();
 
     match read_internal(mem, input, location) {
-        Ok((result, rest, rest_line, rest_column)) => {
-            let kv = vec![("status", mem.symbol_for("ok")), ("result", result), ("rest", rest), ("line", mem.allocate_number(rest_line as i64)), ("column", mem.allocate_number(rest_column as i64))];
+        Ok((result, rest)) => {
+            let kv = vec![("status", mem.symbol_for("ok")), ("result", result), ("rest", rest.string), ("line", mem.allocate_number(rest.line as i64)), ("column", mem.allocate_number(rest.column as i64))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Nothing) => {
@@ -580,9 +593,9 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
             let kv = vec![("status", mem.symbol_for("invalid"))];
             Ok(make_plist(mem, &kv))
         },
-        Err(ReadError::Error{ msg, location, rest, rest_line, rest_column }) => {
+        Err(ReadError::Error{ msg, location, rest }) => {
             println!("### other: {msg}");
-            Ok(format_error(mem, location, msg, rest, rest_line, rest_column))
+            Ok(format_error(mem, location, msg, rest))
         },
     }
 }
