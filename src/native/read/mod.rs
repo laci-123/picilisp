@@ -54,6 +54,7 @@ enum TokenIteratorStatus {
     Character,
     Number,
     Symbol,
+    SymbolOrNumber,
     StringStatus,
     StringEscape,
 }
@@ -200,28 +201,43 @@ impl Iterator for TokenIterator {
                         beginning_location = self.location.clone();
                     }
                 },
-                c if c.is_ascii_digit() || c == '+' || c == '-' => {
+                '+' | '-' => {
                     if status == WhiteSpace {
-                        status = Number;
+                        status = SymbolOrNumber;
                         beginning_location = self.location.clone();
                     }
                     buffer.push(ch);
-                }
+                },
+                c if c.is_ascii_digit() => {
+                    match status {
+                        SymbolOrNumber => {
+                            status = Number;
+                        },
+                        WhiteSpace => {
+                            status = Number;
+                            beginning_location = self.location.clone();
+                        },
+                        _ => {},
+                    }
+                    buffer.push(ch);
+                },
                 _ => {
                     match status {
                         WhiteSpace => {
                             status = Symbol;
                             beginning_location = self.location.clone();
-                            buffer.push(ch);
+                        },
+                        SymbolOrNumber => {
+                            status = Symbol;
                         },
                         Number => {
                             if !ch.is_ascii_digit() {
                                 status = Symbol;
                             }
-                            buffer.push(ch);
                         },
-                        _ => buffer.push(ch),
+                        _ => {},
                     }
+                    buffer.push(ch);
                 },
             }
 
@@ -231,7 +247,7 @@ impl Iterator for TokenIterator {
                     match status {
                         Character => return Some(build_character(&buffer, self.location.clone(), rest.clone(), rest_line, rest_column).map(|x| TokenAndRest::new(TokenValue::Character(x), beginning_location, rest, rest_line, rest_column))),
                         Number    => return Some(build_number(&buffer, self.location.clone(),    rest.clone(), rest_line, rest_column).map(   |x| TokenAndRest::new(TokenValue::Number(x),    beginning_location, rest, rest_line, rest_column))),
-                        Symbol    => return Some(build_symbol(&buffer, self.location.clone(),    rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    beginning_location, rest, rest_line, rest_column))),
+                        Symbol | SymbolOrNumber    => return Some(build_symbol(&buffer, self.location.clone(),    rest.clone()).map(   |x| TokenAndRest::new(TokenValue::Symbol(x),    beginning_location, rest, rest_line, rest_column))),
                         StringStatus | StringEscape => { /* don't do anything */ },
                         _         => unreachable!(),
                     }
