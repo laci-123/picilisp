@@ -47,21 +47,21 @@ impl Location {
         }
     }
 
-    pub fn step_line(self) -> Self {
-        match self {
-            Self::Native                      => self,
-            Self::Prelude{line, column: _}    => Self::Prelude{    line: line + 1, column: 0 },
-            Self::Stdin{line, column: _}      => Self::Stdin{      line: line + 1, column: 0 },
-            Self::File{path, line, column: _} => Self::File{ path, line: line + 1, column: 0 },
+    pub fn step_line(&mut self) {
+        match *self {
+            Self::Native                                    => {},
+            Self::Prelude{ref mut line, ref mut column}     => { *line += 1; *column = 0},
+            Self::Stdin  {ref mut line, ref mut column}     => { *line += 1; *column = 0},
+            Self::File   {ref mut line, ref mut column, ..} => { *line += 1; *column = 0},
         }
     }
 
-    pub fn step_column(self) -> Self {
+    pub fn step_column(&mut self) {
         match self {
-            Self::Native                   => self,
-            Self::Prelude{line, column}    => Self::Prelude{    line, column: column + 1 },
-            Self::Stdin{line, column}      => Self::Stdin{      line, column: column + 1 },
-            Self::File{path, line, column} => Self::File{ path, line, column: column + 1 },
+            Self::Native                      => {},
+            Self::Prelude{ref mut column, ..} => { *column += 1 },
+            Self::Stdin  {ref mut column, ..} => { *column += 1 },
+            Self::File   {ref mut column, ..} => { *column += 1 },
         }
     }
 }

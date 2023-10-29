@@ -104,10 +104,10 @@ impl Iterator for TokenIterator {
             let (ch, rest) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err(ReadError::InvalidString));};
 
             if ch == '\n' {
-                self.location = self.location.clone().step_line();
+                self.location.step_line();
             }
             else {
-                self.location = self.location.clone().step_column();
+                self.location.step_column();
             }
 
             let rest_string =
