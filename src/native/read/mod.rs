@@ -101,7 +101,7 @@ impl Iterator for TokenIterator {
         let mut beginning_location = self.location.clone();
 
         while let Some(maybe_char_and_rest) = self.input.next() {
-            let (ch, rest) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err(ReadError::InvalidString));};
+            let (ch, r) = if let Some(x) = maybe_char_and_rest {x} else {return Some(Err(ReadError::InvalidString));};
 
             if ch == '\n' {
                 self.location.step_line();
@@ -110,38 +110,8 @@ impl Iterator for TokenIterator {
                 self.location.step_column();
             }
 
-            let rest_string =
-            if let Some(PrimitiveValue::Cons(cons)) = rest.get() {
-                if let Some(PrimitiveValue::Character(c)) = cons.get_car().get() {
-                    if *c == '\n' {
-                        cons.get_cdr()
-                    }
-                    else {
-                        rest
-                    }
-                }
-                else {
-                    rest
-                }
-            }
-            else {
-                rest
-            };
+            let rest = StringWithPosition::new(r, self.location.get_line().unwrap(), self.location.get_column().unwrap() + 1);
 
-            let (rest_line, rest_column) =
-            if let Some(Some((ch, _))) = self.input.peek() {
-                if *ch == '\n' {
-                    (self.location.get_line().unwrap() + 1, 1)
-                }
-                else {
-                    (self.location.get_line().unwrap(), self.location.get_column().unwrap() + 1)
-                }
-            }
-            else {
-                (self.location.get_line().unwrap(), self.location.get_column().unwrap() + 1)
-            };
-
-            let rest = StringWithPosition::new(rest_string, rest_line, rest_column);
 
             if status == Comment {
                 if ch == '\n' {
@@ -579,22 +549,18 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Nothing) => {
-            println!("### nothing");
             let kv = vec![("status", mem.symbol_for("nothing"))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Incomplete) => {
-            println!("### incomplete");
             let kv = vec![("status", mem.symbol_for("incomplete"))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::InvalidString) => {
-            println!("### invalid");
             let kv = vec![("status", mem.symbol_for("invalid"))];
             Ok(make_plist(mem, &kv))
         },
         Err(ReadError::Error{ msg, location, rest }) => {
-            println!("### other: {msg}");
             Ok(format_error(mem, location, msg, rest))
         },
     }

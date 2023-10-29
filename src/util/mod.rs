@@ -196,6 +196,20 @@ macro_rules! symbol_eq {
 
 pub(crate) use symbol_eq;
 
+macro_rules! block {
+    ($($body:tt)*) => {
+        loop {
+            $($body)*
+            #[allow(unreachable_code)]
+            {
+                panic!("not all paths return a value from block");
+            }
+        }
+    };
+}
+
+pub(crate) use block;
+
 
 #[cfg(test)]
 macro_rules! assert_eq_symbol {

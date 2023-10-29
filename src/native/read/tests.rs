@@ -479,10 +479,9 @@ fn read_continue_rest_newline() {
     let column       = property(&mut mem, "column", r).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     assert_eq_symbol!(result, mem.symbol_for("lion"));
-    println!("%%% {:?}", list_to_string(rest.clone()));
-    assert_eq!(list_to_string(rest.clone()).unwrap(), " tiger  ");
-    assert_eq!(*line.get().unwrap().as_number(), 2);
-    assert_eq!(*column.get().unwrap().as_number(), 1);
+    assert_eq!(list_to_string(rest.clone()).unwrap(), "\n tiger  ");
+    assert_eq!(*line.get().unwrap().as_number(), 1);
+    assert_eq!(*column.get().unwrap().as_number(), 7);
 
     let r      = read(&mut mem, &[rest, source, line, column], GcRef::nil(), 0).ok().unwrap();
     let status = property(&mut mem, "status", r.clone()).unwrap();
