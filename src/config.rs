@@ -12,9 +12,9 @@ pub const MINIMUM_FREE_RATIO: f32 = 0.1;
 pub const ALLOCATION_RATIO: f32 = 1.0;
 
 /// maximum depth of recursion before a evaluation is interrupted and a stackoverflow signal is emitted
-pub const MAX_RECURSION_DEPTH: usize = 700;
+pub const MAX_RECURSION_DEPTH: usize = 1024;
 
-/// the name of the whole application, e.g. it is displayed on the GUI widnow titlebar
+/// the name of the whole application, e.g. it is displayed on the GUI window titlebar
 pub const APPLICATION_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// size of the output buffer in the graphical interface (in bytes)
