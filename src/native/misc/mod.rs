@@ -23,24 +23,6 @@ pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: u
 }
 
 
-pub const QUOTE: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      quote,
-    name:          "quote",
-    kind:          FunctionKind::SpecialLambda,
-    parameters:    &["object"],
-    documentation: "Don't do anything with `object`.
-Useful if you want to prevent `object` from being evaluated.
-Note: `object` will be macroexpanded, it just won't be evaluated."
-};
-
-pub fn quote(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, QUOTE.name, args, (let x: TypeLabel::Any));
-
-    Ok(x)
-}
-
-
 pub const BRANCH: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      branch,

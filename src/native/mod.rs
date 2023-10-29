@@ -4,10 +4,7 @@ use crate::metadata::*;
 
 
 pub fn load_native_functions(mem: &mut Memory) {
-    load_native_function(mem, functions::LAMBDA);
-    load_native_function(mem, functions::SPECIAL_LAMBDA);
     load_native_function(mem, functions::MACRO);
-    load_native_function(mem, functions::SYNTAX);
     load_native_function(mem, list::CONS);
     load_native_function(mem, list::CAR);
     load_native_function(mem, list::CDR);
@@ -15,7 +12,6 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, list::GET_PROPERTY);
     load_native_function(mem, list::UNREST);
     load_native_function(mem, signal::SIGNAL);
-    load_native_function(mem, signal::TRAP);
     load_native_function(mem, read::READ);
     load_native_function(mem, eval::MACROEXPAND);
     load_native_function(mem, eval::EVAL);
@@ -29,13 +25,11 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, globals::UNDEFINE);
     load_native_function(mem, reflection::TYPE_OF);
     load_native_function(mem, reflection::GET_METADATA);
-    load_native_function(mem, reflection::BREAK);
     load_native_function(mem, io::INPUT);
     load_native_function(mem, io::OUTPUT);
     load_native_function(mem, io::INPUT_FILE);
     load_native_function(mem, io::OUTPUT_FILE);
     load_native_function(mem, misc::GENSYM);
-    load_native_function(mem, misc::QUOTE);
     load_native_function(mem, misc::BRANCH);
     load_native_function(mem, misc::EQUAL);
 }
@@ -58,8 +52,6 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
             value_type: TypeLabel::Function,
             value: Ok(match nfmd.kind {
                 FunctionKind::Macro         => "#<macro>",
-                FunctionKind::Syntax        => "#<syntax>",
-                FunctionKind::SpecialLambda => "#<special-lambda>",
                 FunctionKind::Lambda        => "#<lambda>",
             }.to_string()),
         };

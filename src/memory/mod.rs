@@ -94,10 +94,8 @@ impl Eq for Symbol {}
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum FunctionKind {
-    Syntax,
     Macro,
     Lambda,
-    SpecialLambda,
 }
 
 

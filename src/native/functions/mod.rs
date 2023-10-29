@@ -70,42 +70,6 @@ fn function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: Fu
 }
 
 
-pub const LAMBDA: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      lambda,
-    name:          "lambda",
-    kind:          FunctionKind::SpecialLambda,
-    parameters:    &["parameters", "body"],
-    documentation: "Create a lambda function with `parameters` and `body`.
-Lambda functions are evaluated at runtime,
-and their arguments are evaluated in left-to-right order before the function itself is evaluated.",
-};
-
-
-pub fn lambda(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    function(mem, args, env, LAMBDA.name, FunctionKind::Lambda)
-}
-
-
-pub const SPECIAL_LAMBDA: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      special_lambda,
-    name:          "special-lambda",
-    kind:          FunctionKind::SpecialLambda,
-    parameters:    &["parameters", "body"],
-    documentation: "Create a special-lambda function with `parameters` and `body`.
-Special-lambda functions are evaluated at runtime,
-but their arguments are not evaluated.
-They also differ from normal lambda functions in that
-they do not capture the environment they are declared in,
-instead they have access to the environment they are called in."
-};
-
-pub fn special_lambda(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    function(mem, args, env, SPECIAL_LAMBDA.name, FunctionKind::SpecialLambda)
-}
-
-
 pub const MACRO: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      macro_macro,
@@ -119,23 +83,6 @@ and their arguments are not evaluated.",
 
 pub fn macro_macro(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     function(mem, args, env, MACRO.name, FunctionKind::Macro)
-}
-
-
-pub const SYNTAX: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      syntax,
-    name:          "syntax",
-    kind:          FunctionKind::Macro,
-    parameters:    &["parameters", "body"],
-    documentation: "Create a syntax-macro function with `parameters` and `body`.
-Syntax-macros are evaluated during reading, even before regular macros.
-Their only argument is the source string the reader is currently processing,
-and they should return a lisp-object and the rest of the source string.",
-};
-
-pub fn syntax(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    function(mem, args, env, SYNTAX.name, FunctionKind::Syntax)
 }
 
 

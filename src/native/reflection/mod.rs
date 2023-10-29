@@ -39,28 +39,6 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
     }
 }
 
-pub const BREAK: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      break_point,
-    name:          "break",
-    kind:          FunctionKind::SpecialLambda,
-    parameters:    &["expression"],
-    documentation: "Add a breakpoint to `expression`.
-In debug-mode, debugging will pause at this expression.
-Has no effect when not debugging."
-};
-
-pub fn break_point(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, BREAK.name, args, (let expression: TypeLabel::Any));
-
-    if let Some(umb) = &mut mem.umbilical {
-        umb.paused = true;
-        umb.to_high_end.send(DiagnosticData::Paused).expect("supervisor thread disappeared");
-    }
-
-    Ok(expression)
-}
-
 
 pub const GET_METADATA: NativeFunctionMetaData =
 NativeFunctionMetaData{
@@ -121,8 +99,6 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
                 let kind =
                 match f.get_kind() {
                     FunctionKind::Macro         => mem.symbol_for("macro"),
-                    FunctionKind::Syntax        => mem.symbol_for("syntax"),
-                    FunctionKind::SpecialLambda => mem.symbol_for("special-lambda"),
                     FunctionKind::Lambda        => mem.symbol_for("lambda"),
                 };
                 vec.insert(0, ("function-kind", kind));

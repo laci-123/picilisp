@@ -29,9 +29,7 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
         PrimitiveValue::Function(f)  => {
             match f.get_kind() {
                 FunctionKind::Lambda        => string_to_list(mem, &format!("#<lambda>")),
-                FunctionKind::SpecialLambda => string_to_list(mem, &format!("#<special-lambda>")),
                 FunctionKind::Macro         => string_to_list(mem, &format!("#<macro>")),
-                FunctionKind::Syntax        => string_to_list(mem, &format!("#<syntax-macro>")),
             }
         },
         PrimitiveValue::Cons(x)      => {
@@ -151,9 +149,7 @@ pub fn print_to_rust_string(expression: GcRef, recursion_depth: usize) -> Result
             PrimitiveValue::Function(f)  => {
                 match f.get_kind() {
                     FunctionKind::Lambda        => Ok(format!("#<lambda>")),
-                    FunctionKind::SpecialLambda => Ok(format!("#<special-lambda>")),
                     FunctionKind::Macro         => Ok(format!("#<macro>")),
-                    FunctionKind::Syntax        => Ok(format!("#<syntax-macro>")),
                 }
             },
             PrimitiveValue::Cons(x)      => {
