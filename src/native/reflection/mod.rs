@@ -1,4 +1,3 @@
-use crate::debug::DiagnosticData;
 use crate::memory::*;
 use crate::metadata::*;
 use crate::util::*;
@@ -6,6 +5,22 @@ use crate::native::list::make_plist;
 use crate::error_utils::*;
 use super::NativeFunctionMetaData;
 
+
+
+pub const GET_ENVIRONMENT: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      get_environment,
+    name:          "get-environment",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["object"],
+    documentation: "Return local environment."
+};
+
+pub fn get_environment(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GET_ENVIRONMENT.name, args);
+
+    Ok(env)
+}
 
 
 pub const TYPE_OF: NativeFunctionMetaData =
@@ -32,10 +47,10 @@ pub fn type_of(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
             else {
                 Ok(mem.symbol_for("cons-type"))
             }
-        }
+        },
         _ => {
             Ok(mem.symbol_for(x.get_type().to_string()))
-        }
+        },
     }
 }
 

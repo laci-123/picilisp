@@ -286,3 +286,37 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
     (output (print x))
     (infinite-loop (+ x 1))))
 
+;; (defun lookup (key env)
+;;   ""
+;;   (if env
+;;       (let (key-value (car env))
+;;         (if (= key (car key-value))
+;;             (cdr key-value)
+;;             (lookup key (cdr env))))
+;;       (eval key)))
+
+;; (defun debug-list (expr env)
+;;   ""
+;;   (let (operator (car expr)
+;;         operands (cdr expr))
+;;     (case
+;;       ((= operator 'quote) (car operands))
+;;       ((= operator 'if)    (let (condition (car operands)
+;;                                  then      (car (cdr operands))
+;;                                  otherwise (car (cdr (cdr operands))))
+;;                              (if (eval 
+
+;; (defun debug (expr env)
+;;   ""
+;;   (let (type (type-of expr))
+;;     (let (function-type (if (= type function-type)
+;;                             (get-property 'function-kind (get-metadata expr))
+;;                             nil))
+;;       (case
+;;         ((= type nil-type)     nil)
+;;         ((= type list-type)    (debug-list expr env))
+;;         ((= type cons-type)    (cons (debug (car expr) env)
+;;                                      (debug (cdr expr) env)))
+;;         ((= type symbol-type) (lookup expr env))
+;;         ('otherwise           expr)))))
+         
