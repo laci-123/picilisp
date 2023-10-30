@@ -150,7 +150,8 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     return make_function(mem, &list_elems[1..], env.clone(), "lambda", FunctionKind::Lambda);
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
-                    return Ok(expression.get().unwrap().as_conscell().get_cdr());
+                    validate_args!(mem, "quote", &list_elems[1..], (let x: TypeLabel::Any));
+                    return Ok(x);
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("if")) {
                     validate_args!(mem, "if", &list_elems[1..], (let condition: TypeLabel::Any), (let then: TypeLabel::Any), (let otherwise: TypeLabel::Any));
@@ -276,7 +277,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
                 return make_function(mem, &list_elems[1..], env.clone(), "macro", FunctionKind::Macro);
             }
             else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
-                return Ok(expression.get().unwrap().as_conscell().get_cdr());
+                return Ok(expression);
             }
             else {
                 // first element of `expression` is not a special operator
