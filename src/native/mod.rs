@@ -4,7 +4,6 @@ use crate::metadata::*;
 
 
 pub fn load_native_functions(mem: &mut Memory) {
-    load_native_function(mem, functions::MACRO);
     load_native_function(mem, list::CONS);
     load_native_function(mem, list::CAR);
     load_native_function(mem, list::CDR);
@@ -72,7 +71,6 @@ pub struct NativeFunctionMetaData {
 pub mod print;
 pub mod read;
 pub mod eval;
-pub mod functions;
 pub mod list;
 pub mod signal;
 pub mod numbers;
