@@ -1,4 +1,5 @@
 use crate::memory::*;
+use crate::metadata::Metadata;
 use crate::util::*;
 use crate::native::read::read;
 use crate::native::list::property;
