@@ -67,6 +67,69 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<S
     Ok(new_env)
 }
 
+fn make_function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
+    validate_args!(mem, source, args, (let params: TypeLabel::List), (let body: TypeLabel::Any));
+    
+    let mut actual_params   = vec![];
+    let mut has_rest_params = false;
+    let rest_param_symbol   = mem.symbol_for("&");
+    let param_count         = params.len();
+    let mut i               = 0;
+
+    for param in params {
+        if let Some(PrimitiveValue::Symbol(symbol)) = param.get() {
+            if has_rest_params {
+                actual_params.push(param.clone());
+                break;
+            }
+
+            if symbol == rest_param_symbol.get().unwrap().as_symbol() {
+                // i == param_count - 2  (rearranged to avoid underflow when param_count == 0)
+                if i + 2 == param_count {
+                    //          ---4---
+                    //          0 1 2 3
+                    // (lambda (x y & z) ...
+                    //              ^
+                    //              4 - 2
+                    has_rest_params = true;
+                }
+                //      i > param_count - 2
+                else if i + 2 > param_count {
+                    //          ---4---
+                    //          0 1 2 3
+                    // (lambda (x y z &) ...
+                    //                ^
+                    //                3 > 4 - 2
+                    let error = make_error(mem, "missing-rest-parameter", source, &vec![]);
+                    return Err(error);
+                }
+                // i < param_count - 2
+                else {
+                    //          ---4---
+                    //          0 1 2 3
+                    // (lambda (x & y z) ...
+                    //            ^
+                    //            1 < 4 - 2
+                    let error = make_error(mem, "multiple-rest-parameters", source, &vec![]);
+                    return Err(error);
+                }
+            }
+            else {
+                actual_params.push(param.clone());
+            }
+        }
+        else {
+            let error_details = vec![("param", param)];
+            let error = make_error(mem, "param-is-not-symbol", source, &error_details);
+            return Err(error);
+        }
+
+        i += 1;
+    }
+
+    let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env);
+    Ok(function)
+}
 
 fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     if recursion_depth > config::MAX_RECURSION_DEPTH {
@@ -84,13 +147,23 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                 // `expression` is a non-empty list
 
                 if symbol_eq!(list_elems[0], mem.symbol_for("lambda")) {
-                    todo!()
+                    return make_function(mem, &list_elems[1..], env.clone(), "lambda", FunctionKind::Lambda);
+                }
+                else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
+                    return Ok(expression.get().unwrap().as_conscell().get_cdr());
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("if")) {
-                    todo!()
+                    validate_args!(mem, "if", &list_elems[1..], (let condition: TypeLabel::Any), (let then: TypeLabel::Any), (let otherwise: TypeLabel::Any));
+                    if !condition.is_nil() {
+                        return Ok(then);
+                    }
+                    else {
+                        return Ok(otherwise);
+                    }
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("trap")) {
-                    todo!()
+                    validate_args!(mem, "trap", &list_elems[1..], (let normal_body: TypeLabel::Any), (let trap_body: TypeLabel::Any));
+                    return Ok(mem.allocate_trap(normal_body, trap_body));
                 }
                 else {
                     // first element of `expression` is not a special operator
@@ -199,31 +272,41 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
         if let Some(first) = list_elems.get(0).map(|x| x.clone()) {
             // `expression` is a non-empty list
             
-            let operator = macroexpand_internal(mem, first, env.clone(), recursion_depth + 1, changed)?;
-
-            // expand all elements regardless what the operator is
-            for i in 1..list_elems.len() {
-                list_elems[i] = macroexpand_internal(mem, list_elems[i].clone(), env.clone(), recursion_depth + 1, changed)?;
+            if symbol_eq!(list_elems[0], mem.symbol_for("macro")) {
+                return make_function(mem, &list_elems[1..], env.clone(), "macro", FunctionKind::Macro);
             }
+            else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
+                return Ok(expression.get().unwrap().as_conscell().get_cdr());
+            }
+            else {
+                // first element of `expression` is not a special operator
 
-            // if the operator is a macro then evaluate it... 
-            if let Some(PrimitiveValue::Function(f)) = operator.get() {
-                if f.get_kind() == FunctionKind::Macro {
-                    *changed = true;
-                    match f {
-                        Function::NativeFunction(nf) => {
-                            return nf.call(mem, &list_elems[1..], env.clone(), recursion_depth + 1);
-                        },
-                        Function::NormalFunction(nf) => {
-                            let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..])?;
-                            return eval_internal(mem, nf.get_body(), new_env, recursion_depth + 1);
-                        },
+                let operator = macroexpand_internal(mem, first, env.clone(), recursion_depth + 1, changed)?;
+
+                // expand all elements regardless what the operator is
+                for i in 1..list_elems.len() {
+                    list_elems[i] = macroexpand_internal(mem, list_elems[i].clone(), env.clone(), recursion_depth + 1, changed)?;
+                }
+
+                // if the operator is a macro then evaluate it... 
+                if let Some(PrimitiveValue::Function(f)) = operator.get() {
+                    if f.get_kind() == FunctionKind::Macro {
+                        *changed = true;
+                        match f {
+                            Function::NativeFunction(nf) => {
+                                return nf.call(mem, &list_elems[1..], env.clone(), recursion_depth + 1);
+                            },
+                            Function::NormalFunction(nf) => {
+                                let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..])?;
+                                return eval_internal(mem, nf.get_body(), new_env, recursion_depth + 1);
+                            },
+                        }
                     }
                 }
-            }
 
-            // ...otherwise return the whole list as-is
-            Ok(vec_to_list(mem, &list_elems))
+                // ...otherwise return the whole list as-is
+                Ok(vec_to_list(mem, &list_elems))
+            }
         }
         else {
             // `expression` is the empty list

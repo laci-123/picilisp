@@ -214,24 +214,6 @@ fn eval_call_lambda_unbound_params() {
 }
 
 #[test]
-fn eval_call_special_lambda() {
-    let mut mem = Memory::new();
-
-    // a special-lambda that returns its second parameter
-    let params  = vec![mem.symbol_for("x"), mem.symbol_for("y")];
-    let body    = mem.symbol_for("y");
-    let has_rest_params = false;
-    let lambda  = mem.allocate_normal_function(FunctionKind::SpecialLambda, has_rest_params, body,&params, GcRef::nil());
-
-    let vec     = vec![lambda, mem.symbol_for("not-bound"), mem.symbol_for("symbols")];
-    let tree    = vec_to_list(&mut mem, &vec);
-
-    let value = eval_external(&mut mem, tree);
-    let value_str = list_to_string(print(&mut mem, &[value.unwrap()], GcRef::nil(), 0).ok().unwrap()).unwrap();
-    assert_eq!(value_str, "symbols");
-}
-
-#[test]
 fn eval_trap_without_signal() {
     let mut mem = Memory::new();
 

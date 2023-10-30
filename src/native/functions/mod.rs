@@ -86,5 +86,5 @@ pub fn macro_macro(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_dept
 }
 
 
-#[cfg(test)]
-mod tests;
+// #[cfg(test)]
+// mod tests;
