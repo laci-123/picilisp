@@ -74,14 +74,19 @@ NativeFunctionMetaData{
     function:      get_environment,
     name:          "get-environment",
     kind:          FunctionKind::Lambda,
-    parameters:    &["object"],
-    documentation: "Return local environment."
+    parameters:    &["function"],
+    documentation: "Return captured environment of `function`."
 };
 
-pub fn get_environment(mem: &mut Memory, args: &[GcRef], env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, GET_ENVIRONMENT.name, args);
+pub fn get_environment(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GET_ENVIRONMENT.name, args, (let f: TypeLabel::Function));
 
-    Ok(env)
+    if let Function::NormalFunction(nf) = f {
+        Ok(nf.get_env())
+    }
+    else {
+        Ok(GcRef::nil())
+    }
 }
 
 
