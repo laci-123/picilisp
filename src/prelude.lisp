@@ -304,7 +304,12 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
 ;;       ((= operator 'if)    (let (condition (car operands)
 ;;                                  then      (car (cdr operands))
 ;;                                  otherwise (car (cdr (cdr operands))))
-;;                              (if (eval 
+;;                              (if (debug condition env)
+;;                                  (debug then      env)
+;;                                  (debug otherwise env))))
+;;       ((= operator 'eval)  (debug (debug (car operands) env) env))
+;;       ((= operator 'trap)  (debug (trap (car operands) (cdr operands)) env))
+      
 
 ;; (defun debug (expr env)
 ;;   ""
