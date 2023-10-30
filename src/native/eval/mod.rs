@@ -155,11 +155,12 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("if")) {
                     validate_args!(mem, "if", &list_elems[1..], (let condition: TypeLabel::Any), (let then: TypeLabel::Any), (let otherwise: TypeLabel::Any));
-                    if !condition.is_nil() {
-                        return Ok(then);
+                    let evaled_condition = eval_internal(mem, condition, env.clone(), recursion_depth + 1)?;
+                    if !evaled_condition.is_nil() {
+                        return eval_internal(mem, then, env, recursion_depth + 1);
                     }
                     else {
-                        return Ok(otherwise);
+                        return eval_internal(mem, otherwise, env, recursion_depth + 1);
                     }
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("trap")) {

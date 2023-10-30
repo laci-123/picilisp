@@ -9,15 +9,6 @@
   "Globally define `name` as a lambda function."
   (list 'define (list 'quote name) (list 'lambda params body) doc-string))
 
-(defmacro defspecial (name params doc-string body)
-  "Globally define `name` as a special-lambda function."
-  (list 'define (list 'quote name) (list 'special-lambda params body) doc-string))
-
-(defspecial if (condition then otherwise)
-  "Evaluate `then` if and only if `condition` evaluates to non-nil,
-and evaluate `otherwise` if and only if `condition` evaluates to nil."
-  (eval (branch (eval condition) then otherwise)))
-
 (defun unzip-list (pairs)
   "Group the odd and even numbered elements of `pairs` into two separate lists."
   (if pairs
@@ -294,3 +285,4 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
   (block
     (output (print x))
     (infinite-loop (+ x 1))))
+
