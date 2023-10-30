@@ -218,6 +218,17 @@ impl Function {
         }
     }
 
+    pub fn is_normal(&self) -> bool {
+        matches!(self, Self::NormalFunction(_))
+    }
+
+    pub fn get_body(&self) -> GcRef {
+        match self {
+            Self::NormalFunction(nf) => nf.get_body(),
+            _ => GcRef::nil(),
+        }
+    }
+
     pub fn get_param_names(&self) -> Vec<String> {
         match self {
             Self::NormalFunction(nf) => {

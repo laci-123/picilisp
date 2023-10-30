@@ -7,6 +7,28 @@ use super::NativeFunctionMetaData;
 
 
 
+pub const GET_BODY: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      get_body,
+    name:          "get-body",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["function"],
+    documentation: "Return a list whose single element is the body of `function` if it isn't a native function.
+If `function` is a native function then return nil."
+};
+
+pub fn get_body(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GET_BODY.name, args, (let f: TypeLabel::Function));
+
+    if f.is_normal() {
+        Ok(mem.allocate_cons(f.get_body(), GcRef::nil()))
+    }
+    else {
+        Ok(GcRef::nil())
+    }
+}
+
+
 pub const MAKE_FUNCTION: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      make_function,
