@@ -193,6 +193,18 @@ pub enum Function {
 }
 
 impl Function {
+    pub fn to_string(&self) -> String {
+        let kind =
+        match self.get_kind() {
+            FunctionKind::Lambda => "lambda",
+            FunctionKind::Macro  => "macro",
+        };
+        match self {
+            Self::NormalFunction(nf) => format!("#<{kind}-{:?}>", nf.body),
+            Self::NativeFunction(nf) => format!("#<{kind}-{:?}>", nf.function),
+        }
+    }
+    
     pub fn as_normal_function(&self) -> &NormalFunction {
         if let Self::NormalFunction(nf) = self {
             nf
@@ -268,6 +280,10 @@ pub struct Trap {
 }
 
 impl Trap {
+    pub fn to_string(&self) -> String {
+        format!("#<trap-{:?}>", self.normal_body)
+    }
+    
     pub fn get_normal_body(&self) -> GcRef {
         GcRef::new(self.normal_body)
     }

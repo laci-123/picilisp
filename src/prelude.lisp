@@ -283,7 +283,7 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
   "for testing purposes"
   (block
     (output (print x))
-    (infinite-loop (+ x 1))))
+    (infinite-loop (add x 1))))
 
 (defun lookup (key env)
   ""
