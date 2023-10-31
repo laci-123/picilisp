@@ -46,29 +46,6 @@ pub fn get_body(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth:
 }
 
 
-pub const MAKE_FUNCTION: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      make_function,
-    name:          "make-function",
-    kind:          FunctionKind::Lambda,
-    parameters:    &["params", "body", "environment", "kind"],
-    documentation: "Manually construct a function-object form the given arguments."
-};
-
-pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, MAKE_FUNCTION.name, args, (let params: TypeLabel::List), (let body: TypeLabel::Any), (let environment: TypeLabel::Any), (let kind: TypeLabel::Symbol));
-
-    let k =
-    match kind.get_name().as_str() {
-        "lambda-type"         => FunctionKind::Lambda,
-        "macro-type"          => FunctionKind::Macro,
-        _ => return Err(make_error(mem, "wrong-arg-value", MAKE_FUNCTION.name, &vec![])),
-    };
-    Ok(mem.allocate_normal_function(k, false, body, &params, environment))
-}
-
-
-
 pub const GET_ENVIRONMENT: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      get_environment,

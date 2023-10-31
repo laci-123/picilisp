@@ -68,7 +68,35 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<S
     Ok(new_env)
 }
 
-fn make_function(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
+
+pub const MAKE_FUNCTION: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      make_function,
+    name:          "make-function",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["params", "body", "environment", "kind"],
+    documentation: "Manually construct a function-object form the given arguments.
+`kind` is either `lambda-type` or `macro-type`."
+};
+
+pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    if recursion_depth > config::MAX_RECURSION_DEPTH {
+        return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
+    }
+    validate_args!(mem, MAKE_FUNCTION.name, args, (let _params: TypeLabel::List), (let _body: TypeLabel::Any), (let environment: TypeLabel::Any), (let kind: TypeLabel::Symbol));
+
+    let (s, k) =
+    match kind.get_name().as_str() {
+        "lambda-type"         => ("lambda", FunctionKind::Lambda),
+        "macro-type"          => ("macro", FunctionKind::Macro),
+        _ => return Err(make_error(mem, "wrong-arg-value", MAKE_FUNCTION.name, &vec![])),
+    };
+
+    make_function_internal(mem, &args[0..2], environment, s, k)
+}
+
+
+fn make_function_internal(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
     validate_args!(mem, source, args, (let params: TypeLabel::List), (let body: TypeLabel::Any));
     
     let mut actual_params   = vec![];
@@ -148,7 +176,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                 // `expression` is a non-empty list
 
                 if symbol_eq!(list_elems[0], mem.symbol_for("lambda")) {
-                    return make_function(mem, &list_elems[1..], env.clone(), "lambda", FunctionKind::Lambda);
+                    return make_function_internal(mem, &list_elems[1..], env.clone(), "lambda", FunctionKind::Lambda);
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
                     validate_args!(mem, "quote", &list_elems[1..], (let x: TypeLabel::Any));
@@ -276,7 +304,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
             // `expression` is a non-empty list
             
             if symbol_eq!(list_elems[0], mem.symbol_for("macro")) {
-                return make_function(mem, &list_elems[1..], env.clone(), "macro", FunctionKind::Macro);
+                return make_function_internal(mem, &list_elems[1..], env.clone(), "macro", FunctionKind::Macro);
             }
             else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
                 return Ok(expression);
