@@ -12,6 +12,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, list::UNREST);
     load_native_function(mem, signal::SIGNAL);
     load_native_function(mem, read::READ);
+    load_native_function(mem, eval::MAKE_TRAP);
     load_native_function(mem, eval::MAKE_FUNCTION);
     load_native_function(mem, eval::CALL_NATIVE_FUNCTION);
     load_native_function(mem, eval::MACROEXPAND);

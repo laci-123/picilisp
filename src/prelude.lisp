@@ -321,7 +321,7 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
                                   (debug then      env)
                                   (debug otherwise env))))
       ((= operator 'eval)   (debug (debug (car operands) env) env))
-      ((= operator 'trap)   (debug (trap (car operands) (cdr operands)) env))
+      ((= operator 'trap)   (make-trap (car operands) (car (cdr operands))) env)
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
                                            env
@@ -347,6 +347,14 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
                      ((= type 'cons-type)    (cons (debug (car expr) env)
                                                    (debug (cdr expr) env)))
                      ((= type 'symbol-type) (lookup expr env))
+                     ((= type 'trap-type)   (let (nt (destructure-trap expr))
+                                              (let (normal-body (car nt)
+                                                    trap-body   (car (cdr nt)))
+                                                (eval (trap
+                                                       (debug normal-body env)
+                                                       (block
+                                                         (output (concat "# SIGNAL TRAPPED: " (print *trapped-signal*)))
+                                                         (debug trap-body (cons (cons '*trapped-signal* *trapped-signal*) env))))))))
                      ('otherwise            expr))))
       (block
         (output (concat "# RETURN: " (print expr) " --> " (print result)))

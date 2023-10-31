@@ -94,6 +94,25 @@ pub fn call_native_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recur
 }
 
 
+pub const MAKE_TRAP: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      make_trap,
+    name:          "make-trap",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["normal-body", "trap-body"],
+    documentation: "Manually construct a trap object from `normal-body` and `trap-body`."
+};
+
+pub fn make_trap(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    if recursion_depth > config::MAX_RECURSION_DEPTH {
+        return Err(make_error(mem, "stackoverflow", MAKE_TRAP.name, &vec![]));
+    }
+    validate_args!(mem, MAKE_TRAP.name, args, (let normal_body: TypeLabel::Any), (let trap_body: TypeLabel::Any));
+
+    Ok(mem.allocate_trap(normal_body, trap_body))
+}
+
+
 pub const MAKE_FUNCTION: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      make_function,
