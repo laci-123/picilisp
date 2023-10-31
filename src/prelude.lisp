@@ -278,7 +278,6 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
              (t                           (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status)))))
   (catch-all
    (lambda (error) (signal (pretty-print-error error))))))
-  
 
 (defun infinite-loop (x)
   "for testing purposes"
@@ -298,8 +297,15 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
 (defun add-parameters (params args env)
   ""
   (if params
-      (cons (cons (car params) (car args))
-            (add-parameters (cdr params) (cdr args) env))
+      (let (first-param (car params)
+            rest-params (cdr params)
+            first-arg   (car args)
+            rest-args   (cdr args))
+        (if (= first-param '&)
+            (cons (cons (car rest-params) args)
+                  env)
+            (cons (cons first-param first-arg)
+                  (add-parameters rest-params rest-args env))))
       env))
 
 (defun debug-list (expr env)
@@ -328,18 +334,21 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
                                            (add-parameters (get-parameters evaled-operator)
                                                            evaled-operands
                                                            (get-environment evaled-operator)))
-                                    (eval (cons evaled-operator evaled-operands)))))))))
+                                    (call-native-function evaled-operator evaled-operands env))))))))
                                       
 (defun debug (expr env)
   ""
   (block
-      (output (concat "### " (print expr) ", " (print env)))
-    (let (type (type-of expr))
-      (case
-        ((= type 'nil-type)     nil)
-        ((= type 'list-type)    (debug-list expr env))
-        ((= type 'cons-type)    (cons (debug (car expr) env)
-                                     (debug (cdr expr) env)))
-        ((= type 'symbol-type) (lookup expr env))
-        ('otherwise            expr)))))
+    (output (concat "# EVAL:   " (print expr) " ENV: " (print env)))
+    (let (result (let (type (type-of expr))
+                   (case
+                     ((= type 'nil-type)     nil)
+                     ((= type 'list-type)    (debug-list expr env))
+                     ((= type 'cons-type)    (cons (debug (car expr) env)
+                                                   (debug (cdr expr) env)))
+                     ((= type 'symbol-type) (lookup expr env))
+                     ('otherwise            expr))))
+      (block
+        (output (concat "# RETURN: " (print expr) " --> " (print result)))
+        result))))
          

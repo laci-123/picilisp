@@ -69,6 +69,31 @@ fn pair_params_and_args(mem: &mut Memory, nf: &NormalFunction, nf_name: Option<S
 }
 
 
+pub const CALL_NATIVE_FUNCTION: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      call_native_function,
+    name:          "call-native-function",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["function", "arguments", "environment"],
+    documentation: "Call the native function `function` with `arguments` and `environment` as its local environment."
+};
+
+pub fn call_native_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    if recursion_depth > config::MAX_RECURSION_DEPTH {
+        return Err(make_error(mem, "stackoverflow", CALL_NATIVE_FUNCTION.name, &vec![]));
+    }
+    validate_args!(mem, CALL_NATIVE_FUNCTION.name, args, (let function: TypeLabel::Function), (let arguments: TypeLabel::List), (let environment: TypeLabel::Any));
+
+    if let Function::NativeFunction(nf) = function {
+        nf.call(mem, &arguments, environment, recursion_depth + 1)
+    }
+    else {
+        let details = vec![("expected", mem.symbol_for("native-function")), ("actual", mem.symbol_for("normal-function"))];
+        Err(make_error(mem, "wrong-argument", CALL_NATIVE_FUNCTION.name, &details))
+    }
+}
+
+
 pub const MAKE_FUNCTION: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      make_function,
@@ -81,7 +106,7 @@ NativeFunctionMetaData{
 
 pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     if recursion_depth > config::MAX_RECURSION_DEPTH {
-        return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
+        return Err(make_error(mem, "stackoverflow", MAKE_FUNCTION.name, &vec![]));
     }
     validate_args!(mem, MAKE_FUNCTION.name, args, (let _params: TypeLabel::List), (let _body: TypeLabel::Any), (let environment: TypeLabel::Any), (let kind: TypeLabel::Symbol));
 
