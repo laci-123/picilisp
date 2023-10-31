@@ -7,6 +7,23 @@ use super::NativeFunctionMetaData;
 
 
 
+pub const DESTRUCTURE_TRAP: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      destructure_trap,
+    name:          "destructure-trap",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["trap"],
+    documentation: "Return a list containing the normal-body and trap-body of `trap`."
+};
+
+pub fn destructure_trap(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, DESTRUCTURE_TRAP.name, args, (let t: TypeLabel::Trap));
+
+    let vec = vec![t.get_normal_body(), t.get_trap_body()];
+    Ok(vec_to_list(mem, &vec))
+}
+
+
 pub const GET_PARAMETERS: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      get_parameters,

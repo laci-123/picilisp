@@ -24,6 +24,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, numbers::DIVIDE);
     load_native_function(mem, globals::DEFINE);
     load_native_function(mem, globals::UNDEFINE);
+    load_native_function(mem, reflection::DESTRUCTURE_TRAP);
     load_native_function(mem, reflection::GET_PARAMETERS);
     load_native_function(mem, reflection::GET_BODY);
     load_native_function(mem, reflection::GET_ENVIRONMENT);
