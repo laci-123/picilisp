@@ -317,46 +317,96 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
       ((= operator 'if)     (let (condition (car operands)
                                   then      (car (cdr operands))
                                   otherwise (car (cdr (cdr operands))))
-                              (if (debug condition env)
-                                  (debug then      env)
-                                  (debug otherwise env))))
-      ((= operator 'eval)   (debug (debug (car operands) env) env))
+                              (if (debug-eval condition env)
+                                  (debug-eval then      env)
+                                  (debug-eval otherwise env))))
+      ((= operator 'eval)   (debug-eval (debug-eval (car operands) env) env))
       ((= operator 'trap)   (make-trap (car operands) (car (cdr operands))) env)
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
                                            env
                                            'lambda-type))
-      ('otherwise           (let (evaled-operator (debug operator env)
-                                  evaled-operands (map (lambda (x) (debug x env)) operands))
+      ('otherwise           (let (evaled-operator (debug-eval operator env)
+                                  evaled-operands (map (lambda (x) (debug-eval x env)) operands))
                               (let (body (get-body evaled-operator))
                                 (if body
-                                    (debug (car body)
-                                           (add-parameters (get-parameters evaled-operator)
-                                                           evaled-operands
-                                                           (get-environment evaled-operator)))
+                                    (debug-eval (car body)
+                                                (add-parameters (get-parameters evaled-operator)
+                                                                evaled-operands
+                                                                (get-environment evaled-operator)))
                                     (call-native-function evaled-operator evaled-operands env))))))))
                                       
-(defun debug (expr env)
+(defun debug-eval (expr env)
   ""
   (block
     (output (concat "# EVAL:   " (print expr) " ENV: " (print env)))
     (let (result (let (type (type-of expr))
                    (case
-                     ((= type 'nil-type)     nil)
-                     ((= type 'list-type)    (debug-list expr env))
-                     ((= type 'cons-type)    (cons (debug (car expr) env)
-                                                   (debug (cdr expr) env)))
+                     ((= type 'list-type)   (debug-list expr env))
+                     ((= type 'cons-type)   (cons (debug-eval (car expr) env)
+                                                  (debug-eval (cdr expr) env)))
                      ((= type 'symbol-type) (lookup expr env))
                      ((= type 'trap-type)   (let (nt (destructure-trap expr))
                                               (let (normal-body (car nt)
                                                     trap-body   (car (cdr nt)))
                                                 (eval (trap
-                                                       (debug normal-body env)
+                                                       (debug-eval normal-body env)
                                                        (block
                                                          (output (concat "# SIGNAL TRAPPED: " (print *trapped-signal*)))
-                                                         (debug trap-body (cons (cons '*trapped-signal* *trapped-signal*) env))))))))
+                                                         (debug-eval trap-body (cons (cons '*trapped-signal* *trapped-signal*) env))))))))
                      ('otherwise            expr))))
       (block
         (output (concat "# RETURN: " (print expr) " --> " (print result)))
         result))))
+
+(defun debug-expand-list (expr env)
+  ""
+  (let (operator (car expr)
+        operands (cdr expr))
+    (case
+      ((= operator 'quote) (list 'result  expr
+                                 'changed nil))
+      ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env 'macro-type)
+                                 'changed nil))
+      ('otherwise           (let (expanded-operator (debug-expand operator env)
+                                  expanded-operands (map (lambda (x) (debug-expand x env)) operands))
+                              (if (= 'macro (get-property 'function-kind (get-metadata expanded-operator)))
+                                  (let (body (get-body expanded-operator))
+                                    (list 'result (if body
+                                                      (debug-eval (car body)
+                                                                  (add-parameters (get-parameters expanded-operator)
+                                                                                  expanded-operands
+                                                                                  (get-environment expanded-operator)))
+                                                      (call-native-function expanded-operator expanded-operands env))
+                                          'changed t))
+                                  (list 'result  (cons expanded-operator expanded-operands)
+                                        'changed nil)))))))
          
+(defun debug-expand (expr env)
+  ""
+  (let (result (let (type (type-of expr))
+                 (case
+                   ((= type 'list-type)   (debug-expand-list expr env)) 
+                   ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) nil)
+                                                expanded-cdr (debug-expand (cdr expr) nil))
+                                            (let (changed (or (get-property 'changed expanded-car) (get-property 'changed expanded-cdr)))
+                                              (list 'result  (cons (get-property 'result expanded-car) (get-property 'result expanded-cdr))
+                                                    'changed changed))))
+                   ((= type 'symbol-type) (eval (trap
+                                                 (let (expanded (lookup expr env))
+                                                   (if (= 'macro (get-property 'function-kind (get-metadata expanded)))
+                                                       (list 'result expanded, 'changed t)
+                                                       (list 'result expr,     'changed nil)))
+                                                 (if (= (get-property 'kind *trapped-signal*) 'unbound-symbol)
+                                                     (list 'result expr,     'changed nil)
+                                                     (signal *trapped-signal*)))))
+                   ('otherwise          (list 'result  expr
+                                              'changed nil)))))
+    (let (expanded (get-property 'result result)
+          changed  (get-property 'changed result))
+      (if changed
+          (debug-expand expanded env)
+          (block
+            (output (concat "# EXPAND: " (print expr) " --> " (print expanded)))
+            expanded)))))
+                                                
