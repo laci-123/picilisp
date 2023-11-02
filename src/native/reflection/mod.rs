@@ -183,7 +183,22 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
             Ok(make_plist(mem, &vec))
         },
         None => {
-            Ok(GcRef::nil())
+            if let Some(PrimitiveValue::Function(f)) = x.get() {
+                let mut vec = vec![];
+                let pns = f.get_param_names().iter().map(|pn| mem.symbol_for(pn)).collect::<Vec<GcRef>>();
+                vec.insert(0, ("parameters", vec_to_list(mem, &pns)));
+
+                let kind =
+                match f.get_kind() {
+                    FunctionKind::Macro         => mem.symbol_for("macro"),
+                    FunctionKind::Lambda        => mem.symbol_for("lambda"),
+                };
+                vec.insert(0, ("function-kind", kind));
+                Ok(make_plist(mem, &vec))
+            }
+            else {
+                Ok(GcRef::nil())
+            }
         },
     }
 }
