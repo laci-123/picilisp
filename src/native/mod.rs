@@ -32,6 +32,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, reflection::GET_ENVIRONMENT);
     load_native_function(mem, reflection::TYPE_OF);
     load_native_function(mem, reflection::GET_METADATA);
+    load_native_function(mem, debug::SEND);
     load_native_function(mem, io::INPUT);
     load_native_function(mem, io::OUTPUT);
     load_native_function(mem, io::INPUT_FILE);
@@ -85,4 +86,5 @@ pub mod numbers;
 pub mod globals;
 pub mod io;
 pub mod reflection;
+pub mod debug;
 pub mod misc;

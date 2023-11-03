@@ -178,7 +178,7 @@ impl Window {
     fn eval_step_by_step(&mut self) {
         self.result_text.clear();
         self.signal_text.clear();
-        let input = format!("(eval (break {}))", self.program_text);
+        let input = format!("(debug-eval {} nil)", self.program_text);
         self.to_worker.send(input).expect("worker thread dissappeared");
         self.worker_state = WorkerState::Working;
     }
@@ -293,7 +293,7 @@ impl App for Window {
                             self.eval();
                         }
                         if ui.button("Step by step").clicked() {
-                            // self.eval_step_by_step();
+                            self.eval_step_by_step();
                         }
                         ui.add_enabled(false, egui::Button::new("Stop"));
                         ui.add_enabled(false, egui::Button::new("Force Stop"));
