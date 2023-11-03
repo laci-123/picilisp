@@ -6,6 +6,7 @@ use crate::config;
 use std::collections::{HashSet, HashMap, hash_map};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 
 
 
@@ -639,6 +640,7 @@ impl Memory {
             self.collect();
         }
  
+        let pointer = 
         if self.first_free <= self.cells.len() - 1 {
             let cell = &mut self.cells[self.first_free];
             self.first_free += 1;
@@ -660,7 +662,24 @@ impl Memory {
             }
 
             ptr
+        };
+
+        let fc = self.free_count().to_string();
+        let uc = self.used_count().to_string();
+        if let Some(umb) = &mut self.umbilical {
+            if umb.last_memory_send.elapsed().as_millis() > 20 {
+                let mut dm = DebugMessage::new();
+                dm.insert("kind".to_string(), MEMORY_SAMPLE.to_string());
+                dm.insert("free-cells".to_string(), fc);
+                dm.insert("used-cells".to_string(), uc);
+                dm.insert("serial-number".to_string(), umb.serial_number.to_string());
+                umb.to_high_end.send(dm).expect("supervisor thread disappeared");
+                umb.serial_number += 1;
+                umb.last_memory_send = Instant::now();
+            }
         }
+
+        pointer
     }
 
     fn collect(&mut self) {

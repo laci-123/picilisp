@@ -134,34 +134,36 @@ impl Window {
                             eprintln!("DEBUG ERROR: message of kind GLOBAL_UNDEFINED does not contain key 'name'.");
                         }
                     },
+                    Some(MEMORY_SAMPLE) => {
+                        if let (Some(Ok(fc)), Some(Ok(uc)), Some(Ok(sn))) = (msg.get("free-cells").map(|x| x.parse::<usize>()),
+                                                                             msg.get("used-cells").map(|x| x.parse::<usize>()),
+                                                                             msg.get("serial-number").map(|x| x.parse::<usize>()))
+                        {
+                            if self.free_memory_sapmles.len() > 100 {
+                                self.free_memory_sapmles.pop_front();
+                            }
+                            self.free_memory_sapmles.push_back((sn, fc));
+
+                            if self.used_memory_sapmles.len() > 100 {
+                                self.used_memory_sapmles.pop_front();
+                            }
+                            self.used_memory_sapmles.push_back((sn, uc));
+
+                            self.free_cells = fc;
+                            self.used_cells = uc;
+                        }
+                        else {
+                            eprintln!("DEBUG ERROR: invalid MEMORY_SAMPLE message.");
+                        }
+                    },
                     Some(other) => {
-                        eprintln!("DEBUG ERROR: unknown message kind: {}", other);
+                        eprintln!("DEBUG ERROR: unknown message kind: {}.", other);
                     },
                     None => {
                         eprintln!("DEBUG ERROR: message does not contain 'kind' key.");
                     },
                 }
             },
-            // Ok(DiagnosticData::Memory { free_cells, used_cells, serial_number }) => {
-            //     if self.free_memory_sapmles.len() > 100 {
-            //         self.free_memory_sapmles.pop_front();
-            //     }
-            //     self.free_memory_sapmles.push_back((serial_number, free_cells));
-
-            //     if self.used_memory_sapmles.len() > 100 {
-            //         self.used_memory_sapmles.pop_front();
-            //     }
-            //     self.used_memory_sapmles.push_back((serial_number, used_cells));
-
-            //     self.free_cells = free_cells;
-            //     self.used_cells = used_cells;
-            // },
-            // Ok(DiagnosticData::CallStack { content }) => {
-            //     self.stack = content;
-            // },
-            // Ok(DiagnosticData::Paused) => {
-            //     self.worker_state = WorkerState::Paused;
-            // },
             Err(_) => {},
         }
     }
