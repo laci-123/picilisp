@@ -94,6 +94,10 @@ If `things` is empty then just return `init`."
   "Logical not."
   (list 'if x nil t))
 
+(defun /= (x y)
+  "Not equals"
+  (not (= x y)))
+
 (defun + (& numbers)
   "Add all numbers together. Return 0 if called whith 0 arguments."
   (foldl add 0 numbers))
@@ -278,6 +282,25 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
              (t                           (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status)))))
   (catch-all
    (lambda (error) (signal (pretty-print-error error))))))
+
+(defun loop (step condition body)
+  "Call the one-parameter function `condition` on the result of zero-parameter function `step`.
+If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop."
+  (let (x (step))
+    (if (condition x)
+        (block
+          (body x)
+          (loop step condition body))
+        nil)))
+
+(defmacro while-let (binding-step condition body)
+  "Usage example: (while-let (x (input \"...\")) (/= x \"QUIT\") (output x))"
+  (let (binding (car binding-step)
+        step    (car (cdr binding-step)))
+    (list 'loop
+          (list 'lambda () step)
+          (list 'lambda (list binding) condition)
+          (list 'lambda (list binding) body))))
 
 (defun infinite-loop (x)
   "for testing purposes"
