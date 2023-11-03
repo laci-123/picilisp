@@ -178,9 +178,9 @@ impl Window {
     fn eval_step_by_step(&mut self) {
         self.result_text.clear();
         self.signal_text.clear();
-        let input = format!("(debug-eval {} nil)", self.program_text);
+        let input = format!("(debug-eval '{} nil)", self.program_text);
         self.to_worker.send(input).expect("worker thread dissappeared");
-        self.worker_state = WorkerState::Working;
+        self.worker_state = WorkerState::Paused;
     }
 }
 
@@ -331,7 +331,9 @@ impl App for Window {
                             // self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
                         }
                         if ui.button("Step").clicked() {
-                            // self.umbilical.to_low_end.send(DebugCommand::Step).expect("worker thread dissappeared");
+                            let mut dm = DebugMessage::new();
+                            dm.insert("kind".to_string(), STEP.to_string());
+                            self.umbilical.to_low_end.send(dm).expect("worker thread dissappeared");
                         }
                         ui.label("PAUSED");
                     },

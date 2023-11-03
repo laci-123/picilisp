@@ -1,6 +1,7 @@
 use crate::memory::*;
 use crate::debug::*;
 use crate::error_utils::*;
+use crate::native::list::make_plist;
 use crate::util::*;
 use crate::native::print::print_to_rust_string;
 use super::NativeFunctionMetaData;
@@ -42,4 +43,29 @@ pub fn send(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
     }
 
     Ok(mem.symbol_for("ok"))
+}
+
+
+pub const RECEIVE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      receive,
+    name:          "receive",
+    kind:          FunctionKind::Lambda,
+    parameters:    &[],
+    documentation: "Wait for a messgage from the debugger.
+The message is in the form of a property list. 
+If no debugger is attached, return nil."
+};
+
+pub fn receive(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, RECEIVE.name, args);    
+
+    if let Some(umb) = &mut mem.umbilical {
+        let msg = umb.from_high_end.recv().expect("supervisor thread disappeared");
+        let list: Vec<(&str, GcRef)> = msg.iter().map(|(k, v)| (k.as_str(), string_to_list(mem, v))).collect();
+        Ok(make_plist(mem, &list))
+    }
+    else {
+        Ok(GcRef::nil())
+    }
 }

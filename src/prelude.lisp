@@ -362,6 +362,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
 (defun debug-eval-internal (expr env)
   ""
   (block
+    (receive)
     (output (concat "# EVAL:   " (print expr) " ENV: " (print env)))
     (let (result (let (type (type-of expr))
                    (case

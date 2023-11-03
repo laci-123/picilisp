@@ -4,7 +4,8 @@ use std::{sync::mpsc::{Receiver, Sender, channel}, time::Instant, collections::H
 
 pub const GLOBAL_DEFINED: &str = "GLOBAL_DEFINED";
 pub const GLOBAL_UNDEFINED: &str = "GLOBAL_UNDEFINED";
-pub const MEMORY_SAMPLE: &str = "MEMORY_SAMPLE:";
+pub const MEMORY_SAMPLE: &str = "MEMORY_SAMPLE";
+pub const STEP: &str = "STEP";
 
 
 pub type DebugMessage = HashMap<String, String>;
