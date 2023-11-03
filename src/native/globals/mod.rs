@@ -35,12 +35,15 @@ pub fn define(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: us
     }
 
     if let Some(umb) = &mem.umbilical {
-        let dd = DiagnosticData::GlobalDefined {
-            name: name.get_name(),
-            value_type: value.get_type(),
-            value: print_to_rust_string(value, recursion_depth + 1),
+        let mut dm = DebugMessage::new();
+        dm.insert("kind".to_string(), GLOBAL_DEFINED.to_string());
+        dm.insert("name".to_string(), name.get_name());
+        dm.insert("type".to_string(), value.get_type().to_string().to_string());
+        match print_to_rust_string(value, recursion_depth + 1) {
+            Ok(x)  => dm.insert("value".to_string(), x),
+            Err(_) => dm.insert("value".to_string(), "#<ERROR: CANNOT CONVERT TO STRING>".to_string()),
         };
-        umb.to_high_end.send(dd).expect("supervisor thread disappeared");
+        umb.to_high_end.send(dm).expect("supervisor thread disappeared");
     }
 
     Ok(mem.symbol_for("ok"))
@@ -62,7 +65,10 @@ pub fn undefine(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth:
     mem.undefine_global(&name.get_name());
 
     if let Some(umb) = &mem.umbilical {
-        umb.to_high_end.send(DiagnosticData::GlobalUndefined { name: name.get_name() }).expect("supervisor thread disappeared");
+        let mut dm = DebugMessage::new();
+        dm.insert("kind".to_string(), GLOBAL_UNDEFINED.to_string());
+        dm.insert("name".to_string(), name.get_name());
+        umb.to_high_end.send(dm).expect("supervisor thread disappeared");
     }
 
     Ok(mem.symbol_for("ok"))

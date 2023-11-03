@@ -22,7 +22,7 @@ enum WorkerState {
 
 
 struct GlobalConstant {
-    value: Result<String, String>,
+    value: String,
     value_type: String,
 }
 
@@ -41,7 +41,6 @@ struct Window {
     used_memory_sapmles: VecDeque<(usize, usize)>,
     used_cells: usize,
     free_cells: usize,
-    stack: Vec<StackFrame>,
     worker_state: WorkerState,
 }
 
@@ -98,7 +97,6 @@ impl Window {
             used_memory_sapmles: VecDeque::with_capacity(100),
             used_cells: 0,
             free_cells: 0,
-            stack: Vec::new(),
             umbilical: umbilical_high_end,
             worker_state: WorkerState::Working,
         }
@@ -109,48 +107,61 @@ impl Window {
             Ok(Ok(x))    => {
                 self.result_text = x;
                 self.signal_text.clear();
-                self.stack.clear();
                 self.worker_state = WorkerState::Ready;
             },
             Ok(Err(err)) => {
                 self.signal_text = format!("ERROR:\n\n{err}");
                 self.result_text.clear();
-                self.stack.clear();
                 self.worker_state = WorkerState::Ready;
             },
             Err(_)       => {},
         }
 
         match self.umbilical.from_low_end.try_recv() {
-            Ok(DiagnosticData::GlobalDefined { name, value, value_type }) => {
-                self.globals.insert(name, GlobalConstant {
-                    value,
-                    value_type: value_type.to_string().to_string(),
-                });
-            },
-            Ok(DiagnosticData::GlobalUndefined { name }) => {
-                self.globals.remove(&name);
-            },
-            Ok(DiagnosticData::Memory { free_cells, used_cells, serial_number }) => {
-                if self.free_memory_sapmles.len() > 100 {
-                    self.free_memory_sapmles.pop_front();
+            Ok(msg) => {
+                match msg.get("kind").map(|s| s.as_str()) {
+                    Some(GLOBAL_DEFINED) => {
+                        self.globals.insert(msg.get("name").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")), GlobalConstant {
+                            value: msg.get("value").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")),
+                            value_type: msg.get("type").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")),
+                        });
+                    },
+                    Some(GLOBAL_UNDEFINED) => {
+                        if let Some(name) = msg.get("name") {
+                            self.globals.remove(name);
+                        }
+                        else {
+                            eprintln!("DEBUG ERROR: message of kind GLOBAL_UNDEFINED does not contain key 'name'.");
+                        }
+                    },
+                    Some(other) => {
+                        eprintln!("DEBUG ERROR: unknown message kind: {}", other);
+                    },
+                    None => {
+                        eprintln!("DEBUG ERROR: message does not contain 'kind' key.");
+                    },
                 }
-                self.free_memory_sapmles.push_back((serial_number, free_cells));
+            },
+            // Ok(DiagnosticData::Memory { free_cells, used_cells, serial_number }) => {
+            //     if self.free_memory_sapmles.len() > 100 {
+            //         self.free_memory_sapmles.pop_front();
+            //     }
+            //     self.free_memory_sapmles.push_back((serial_number, free_cells));
 
-                if self.used_memory_sapmles.len() > 100 {
-                    self.used_memory_sapmles.pop_front();
-                }
-                self.used_memory_sapmles.push_back((serial_number, used_cells));
+            //     if self.used_memory_sapmles.len() > 100 {
+            //         self.used_memory_sapmles.pop_front();
+            //     }
+            //     self.used_memory_sapmles.push_back((serial_number, used_cells));
 
-                self.free_cells = free_cells;
-                self.used_cells = used_cells;
-            },
-            Ok(DiagnosticData::CallStack { content }) => {
-                self.stack = content;
-            },
-            Ok(DiagnosticData::Paused) => {
-                self.worker_state = WorkerState::Paused;
-            },
+            //     self.free_cells = free_cells;
+            //     self.used_cells = used_cells;
+            // },
+            // Ok(DiagnosticData::CallStack { content }) => {
+            //     self.stack = content;
+            // },
+            // Ok(DiagnosticData::Paused) => {
+            //     self.worker_state = WorkerState::Paused;
+            // },
             Err(_) => {},
         }
     }
@@ -181,9 +192,11 @@ impl App for Window {
                 for (name, value) in self.globals.iter() {
                     ui.collapsing(name, |ui| {
                         let value_label =
-                        match &value.value {
-                            Ok(x)    => ui.add(egui::Label::new(x).sense(egui::Sense::click())).on_hover_text("click to show metadata"),
-                            Err(err) => ui.label(egui::RichText::new(format!("ERROR while converting to string: {err}")).color(epaint::Color32::RED)),
+                        if value.value.starts_with("#<ERROR:") {
+                            ui.label(egui::RichText::new(&value.value).color(epaint::Color32::RED))
+                        }
+                        else {
+                            ui.add(egui::Label::new(&value.value).sense(egui::Sense::click())).on_hover_text("click to show metadata")
                         };
                         if value_label.clicked() {
                             self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
@@ -228,27 +241,27 @@ impl App for Window {
 
         egui::SidePanel::right("Right panel").min_width(300.0).show(ctx, |ui| {
             ui.heading("Call stack");
-            egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
-                for frame in self.stack.iter() {
-                    let response =
-                    match frame {
-                        StackFrame::Eval(x) => {
-                            ui.label(x)
-                        },
-                        StackFrame::Error(err) => {
-                            ui.label(egui::RichText::new(err).color(epaint::Color32::RED))
-                        },
-                        StackFrame::Expand{ from, to } => {
-                            ui.label(egui::RichText::new("Macroexpand from").color(epaint::Color32::LIGHT_BLUE));
-                            ui.label(from);
-                            ui.label(egui::RichText::new("to").color(epaint::Color32::LIGHT_BLUE));
-                            ui.label(to)
-                        },
-                    };
-                    response.scroll_to_me(None);
-                    ui.separator();
-                }
-            });
+            // egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+            //     for frame in self.stack.iter() {
+            //         let response =
+            //         match frame {
+            //             StackFrame::Eval(x) => {
+            //                 ui.label(x)
+            //             },
+            //             StackFrame::Error(err) => {
+            //                 ui.label(egui::RichText::new(err).color(epaint::Color32::RED))
+            //             },
+            //             StackFrame::Expand{ from, to } => {
+            //                 ui.label(egui::RichText::new("Macroexpand from").color(epaint::Color32::LIGHT_BLUE));
+            //                 ui.label(from);
+            //                 ui.label(egui::RichText::new("to").color(epaint::Color32::LIGHT_BLUE));
+            //                 ui.label(to)
+            //             },
+            //         };
+            //         response.scroll_to_me(None);
+            //         ui.separator();
+            //     }
+            // });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -278,7 +291,7 @@ impl App for Window {
                             self.eval();
                         }
                         if ui.button("Step by step").clicked() {
-                            self.eval_step_by_step();
+                            // self.eval_step_by_step();
                         }
                         ui.add_enabled(false, egui::Button::new("Stop"));
                         ui.add_enabled(false, egui::Button::new("Force Stop"));
@@ -289,14 +302,14 @@ impl App for Window {
                         ui.add_enabled(false, egui::Button::new("Evaluate"));
                         ui.add_enabled(false, egui::Button::new("Step by step"));
                         if ui.button("Stop").clicked() {
-                            self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
                         }
                         if ui.button("Force stop").clicked() {
-                            self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
                         }
                         if ui.button("Pause").clicked() {
                             self.worker_state = WorkerState::Paused;
-                            self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
                         }
                         ui.add_enabled(false, egui::Button::new("Step"));
                         ui.label("working...");
@@ -306,17 +319,17 @@ impl App for Window {
                         ui.add_enabled(false, egui::Button::new("Evaluate"));
                         ui.add_enabled(false, egui::Button::new("Step by step"));
                         if ui.button("Stop").clicked() {
-                            self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
                         }
                         if ui.button("Force stop").clicked() {
-                            self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
                         }
                         if ui.button("Resume").clicked() {
                             self.worker_state = WorkerState::Working;
-                            self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
                         }
                         if ui.button("Step").clicked() {
-                            self.umbilical.to_low_end.send(DebugCommand::Step).expect("worker thread dissappeared");
+                            // self.umbilical.to_low_end.send(DebugCommand::Step).expect("worker thread dissappeared");
                         }
                         ui.label("PAUSED");
                     },

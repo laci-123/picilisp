@@ -1,54 +1,23 @@
-use crate::memory::TypeLabel;
-use std::{sync::mpsc::{Receiver, Sender, channel}, time::Instant};
-
-pub enum DebugCommand {
-    Abort,
-    InterruptSignal,
-    Pause,
-    Resume,
-    Step,
-}
+use std::{sync::mpsc::{Receiver, Sender, channel}, time::Instant, collections::HashMap};
 
 
-#[derive(Clone)]
-pub enum StackFrame {
-    Eval(String),
-    Expand{ from: String, to: String},
-    Error(String),
-}
+
+pub const GLOBAL_DEFINED: &str = "GLOBAL_DEFINED";
+pub const GLOBAL_UNDEFINED: &str = "GLOBAL_UNDEFINED";
 
 
-#[derive(Clone)]
-pub enum DiagnosticData {
-    GlobalDefined {
-        name: String,
-        value: Result<String, String>,
-        value_type: TypeLabel,
-    },
-    GlobalUndefined {
-        name: String,
-    },
-    Memory {
-        free_cells: usize,
-        used_cells: usize,
-        serial_number: usize,
-    },
-    CallStack {
-        content: Vec<StackFrame>,
-    },
-    Paused,
-}
+pub type DebugMessage = HashMap<String, String>;
 
 
 pub struct UmbilicalHighEnd {
-    pub to_low_end: Sender<DebugCommand>,
-    pub from_low_end: Receiver<DiagnosticData>,
+    pub to_low_end: Sender<DebugMessage>,
+    pub from_low_end: Receiver<DebugMessage>,
 }
 
 
 pub struct UmbilicalLowEnd {
-    pub to_high_end: Sender<DiagnosticData>,
-    pub from_high_end: Receiver<DebugCommand>,
+    pub to_high_end: Sender<DebugMessage>,
+    pub from_high_end: Receiver<DebugMessage>,
     pub last_memory_send: Instant,
     pub serial_number: usize,
     pub paused: bool,

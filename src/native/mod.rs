@@ -54,15 +54,15 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
     mem.define_global(nfmd.name, nf);
 
     if let Some(umb) = &mem.umbilical {
-        let dd = DiagnosticData::GlobalDefined {
-            name: nfmd.name.to_string(),
-            value_type: TypeLabel::Function,
-            value: Ok(match nfmd.kind {
-                FunctionKind::Macro         => "#<macro>",
-                FunctionKind::Lambda        => "#<lambda>",
-            }.to_string()),
-        };
-        umb.to_high_end.send(dd).expect("supervisor thread disappeared");
+        let mut dm = DebugMessage::new();
+        dm.insert("kind".to_string(), GLOBAL_DEFINED.to_string());
+        dm.insert("name".to_string(), nfmd.name.to_string());
+        dm.insert("type".to_string(), TypeLabel::Function.to_string().to_string());
+        dm.insert("value".to_string(), match nfmd.kind {
+            FunctionKind::Macro  => "#<macro>",
+            FunctionKind::Lambda => "#<lambda>",
+        }.to_string());
+        umb.to_high_end.send(dm).expect("supervisor thread disappeared");
     }
 }
 
