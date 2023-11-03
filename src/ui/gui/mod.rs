@@ -27,6 +27,13 @@ struct GlobalConstant {
 }
 
 
+#[derive(PartialEq, Eq)]
+enum StackFrame {
+    Normal(String),
+    Expand(String),
+}
+
+
 struct Window {
     to_worker: mpsc::Sender<String>,
     from_worker: mpsc::Receiver<Result<String, String>>,
@@ -42,6 +49,7 @@ struct Window {
     used_cells: usize,
     free_cells: usize,
     worker_state: WorkerState,
+    call_stack: Vec<StackFrame>,
 }
 
 impl Window {
@@ -99,6 +107,7 @@ impl Window {
             free_cells: 0,
             umbilical: umbilical_high_end,
             worker_state: WorkerState::Working,
+            call_stack: Vec::new(),
         }
     }
 
@@ -155,6 +164,23 @@ impl Window {
                         else {
                             eprintln!("DEBUG ERROR: invalid MEMORY_SAMPLE message.");
                         }
+                    },
+                    Some("EXPAND") => {
+                        self.call_stack.push(StackFrame::Expand(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string()));
+                    },
+                    Some("EVAL") => {
+                        self.call_stack.push(StackFrame::Normal(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string()));
+                    },
+                    Some("RETURN-VALUE") => {
+                        if let Some(last) = self.call_stack.last_mut() {
+                            *last = StackFrame::Normal(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
+                        }
+                        else {
+                            eprintln!("DEBUG ERROR: received RETURN message when call stack is empty.");
+                        }
+                    },
+                    Some("RETURN") => {
+                        self.call_stack.pop();
                     },
                     Some(other) => {
                         eprintln!("DEBUG ERROR: unknown message kind: {}.", other);
@@ -243,27 +269,21 @@ impl App for Window {
 
         egui::SidePanel::right("Right panel").min_width(300.0).show(ctx, |ui| {
             ui.heading("Call stack");
-            // egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
-            //     for frame in self.stack.iter() {
-            //         let response =
-            //         match frame {
-            //             StackFrame::Eval(x) => {
-            //                 ui.label(x)
-            //             },
-            //             StackFrame::Error(err) => {
-            //                 ui.label(egui::RichText::new(err).color(epaint::Color32::RED))
-            //             },
-            //             StackFrame::Expand{ from, to } => {
-            //                 ui.label(egui::RichText::new("Macroexpand from").color(epaint::Color32::LIGHT_BLUE));
-            //                 ui.label(from);
-            //                 ui.label(egui::RichText::new("to").color(epaint::Color32::LIGHT_BLUE));
-            //                 ui.label(to)
-            //             },
-            //         };
-            //         response.scroll_to_me(None);
-            //         ui.separator();
-            //     }
-            // });
+            egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+                for frame in self.call_stack.iter() {
+                    let response =
+                    match frame {
+                        StackFrame::Normal(x) => {
+                            ui.label(x)
+                        },
+                        StackFrame::Expand(x) => {
+                            ui.label(egui::RichText::new(x).color(epaint::Color32::LIGHT_BLUE))
+                        },
+                    };
+                    response.scroll_to_me(None);
+                    ui.separator();
+                }
+            });
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {

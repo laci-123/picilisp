@@ -362,20 +362,20 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                            'lambda-type))
       ('otherwise           (let (evaled-operator (block
                                                     (if step-in
-                                                        (output (concat "# HIGHLIGHT-PARAM:  " (highlight-list-elem expr operator)))
+                                                        (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr operator)))
                                                         nil)
                                                     (debug-eval-internal operator env step-in))
                                   evaled-operands (map (lambda (x)
                                                          (block
                                                            (if step-in
-                                                               (output (concat "# HIGHLIGHT-PARAM:  " (highlight-list-elem expr x)))
+                                                               (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr x)))
                                                                nil)
                                                            (debug-eval-internal x env step-in)))
                                                         operands))
                               (let (body (get-body evaled-operator))
                                 (block
                                   (if step-in
-                                      (output (concat "# ALL-PARAMS-EVALED:  " (print (cons evaled-operator evaled-operands))))
+                                      (send (list 'kind 'ALL-PARAMS-EVALED, 'string (print (cons evaled-operator evaled-operands))))
                                       nil)
                                   (if body
                                       (debug-eval-internal (car body)
@@ -391,7 +391,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
     (if step-in 
         (block
           (receive)
-          (output (concat "# EVAL:   " (print expr))))
+          (send (list 'kind 'EVAL, 'string (print expr))))
         nil)
     (let (result (let (type (type-of expr))
                    (case
@@ -406,13 +406,17 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                                        (debug-eval-internal normal-body env step-in)
                                                        (block
                                                          (if step-in
-                                                             (output (concat "# SIGNAL TRAPPED: " (print *trapped-signal*)))
+                                                             (send (list 'kind 'SIGNAL-TRAPPED, 'string (print *trapped-signal*)))
                                                              nil)
                                                          (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env) step-in)))))))
                      ('otherwise            expr))))
       (block
         (if step-in
-            (output (concat "# RETURN: " (print expr) " --> " (print result)))
+            (block
+              (receive)
+              (send (list 'kind 'RETURN-VALUE, 'string (concat (print expr) " --> " (print result))))
+              (receive)
+              (send (list 'kind 'RETURN)))
             nil)
         result))))
 
@@ -478,6 +482,6 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
           expanded (get-property 'result e))
       (block
         (if changed
-            (output (concat "# EXPAND: " (print expr) " --> " (print expanded)))
+            (send (list 'kind 'EXPAND, 'string (concat (print expr) " --> " (print expanded))))
             nil)
         (debug-eval-internal expanded env t)))))
