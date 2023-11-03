@@ -19,3 +19,19 @@ pub fn signal(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: u
     Err(signal)
 }
 
+
+pub const ABORT: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      abort,
+    name:          "abort",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["abort"],
+    documentation: "Immediately abort evaluation.
+Unlike signals, an abort cannot be trapped or undone by any method after it was invoked. "
+};
+
+pub fn abort(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, ABORT.name, args);
+    
+    Err(GcRef::nil())
+}

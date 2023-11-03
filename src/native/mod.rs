@@ -10,6 +10,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, list::LIST);
     load_native_function(mem, list::GET_PROPERTY);
     load_native_function(mem, list::UNREST);
+    load_native_function(mem, signal::ABORT);
     load_native_function(mem, signal::SIGNAL);
     load_native_function(mem, read::READ);
     load_native_function(mem, eval::MAKE_TRAP);
