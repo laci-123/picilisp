@@ -331,7 +331,18 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                   (add-parameters rest-params rest-args env))))
       env))
 
-(defun debug-list (expr env)
+(defun highlight-list-elem (elems hl)
+  ""
+  (concat "("
+          (apply concat 
+                 (map (lambda (x)
+                        (if (= x hl)
+                            (concat ">>" (print x) "<< ")
+                            (concat (print x) " ")))
+                      elems))
+          ")"))
+
+(defun debug-list (expr env step-in)
   ""
   (let (operator (car expr)
         operands (cdr expr))
@@ -340,47 +351,69 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
       ((= operator 'if)     (let (condition (car operands)
                                   then      (car (cdr operands))
                                   otherwise (car (cdr (cdr operands))))
-                              (if (debug-eval-internal condition env)
-                                  (debug-eval-internal then      env)
-                                  (debug-eval-internal otherwise env))))
-      ((= operator 'eval)   (debug-eval-internal (debug-eval-internal (car operands) env) env))
+                              (if (debug-eval-internal condition env step-in)
+                                  (debug-eval-internal then      env step-in)
+                                  (debug-eval-internal otherwise env step-in))))
+      ((= operator 'eval)   (debug-eval-internal (debug-eval-internal (car operands) env) env step-in))
       ((= operator 'trap)   (make-trap (car operands) (car (cdr operands))) env)
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
                                            env
                                            'lambda-type))
-      ('otherwise           (let (evaled-operator (debug-eval-internal operator env)
-                                  evaled-operands (map (lambda (x) (debug-eval-internal x env)) operands))
+      ('otherwise           (let (evaled-operator (block
+                                                    (if step-in
+                                                        (output (concat "# HIGHLIGHT-PARAM:  " (highlight-list-elem expr operator)))
+                                                        nil)
+                                                    (debug-eval-internal operator env step-in))
+                                  evaled-operands (map (lambda (x)
+                                                         (block
+                                                           (if step-in
+                                                               (output (concat "# HIGHLIGHT-PARAM:  " (highlight-list-elem expr x)))
+                                                               nil)
+                                                           (debug-eval-internal x env step-in)))
+                                                        operands))
                               (let (body (get-body evaled-operator))
-                                (if body
-                                    (debug-eval-internal (car body)
-                                                (add-parameters (get-parameters evaled-operator)
-                                                                evaled-operands
-                                                                (get-environment evaled-operator)))
-                                    (call-native-function evaled-operator evaled-operands env))))))))
+                                (block
+                                  (if step-in
+                                      (output (concat "# ALL-PARAMS-EVALED:  " (print (cons evaled-operator evaled-operands))))
+                                      nil)
+                                  (if body
+                                      (debug-eval-internal (car body)
+                                                           (add-parameters (get-parameters evaled-operator)
+                                                                           evaled-operands
+                                                                           (get-environment evaled-operator))
+                                                           step-in)
+                                      (call-native-function evaled-operator evaled-operands env)))))))))
                                       
-(defun debug-eval-internal (expr env)
+(defun debug-eval-internal (expr env step-in)
   ""
   (block
-    (receive)
-    (output (concat "# EVAL:   " (print expr) " ENV: " (print env)))
+    (if step-in 
+        (block
+          (receive)
+          (output (concat "# EVAL:   " (print expr))))
+        nil)
     (let (result (let (type (type-of expr))
                    (case
-                     ((= type 'list-type)   (debug-list expr env))
-                     ((= type 'cons-type)   (cons (debug-eval-internal (car expr) env)
-                                                  (debug-eval-internal (cdr expr) env)))
+                     ((= type 'list-type)   (debug-list expr env step-in))
+                     ((= type 'cons-type)   (cons (debug-eval-internal (car expr) env step-in)
+                                                  (debug-eval-internal (cdr expr) env step-in)))
                      ((= type 'symbol-type) (lookup expr env))
                      ((= type 'trap-type)   (let (nt (destructure-trap expr))
                                               (let (normal-body (car nt)
                                                     trap-body   (car (cdr nt)))
                                                 (eval (trap
-                                                       (debug-eval-internal normal-body env)
+                                                       (debug-eval-internal normal-body env step-in)
                                                        (block
-                                                         (output (concat "# SIGNAL TRAPPED: " (print *trapped-signal*)))
-                                                         (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env))))))))
+                                                         (if step-in
+                                                             (output (concat "# SIGNAL TRAPPED: " (print *trapped-signal*)))
+                                                             nil)
+                                                         (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env) step-in)))))))
                      ('otherwise            expr))))
       (block
-        (output (concat "# RETURN: " (print expr) " --> " (print result)))
+        (if step-in
+            (output (concat "# RETURN: " (print expr) " --> " (print result)))
+            nil)
         result))))
 
 (defun debug-expand-list (expr env)
@@ -400,7 +433,8 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                                       (debug-eval-internal (car body)
                                                                            (add-parameters (get-parameters expanded-operator)
                                                                                            expanded-operands
-                                                                                           (get-environment expanded-operator)))
+                                                                                           (get-environment expanded-operator))
+                                                                           nil)
                                                       (call-native-function expanded-operator expanded-operands env))
                                           'changed t))
                                   (list 'result  (cons expanded-operator expanded-operands)
@@ -446,4 +480,4 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
         (if changed
             (output (concat "# EXPAND: " (print expr) " --> " (print expanded)))
             nil)
-        (debug-eval-internal expanded env)))))
+        (debug-eval-internal expanded env t)))))
