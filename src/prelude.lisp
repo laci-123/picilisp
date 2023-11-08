@@ -337,7 +337,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
           (apply concat 
                  (map (lambda (x)
                         (if (= x hl)
-                            (concat "「" (print x) "」")
+                            (concat "「" (print x) "」 ")
                             (concat (print x) " ")))
                       elems))
           ")"))
@@ -375,7 +375,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                               (let (body (get-body evaled-operator))
                                 (block
                                   (if step-in
-                                      (send (list 'kind 'ALL-PARAMS-EVALED, 'string (print (cons evaled-operator evaled-operands))))
+                                      (send (list 'kind 'ALL-ELEMS-EVALED, 'string (print (cons evaled-operator evaled-operands))))
                                       nil)
                                   (if body
                                       (debug-eval-internal (car body)

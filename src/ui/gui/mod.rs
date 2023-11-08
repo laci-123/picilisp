@@ -185,7 +185,7 @@ impl Window {
                             self.call_stack.pop();
                         }
                     },
-                    Some("HIGHLIGHT-ELEM") => {
+                    Some("HIGHLIGHT-ELEM") | Some("ALL-ELEMS-EVALED") => {
                         if let Some(StackFrame::Normal(top)) = self.call_stack.last_mut() {
                             *top = msg.get("string").map(|s| s.clone()).unwrap_or("#<ERROR: MISSING>".to_string());
                         }
@@ -282,10 +282,10 @@ impl App for Window {
                     let response =
                     match frame {
                         StackFrame::Normal(x) => {
-                            ui.add(egui::widgets::Label::new(highlight_param_layout(x)))
+                            ui.add(egui::widgets::Label::new(highlight_param_layout(trim_quotes(x))))
                         },
                         StackFrame::Expand(x) => {
-                            ui.label(egui::RichText::new(x).color(epaint::Color32::LIGHT_BLUE))
+                            ui.label(egui::RichText::new(trim_quotes(x)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))
                         },
                     };
                     response.scroll_to_me(None);
@@ -410,18 +410,39 @@ struct StringWithCursor<'a> {
 }
 
 
+fn trim_quotes(text: &str) -> &str {
+    let begin =
+    if text.as_bytes().first().is_some_and(|b| *b == '"' as u8) {
+        1
+    }
+    else {
+        0
+    };
+    let end =
+    if text.as_bytes().last().is_some_and(|b| *b == '"' as u8) {
+        text.len() - 1
+    }
+    else {
+        text.len()
+    };
+
+    &text[begin..end]
+}
+
+
 fn highlight_param_layout(text: &str) -> egui::text::LayoutJob {
     let mut layout_job: egui::text::LayoutJob = Default::default();
     let open_step = '「'.len_utf8();
     let close_step = '」'.len_utf8();
+    let font = epaint::FontId::monospace(12.0);
 
     if let (Some(open), Some(close)) = (text.find("「"), text.find("」")) {
-        layout_job.append(&text[..open],                    0.0, Default::default());
-        layout_job.append(&text[(open + open_step)..close], 0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, ..Default::default() });
-        layout_job.append(&text[(close + close_step)..],    0.0, Default::default());
+        layout_job.append(&text[..open],                    0.0, egui::text::TextFormat{ font_id: font.clone(), ..Default::default()});
+        layout_job.append(&text[(open + open_step)..close], 0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, font_id: font.clone(), ..Default::default() });
+        layout_job.append(&text[(close + close_step)..],    0.0, egui::text::TextFormat{ font_id: font.clone(), ..Default::default()});
     }
     else {
-        layout_job.append(text, 0.0, Default::default());
+        layout_job.append(text, 0.0, egui::text::TextFormat{ font_id: font, ..Default::default()});
     }
 
     layout_job
