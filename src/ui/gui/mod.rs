@@ -30,6 +30,8 @@ struct GlobalConstant {
 #[derive(PartialEq, Eq)]
 enum StackFrame {
     Normal(String),
+    Return(String, String),
+    AllElemsEvaled(String, String),
     Expand(String),
 }
 
@@ -173,10 +175,20 @@ impl Window {
                     },
                     Some("RETURN-VALUE") => {
                         if let Some(last) = self.call_stack.last_mut() {
-                            *last = StackFrame::Normal(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
+                            *last = StackFrame::Return(msg.get("expression").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string(),
+                                                       msg.get("result").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
                         }
                         else {
                             eprintln!("DEBUG ERROR: received RETURN message when call stack is empty.");
+                        }
+                    },
+                    Some("ALL-ELEMS-EVALED") => {
+                        if let Some(last) = self.call_stack.last_mut() {
+                            *last = StackFrame::AllElemsEvaled(msg.get("expression").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string(),
+                                                               msg.get("result").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
+                        }
+                        else {
+                            eprintln!("DEBUG ERROR: received ALL-ELEMS-EVALED message when call stack is empty.");
                         }
                     },
                     Some("RETURN") => {
@@ -185,7 +197,7 @@ impl Window {
                             self.call_stack.pop();
                         }
                     },
-                    Some("HIGHLIGHT-ELEM") | Some("ALL-ELEMS-EVALED") => {
+                    Some("HIGHLIGHT-ELEM") => {
                         if let Some(StackFrame::Normal(top)) = self.call_stack.last_mut() {
                             *top = msg.get("string").map(|s| s.clone()).unwrap_or("#<ERROR: MISSING>".to_string());
                         }
@@ -283,6 +295,14 @@ impl App for Window {
                     match frame {
                         StackFrame::Normal(x) => {
                             ui.add(egui::widgets::Label::new(highlight_param_layout(trim_quotes(x))))
+                        },
+                        StackFrame::Return(expr, result) => {
+                            ui.label(egui::RichText::new(trim_quotes(expr)).font(epaint::FontId::monospace(12.0)));
+                            ui.label(egui::RichText::new(&format!("--> {}", trim_quotes(result))).font(epaint::FontId::monospace(12.0)))
+                        },
+                        StackFrame::AllElemsEvaled(expr, result) => {
+                            ui.label(egui::RichText::new(trim_quotes(expr)).font(epaint::FontId::monospace(12.0)));
+                            ui.label(egui::RichText::new(trim_quotes(result)).color(epaint::Color32::GREEN).font(epaint::FontId::monospace(12.0)))
                         },
                         StackFrame::Expand(x) => {
                             ui.label(egui::RichText::new(trim_quotes(x)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))

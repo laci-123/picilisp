@@ -375,7 +375,9 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                               (let (body (get-body evaled-operator))
                                 (block
                                   (if step-in
-                                      (send (list 'kind 'ALL-ELEMS-EVALED, 'string (print (cons evaled-operator evaled-operands))))
+                                      (block
+                                        (send (list 'kind 'ALL-ELEMS-EVALED, 'expression (print expr), 'result (print (cons evaled-operator evaled-operands))))
+                                        (receive))
                                       nil)
                                   (if body
                                       (debug-eval-internal (car body)
@@ -414,7 +416,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
         (if step-in
             (block
               (receive)
-              (send (list 'kind 'RETURN-VALUE, 'string (concat (print expr) " --> " (print result))))
+              (send (list 'kind 'RETURN-VALUE, 'expression (print expr), 'result (print result)))
               (receive)
               (send (list 'kind 'RETURN)))
             nil)
