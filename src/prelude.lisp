@@ -130,6 +130,12 @@ Otherwise substract all but the first argument from the first one."
             (divide 1 first)))
       1))
 
+(defun range (n init)
+  "Range of numbers from 0 to `n`."
+  (if (= n 0)
+      init
+      (range (substract n 1) (cons n init))))
+
 (defun append (list1 list2)
   "Append `list1` to the beginning of `list2`."
   (if list1
