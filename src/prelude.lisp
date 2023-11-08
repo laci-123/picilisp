@@ -47,11 +47,50 @@ If `things` is empty then just return `init`."
       (f (car things) (foldr f init (cdr things)))
       init))
 
+(defun reverse (things)
+  "Reverse the order of elements in `things`."
+  (foldl (lambda (xs x) (cons x xs)) nil things))
+
+(defun -zip (things1 things2 init)
+  ""
+  (if things1
+      (if things2
+          (-zip (cdr things1) (cdr things2) (cons (cons (car things1)
+                                                   (car things2))
+                                             init))
+          init)
+      init))
+
+(defun zip (things1 things2)
+  "Group the head of each list, followed by the second element of
+each list, and so on. The number of returned groupings is equal
+to the length of the shortest input list."
+  (reverse (-zip things1 things2 nil)))
+
+(defun -length (things n)
+  ""
+  (if things
+      (-length (cdr things) (add n 1))
+      n))
+
+(defun length (things)
+  "Return the number of elements in `things`."
+  (-length things 0))
+
+(defun enumerate (things)
+  "Zip each element of `things` with its index (starting from 0)."
+  (zip things (range (length things))))
+
+
+(defun -map (f things init)
+  ""
+  (if things
+      (-map f (cdr things) (cons (f (car things)) init))
+      init))
+
 (defun map (f things)
   "Apply `f` to each element of `things`, and make a list of the results."
-  (if things
-      (cons (f (car things)) (map f (cdr things)))
-      nil))
+  (reverse (-map f things nil)))
 
 (defmacro apply (f args-list)
   "Apply `f` to `args-list`, as if each element of `args-list` were a parameter of `f`."
@@ -130,11 +169,15 @@ Otherwise substract all but the first argument from the first one."
             (divide 1 first)))
       1))
 
-(defun range (n init)
-  "Range of numbers from 0 to `n`."
+(defun -range (n init)
+  ""
   (if (= n 0)
       init
-      (range (substract n 1) (cons n init))))
+      (-range (substract n 1) (cons n init))))
+
+(defun range (n)
+  "Range of numbers from 0 to `n`."
+  (-range n nil))
 
 (defun append (list1 list2)
   "Append `list1` to the beginning of `list2`."
