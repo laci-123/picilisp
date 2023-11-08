@@ -181,6 +181,14 @@ impl Window {
                     },
                     Some("RETURN") => {
                         self.call_stack.pop();
+                        while let Some(StackFrame::Expand(_)) = self.call_stack.last() {
+                            self.call_stack.pop();
+                        }
+                    },
+                    Some("HIGHLIGHT-ELEM") => {
+                        if let Some(StackFrame::Normal(top)) = self.call_stack.last_mut() {
+                            *top = msg.get("string").map(|s| s.clone()).unwrap_or("#<ERROR: MISSING>".to_string());
+                        }
                     },
                     Some(other) => {
                         eprintln!("DEBUG ERROR: unknown message kind: {}.", other);
@@ -274,7 +282,7 @@ impl App for Window {
                     let response =
                     match frame {
                         StackFrame::Normal(x) => {
-                            ui.label(x)
+                            ui.add(egui::widgets::Label::new(highlight_param_layout(x)))
                         },
                         StackFrame::Expand(x) => {
                             ui.label(egui::RichText::new(x).color(epaint::Color32::LIGHT_BLUE))
@@ -402,6 +410,24 @@ struct StringWithCursor<'a> {
 }
 
 
+fn highlight_param_layout(text: &str) -> egui::text::LayoutJob {
+    let mut layout_job: egui::text::LayoutJob = Default::default();
+    let open_step = '「'.len_utf8();
+    let close_step = '」'.len_utf8();
+
+    if let (Some(open), Some(close)) = (text.find("「"), text.find("」")) {
+        layout_job.append(&text[..open],                    0.0, Default::default());
+        layout_job.append(&text[(open + open_step)..close], 0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, ..Default::default() });
+        layout_job.append(&text[(close + close_step)..],    0.0, Default::default());
+    }
+    else {
+        layout_job.append(text, 0.0, Default::default());
+    }
+
+    layout_job
+}
+
+
 #[derive(Debug)]
 enum HighlightedParens {
     None,
@@ -418,7 +444,7 @@ fn highlight_parens_layout(cursor: usize, text: &str) -> egui::text::LayoutJob {
         HighlightedParens::None       => layout_job.append(text, 0.0, Default::default()),
         HighlightedParens::Ok(op, cp) => {
             layout_job.append(&text.chars().take(op).collect::<String>(),                       0.0, Default::default());
-            layout_job.append(&format!("{}", text.chars().nth(op).unwrap()),                    0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, ..Default::default() });
+            layout_job.append(&format!("{}", text.chars().nth(op).unwrap()),                    0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN,..Default::default() });
             layout_job.append(&text.chars().skip(op + 1).take(cp - op - 1).collect::<String>(), 0.0, Default::default());
             layout_job.append(&format!("{}", text.chars().nth(cp).unwrap()),                    0.0, egui::text::TextFormat{ color: epaint::Color32::GREEN, ..Default::default() });
             layout_job.append(&text.chars().skip(cp + 1).collect::<String>(),                   0.0, Default::default());

@@ -337,7 +337,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
           (apply concat 
                  (map (lambda (x)
                         (if (= x hl)
-                            (concat ">>" (print x) "<< ")
+                            (concat "「" (print x) "」")
                             (concat (print x) " ")))
                       elems))
           ")"))
