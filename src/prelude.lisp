@@ -494,8 +494,10 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                    (send (list 'kind 'RETURN))))
                result)))
          (block
-           (receive)
-           (send (list 'kind 'SIGNAL-UNWIND, 'string (print *trapped-signal*)))
+           (when step-in
+             (block
+               (receive)
+               (send (list 'kind 'SIGNAL-UNWIND, 'string (print *trapped-signal*)))))
            (signal *trapped-signal*)))))
 
 (defun debug-expand-list (expr env)
