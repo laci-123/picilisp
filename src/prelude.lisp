@@ -171,13 +171,13 @@ Otherwise substract all but the first argument from the first one."
 
 (defun -range (n init)
   ""
-  (if (= n 0)
+  (if (= n -1)
       init
       (-range (substract n 1) (cons n init))))
 
 (defun range (n)
-  "Range of numbers from 0 to `n`."
-  (-range n nil))
+  "Range of numbers from 0 to `n` (including 0, excluding `n`)."
+  (-range (substract n 1) nil))
 
 (defun append (list1 list2)
   "Append `list1` to the beginning of `list2`."
@@ -380,15 +380,20 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                   (add-parameters rest-params rest-args env))))
       env))
 
-(defun highlight-list-elem (elems hl)
+(defun highlight-list-elem (elems n)
   ""
   (concat "("
-          (apply concat 
-                 (map (lambda (x)
-                        (if (= x hl)
-                            (concat "「" (print x) "」 ")
-                            (concat (print x) " ")))
-                      elems))
+          (let (len (length elems))
+            (apply concat 
+                   (map (lambda (xi)
+                          (let (x (car xi), i (cdr xi))
+                            (concat (if (= i n)
+                                        (concat "「" (print x) "」")
+                                        (print x))
+                                    (if (/= i (substract len 1))
+                                        " "
+                                        ""))))
+                        (zip elems (range len)))))
           ")"))
 
 (defun debug-list (expr env step-in)
@@ -411,16 +416,17 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                            'lambda-type))
       ('otherwise           (let (evaled-operator (block
                                                     (if step-in
-                                                        (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr operator)))
+                                                        (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 0)))
                                                         nil)
                                                     (debug-eval-internal operator env step-in))
-                                  evaled-operands (map (lambda (x)
-                                                         (block
-                                                           (if step-in
-                                                               (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr x)))
-                                                               nil)
-                                                           (debug-eval-internal x env step-in)))
-                                                        operands))
+                                  evaled-operands (map (lambda (xi)
+                                                         (let (x (car xi), i (cdr xi))
+                                                           (block
+                                                             (if step-in
+                                                                 (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr (add i 1))))
+                                                                 nil)
+                                                             (debug-eval-internal x env step-in))))
+                                                        (enumerate operands)))
                               (let (body (get-body evaled-operator))
                                 (block
                                   (if step-in
