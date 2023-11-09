@@ -546,5 +546,5 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
           expanded (get-property 'result e))
       (block
         (when changed
-          (send (list 'kind 'EXPAND, 'string (concat (print expr) " --> " (print expanded)))))
+          (send (list 'kind 'EXPAND, 'expression (print expr), 'expanded (print expanded))))
         (debug-eval-internal expanded env t)))))

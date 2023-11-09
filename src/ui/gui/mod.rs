@@ -32,7 +32,7 @@ enum StackFrame {
     Normal(String),
     Return(String, String),
     AllElemsEvaled(String, String),
-    Expand(String),
+    Expand(String, String),
     Unwind(String),
     SignalTrapped(String),
 }
@@ -171,7 +171,8 @@ impl Window {
                         }
                     },
                     Some("EXPAND") => {
-                        self.call_stack.push(StackFrame::Expand(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string()));
+                        self.call_stack.push(StackFrame::Expand(msg.get("expression").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string(),
+                                                                msg.get("expanded").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string()));
                     },
                     Some("EVAL") => {
                         self.call_stack.push(StackFrame::Normal(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string()));
@@ -196,7 +197,7 @@ impl Window {
                     },
                     Some("RETURN") => {
                         self.call_stack.pop();
-                        while let Some(StackFrame::Expand(_)) = self.call_stack.last() {
+                        while let Some(StackFrame::Expand(_, _)) = self.call_stack.last() {
                             self.call_stack.pop();
                         }
                     },
@@ -316,14 +317,16 @@ impl App for Window {
                         },
                         StackFrame::Return(expr, result) => {
                             ui.label(egui::RichText::new(trim_quotes(expr)).font(epaint::FontId::monospace(12.0)));
-                            ui.label(egui::RichText::new(&format!("--> {}", trim_quotes(result))).font(epaint::FontId::monospace(12.0)))
+                            ui.label(egui::RichText::new(&format!("--> {}", trim_quotes(result))).color(epaint::Color32::WHITE).font(epaint::FontId::monospace(12.0)))
                         },
                         StackFrame::AllElemsEvaled(expr, result) => {
                             ui.label(egui::RichText::new(trim_quotes(expr)).font(epaint::FontId::monospace(12.0)));
                             ui.label(egui::RichText::new(trim_quotes(result)).color(epaint::Color32::GREEN).font(epaint::FontId::monospace(12.0)))
                         },
-                        StackFrame::Expand(x) => {
-                            ui.label(egui::RichText::new(trim_quotes(x)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))
+                        StackFrame::Expand(expr, expand) => {
+                            ui.label(egui::RichText::new(trim_quotes(expr)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)));
+                            ui.label(egui::RichText::new("EXPANDS TO").color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)));
+                            ui.label(egui::RichText::new(trim_quotes(expand)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))
                         },
                         StackFrame::Unwind(x) => {
                             ui.label(egui::RichText::new(&format!("UNWINDING: {}", trim_quotes(x))).color(epaint::Color32::RED).font(epaint::FontId::monospace(12.0)))
