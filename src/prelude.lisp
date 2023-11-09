@@ -436,14 +436,18 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                            (car (cdr operands))
                                            env
                                            'lambda-type))
-      ('otherwise           (let (evaled-operator (block
-                                                    (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 0)))
-                                                    (debug-eval-internal operator env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))
+      ('otherwise           (let (evaled-operator (if step-in
+                                                    (block
+                                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 0)))
+                                                      (debug-eval-internal operator env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))
+                                                    (debug-eval-internal operator env nil))
                                   evaled-operands (map (lambda (xi)
                                                          (let (x (car xi), i (cdr xi))
-                                                           (block
-                                                             (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr (add i 1))))
-                                                             (debug-eval-internal x env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))))
+                                                           (if step-in
+                                                               (block
+                                                                 (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr (add i 1))))
+                                                                 (debug-eval-internal x env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))
+                                                               (debug-eval-internal x env nil))))
                                                         (enumerate operands)))
                               (let (body (get-body evaled-operator))
                                 (block
