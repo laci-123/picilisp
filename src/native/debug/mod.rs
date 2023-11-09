@@ -70,7 +70,7 @@ pub fn receive(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
                 return Err(GcRef::nil());
             },
             _ => {
-                let list: Vec<(&str, GcRef)> = msg.iter().map(|(k, v)| (k.as_str(), string_to_list(mem, v))).collect();
+                let list: Vec<(&str, GcRef)> = msg.iter().map(|(k, v)| (k.as_str(), mem.symbol_for(v))).collect();
                 Ok(make_plist(mem, &list))
             },
         }

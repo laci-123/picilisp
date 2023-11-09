@@ -437,15 +437,13 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                            env
                                            'lambda-type))
       ('otherwise           (let (evaled-operator (block
-                                                    (when step-in
-                                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 0))))
-                                                    (debug-eval-internal operator env step-in))
+                                                    (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 0)))
+                                                    (debug-eval-internal operator env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))
                                   evaled-operands (map (lambda (xi)
                                                          (let (x (car xi), i (cdr xi))
                                                            (block
-                                                             (when step-in
-                                                               (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr (add i 1)))))
-                                                             (debug-eval-internal x env step-in))))
+                                                             (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr (add i 1))))
+                                                             (debug-eval-internal x env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))))
                                                         (enumerate operands)))
                               (let (body (get-body evaled-operator))
                                 (block
@@ -466,9 +464,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
   (eval (trap
          (block
            (when step-in 
-             (block
-               (receive)
-               (send (list 'kind 'EVAL, 'string (print expr)))))
+             (send (list 'kind 'EVAL, 'string (print expr))))
            (let (result (let (type (type-of expr))
                           (case
                             ((= type 'list-type)   (debug-list expr env step-in))
