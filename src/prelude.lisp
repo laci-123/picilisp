@@ -406,7 +406,13 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
 (defun debug-list (expr env step-in)
   ""
   (let (operator (car expr)
-        operands (cdr expr))
+        operands (cdr expr)
+        highlight-and-debug (lambda (x i)           
+                              (if step-in
+                                  (block
+                                    (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr i)))
+                                    (debug-eval-internal x env (= (get-property 'command (receive)) 'STEP-IN)))
+                                  (debug-eval-internal x env nil))))
     (case
       ((= operator 'quote)  (block
                               (when step-in
@@ -415,53 +421,31 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
       ((= operator 'if)     (let (condition (car operands)
                                   then      (car (cdr operands))
                                   otherwise (car (cdr (cdr operands))))
-                              (if (block
-                                    (when step-in
-                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 1))))
-                                    (debug-eval-internal condition env step-in))
-                                  (block
-                                    (when step-in
-                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 2))))
-                                    (debug-eval-internal then      env step-in))
-                                  (block
-                                    (when step-in
-                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 3))))
-                                    (debug-eval-internal otherwise env step-in)))))
-      ((= operator 'eval)   (block
-                              (when step-in
-                                (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 1))))
-                              (debug-eval-internal (debug-eval-internal (car operands) env step-in) env step-in)))
+                              (if (highlight-and-debug condition 1)
+                                  (highlight-and-debug then      2)
+                                  (highlight-and-debug otherwise 3))))
+      ((= operator 'eval)   (let (operand (highlight-and-debug (car operands) 1))
+                              (highlight-and-debug operand 1)))
       ((= operator 'trap)   (make-trap (car operands) (car (cdr operands))) env)
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
                                            env
                                            'lambda-type))
-      ('otherwise           (let (evaled-operator (if step-in
-                                                    (block
-                                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 0)))
-                                                      (debug-eval-internal operator env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))
-                                                    (debug-eval-internal operator env nil))
-                                  evaled-operands (map (lambda (xi)
-                                                         (let (x (car xi), i (cdr xi))
-                                                           (if step-in
-                                                               (block
-                                                                 (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr (add i 1))))
-                                                                 (debug-eval-internal x env (and step-in (= (get-property 'command (receive)) 'STEP-IN))))
-                                                               (debug-eval-internal x env nil))))
-                                                        (enumerate operands)))
-                              (let (body (get-body evaled-operator))
+      ('otherwise           (let (evaled-expr (map (lambda (xi) (highlight-and-debug (car xi) (cdr xi)))
+                                                   (enumerate expr)))
+                              (let (body (get-body (car evaled-expr)))
                                 (block
                                   (when step-in
                                     (block
                                       (receive)
-                                      (send (list 'kind 'ALL-ELEMS-EVALED, 'expression (print expr), 'result (print (cons evaled-operator evaled-operands))))))
+                                      (send (list 'kind 'ALL-ELEMS-EVALED, 'expression (print expr), 'result (print evaled-expr)))))
                                   (if body
                                       (debug-eval-internal (car body)
-                                                           (add-parameters (get-parameters evaled-operator)
-                                                                           evaled-operands
-                                                                           (get-environment evaled-operator))
+                                                           (add-parameters (get-parameters (car evaled-expr))
+                                                                           (cdr evaled-expr)
+                                                                           (get-environment (car evaled-expr)))
                                                            step-in)
-                                      (call-native-function evaled-operator evaled-operands env)))))))))
+                                      (call-native-function (car evaled-expr) (cdr evaled-expr) env)))))))))
                                       
 (defun debug-eval-internal (expr env step-in)
   ""
