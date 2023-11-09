@@ -123,6 +123,7 @@ impl Window {
             Ok(Err(err)) => {
                 self.signal_text = format!("ERROR:\n\n{err}");
                 self.result_text.clear();
+                self.call_stack.clear();
                 self.worker_state = WorkerState::Ready;
             },
             Err(_)       => {},
@@ -356,14 +357,14 @@ impl App for Window {
                         ui.add_enabled(false, egui::Button::new("Evaluate"));
                         ui.add_enabled(false, egui::Button::new("Step by step"));
                         if ui.button("Stop").clicked() {
-                            // self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
                         }
                         if ui.button("Force stop").clicked() {
-                            // self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "ABORT".to_string())])).expect("worker thread dissappeared");
                         }
                         if ui.button("Pause").clicked() {
                             self.worker_state = WorkerState::Paused;
-                            // self.umbilical.to_low_end.send(DebugCommand::Pause).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "PAUSE".to_string())])).expect("worker thread dissappeared");
                         }
                         ui.add_enabled(false, egui::Button::new("Step"));
                         ui.label("working...");
@@ -373,19 +374,17 @@ impl App for Window {
                         ui.add_enabled(false, egui::Button::new("Evaluate"));
                         ui.add_enabled(false, egui::Button::new("Step by step"));
                         if ui.button("Stop").clicked() {
-                            // self.umbilical.to_low_end.send(DebugCommand::InterruptSignal).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
                         }
                         if ui.button("Force stop").clicked() {
-                            // self.umbilical.to_low_end.send(DebugCommand::Abort).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "ABORT".to_string())])).expect("worker thread dissappeared");
                         }
-                        if ui.button("Resume").clicked() {
+                        if ui.button("Continue").clicked() {
                             self.worker_state = WorkerState::Working;
-                            // self.umbilical.to_low_end.send(DebugCommand::Resume).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "CONTINUE".to_string())])).expect("worker thread dissappeared");
                         }
                         if ui.button("Step").clicked() {
-                            let mut dm = DebugMessage::new();
-                            dm.insert("kind".to_string(), STEP.to_string());
-                            self.umbilical.to_low_end.send(dm).expect("worker thread dissappeared");
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP".to_string())])).expect("worker thread dissappeared");
                         }
                         ui.label("PAUSED");
                     },

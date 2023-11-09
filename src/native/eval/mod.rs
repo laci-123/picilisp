@@ -211,6 +211,20 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
 
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
     loop { 
+        if let Some(umb) = &mem.umbilical {
+            if let Ok(msg) = umb.from_high_end.try_recv() {
+                match msg.get("command").map(|s| s.as_str()) {
+                    Some("INTERRUPT") => {
+                        return Err(make_error(mem, "interrupted", EVAL.name, &vec![]));
+                    },
+                    Some("ABORT") => {
+                        return Err(GcRef::nil());
+                    },
+                    _ => {},
+                }
+            }
+        }
+
         let name = expression.get_metadata().map(|md| md.read_name.clone());
 
         if let Some(mut list_elems) = list_to_vec(expression.clone()) {

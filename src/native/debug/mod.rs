@@ -57,13 +57,23 @@ The message is in the form of a property list.
 If no debugger is attached, return nil."
 };
 
-pub fn receive(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+pub fn receive(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, RECEIVE.name, args);    
 
     if let Some(umb) = &mut mem.umbilical {
         let msg = umb.from_high_end.recv().expect("supervisor thread disappeared");
-        let list: Vec<(&str, GcRef)> = msg.iter().map(|(k, v)| (k.as_str(), string_to_list(mem, v))).collect();
-        Ok(make_plist(mem, &list))
+        match msg.get("command").map(|s| s.as_str()) {
+            Some("INTERRUPT") => {
+                return Err(make_error(mem, "interrupted", RECEIVE.name, &vec![]));
+            },
+            Some("ABORT") => {
+                return Err(GcRef::nil());
+            },
+            _ => {
+                let list: Vec<(&str, GcRef)> = msg.iter().map(|(k, v)| (k.as_str(), string_to_list(mem, v))).collect();
+                Ok(make_plist(mem, &list))
+            },
+        }
     }
     else {
         Ok(GcRef::nil())
