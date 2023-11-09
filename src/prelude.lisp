@@ -408,7 +408,10 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
   (let (operator (car expr)
         operands (cdr expr))
     (case
-      ((= operator 'quote)  (car operands))
+      ((= operator 'quote)  (block
+                              (when step-in
+                                (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 1))))
+                              (car operands)))
       ((= operator 'if)     (let (condition (car operands)
                                   then      (car (cdr operands))
                                   otherwise (car (cdr (cdr operands))))
@@ -424,7 +427,10 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                     (when step-in
                                       (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 3))))
                                     (debug-eval-internal otherwise env step-in)))))
-      ((= operator 'eval)   (debug-eval-internal (debug-eval-internal (car operands) env) env step-in))
+      ((= operator 'eval)   (block
+                              (when step-in
+                                (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 1))))
+                              (debug-eval-internal (debug-eval-internal (car operands) env step-in) env step-in)))
       ((= operator 'trap)   (make-trap (car operands) (car (cdr operands))) env)
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
