@@ -33,9 +33,10 @@ The value of the last form in `body` is returned."
 
 (defmacro when (condition then)
   "Same as `if` but the `otherwise` arm is always `nil`."
-  (if condition
-      then
-      nil))
+  (list 'if
+        condition
+        then
+        nil))
 
 (defun foldl (f init things)
   "Return the result of applying `f` to `init` and the first element of `things`,
@@ -412,13 +413,16 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                   then      (car (cdr operands))
                                   otherwise (car (cdr (cdr operands))))
                               (if (block
-                                    (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 1)))
+                                    (when step-in
+                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 1))))
                                     (debug-eval-internal condition env step-in))
                                   (block
-                                    (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 2)))
+                                    (when step-in
+                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 2))))
                                     (debug-eval-internal then      env step-in))
                                   (block
-                                    (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 3)))
+                                    (when step-in
+                                      (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr 3))))
                                     (debug-eval-internal otherwise env step-in)))))
       ((= operator 'eval)   (debug-eval-internal (debug-eval-internal (car operands) env) env step-in))
       ((= operator 'trap)   (make-trap (car operands) (car (cdr operands))) env)
@@ -512,8 +516,8 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
   (let (type (type-of expr))
     (case
       ((= type 'list-type)   (debug-expand-list expr env)) 
-      ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) nil)
-                                   expanded-cdr (debug-expand (cdr expr) nil))
+      ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env)
+                                   expanded-cdr (debug-expand (cdr expr) env))
                                (let (changed (or (get-property 'changed expanded-car) (get-property 'changed expanded-cdr)))
                                  (list 'result  (cons (get-property 'result expanded-car) (get-property 'result expanded-cdr))
                                        'changed changed))))
