@@ -33,6 +33,8 @@ enum StackFrame {
     Return(String, String),
     AllElemsEvaled(String, String),
     Expand(String),
+    Unwind(String),
+    SignalTrapped(String),
 }
 
 
@@ -203,6 +205,17 @@ impl Window {
                             *top = msg.get("string").map(|s| s.clone()).unwrap_or("#<ERROR: MISSING>".to_string());
                         }
                     },
+                    Some("SIGNAL-UNWIND") => {
+                        self.call_stack.pop();
+                        if let Some(last) = self.call_stack.last_mut() {
+                            *last = StackFrame::Unwind(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
+                        }
+                    },
+                    Some("SIGNAL-TRAPPED") => {
+                        if let Some(last) = self.call_stack.last_mut() {
+                            *last = StackFrame::SignalTrapped(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
+                        }
+                    },
                     Some(other) => {
                         eprintln!("DEBUG ERROR: unknown message kind: {}.", other);
                     },
@@ -311,6 +324,12 @@ impl App for Window {
                         },
                         StackFrame::Expand(x) => {
                             ui.label(egui::RichText::new(trim_quotes(x)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))
+                        },
+                        StackFrame::Unwind(x) => {
+                            ui.label(egui::RichText::new(&format!("UNWINDING: {}", trim_quotes(x))).color(epaint::Color32::RED).font(epaint::FontId::monospace(12.0)))
+                        },
+                        StackFrame::SignalTrapped(x) => {
+                            ui.label(egui::RichText::new(&format!("HANDLING: {}", trim_quotes(x))).color(epaint::Color32::LIGHT_RED).font(epaint::FontId::monospace(12.0)))
                         },
                     };
                     response.scroll_to_me(None);

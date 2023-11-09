@@ -463,35 +463,40 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                       
 (defun debug-eval-internal (expr env step-in)
   ""
-  (block
-    (when step-in 
-      (block
-        (receive)
-        (send (list 'kind 'EVAL, 'string (print expr)))))
-    (let (result (let (type (type-of expr))
-                   (case
-                     ((= type 'list-type)   (debug-list expr env step-in))
-                     ((= type 'cons-type)   (cons (debug-eval-internal (car expr) env step-in)
-                                                  (debug-eval-internal (cdr expr) env step-in)))
-                     ((= type 'symbol-type) (lookup expr env))
-                     ((= type 'trap-type)   (let (nt (destructure-trap expr))
-                                              (let (normal-body (car nt)
-                                                    trap-body   (car (cdr nt)))
-                                                (eval (trap
-                                                       (debug-eval-internal normal-body env step-in)
-                                                       (block
-                                                         (when step-in
-                                                           (send (list 'kind 'SIGNAL-TRAPPED, 'string (print *trapped-signal*))))
-                                                         (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env) step-in)))))))
-                     ('otherwise            expr))))
-      (block
-        (when step-in
-          (block
-            (receive)
-            (send (list 'kind 'RETURN-VALUE, 'expression (print expr), 'result (print result)))
-            (receive)
-            (send (list 'kind 'RETURN))))
-        result))))
+  (eval (trap
+         (block
+           (when step-in 
+             (block
+               (receive)
+               (send (list 'kind 'EVAL, 'string (print expr)))))
+           (let (result (let (type (type-of expr))
+                          (case
+                            ((= type 'list-type)   (debug-list expr env step-in))
+                            ((= type 'cons-type)   (cons (debug-eval-internal (car expr) env step-in)
+                                                         (debug-eval-internal (cdr expr) env step-in)))
+                            ((= type 'symbol-type) (lookup expr env))
+                            ((= type 'trap-type)   (let (nt (destructure-trap expr))
+                                                     (let (normal-body (car nt)
+                                                           trap-body   (car (cdr nt)))
+                                                       (eval (trap
+                                                              (debug-eval-internal normal-body env step-in)
+                                                              (block
+                                                                (receive)
+                                                                (send (list 'kind 'SIGNAL-TRAPPED, 'string (print *trapped-signal*)))
+                                                                (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env) step-in)))))))
+                            ('otherwise            expr))))
+             (block
+               (when step-in
+                 (block
+                   (receive)
+                   (send (list 'kind 'RETURN-VALUE, 'expression (print expr), 'result (print result)))
+                   (receive)
+                   (send (list 'kind 'RETURN))))
+               result)))
+         (block
+           (receive)
+           (send (list 'kind 'SIGNAL-UNWIND, 'string (print *trapped-signal*)))
+           (signal *trapped-signal*)))))
 
 (defun debug-expand-list (expr env)
   ""
