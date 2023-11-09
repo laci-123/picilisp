@@ -113,7 +113,7 @@ impl Window {
         }
     }
 
-    fn update(&mut self) {
+    fn update(&mut self) -> bool {
         match self.from_worker.try_recv() {
             Ok(Ok(x))    => {
                 self.result_text = x;
@@ -209,8 +209,10 @@ impl Window {
                         eprintln!("DEBUG ERROR: message does not contain 'kind' key.");
                     },
                 }
+
+                true
             },
-            Err(_) => {},
+            Err(_) => false,
         }
     }
 
@@ -232,7 +234,9 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
-        self.update();
+        if self.update() {
+            ctx.request_repaint();
+        }
 
         egui::SidePanel::left("Left panel").default_width(300.0).show(ctx, |ui| {
             ui.heading("Global constants");
