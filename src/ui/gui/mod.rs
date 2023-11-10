@@ -249,6 +249,7 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
+        
         if self.update() {
             ctx.request_repaint();
         }
@@ -450,7 +451,9 @@ impl App for Window {
 
 pub fn run() -> Result<(), String> {
     let window = Box::new(Window::new());
-    run_native(config::APPLICATION_NAME, NativeOptions::default(), Box::new(|_| window)).map_err(|err| err.to_string())
+                                        // The normal way to do this would be `maximized: true` but that doesn't work for some reason
+    let native_options = NativeOptions{ initial_window_size: Some(epaint::Vec2 { x: f32::INFINITY, y: f32::INFINITY }), ..Default::default() };
+    run_native(config::APPLICATION_NAME, native_options, Box::new(|_| window)).map_err(|err| err.to_string())
 }
 
 
