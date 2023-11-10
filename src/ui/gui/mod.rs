@@ -10,6 +10,7 @@ use std::collections::BTreeMap;
 use std::collections::VecDeque;
 use std::sync::{mpsc, Arc, RwLock};
 use std::thread;
+use std::time::Duration;
 
 
 
@@ -249,7 +250,6 @@ impl Window {
 
 impl App for Window {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
-        
         if self.update() {
             ctx.request_repaint();
         }
@@ -395,21 +395,18 @@ impl App for Window {
                         ui.add_enabled(false, egui::Button::new("Run without debugging"));
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
-                            ctx.request_repaint();
                         }
                         if ui.button("Force stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "ABORT".to_string())])).expect("worker thread dissappeared");
-                            ctx.request_repaint();
                         }
                         if ui.button("Step over").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP-OVER".to_string())])).expect("worker thread dissappeared");
-                            ctx.request_repaint();
                         }
                         if ui.button("Step in").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP-IN".to_string())])).expect("worker thread dissappeared");
-                            ctx.request_repaint();
                         }
                         ui.label("working...");
+                        ctx.request_repaint_after(Duration::from_millis(500));
                     },
                 }
             });
