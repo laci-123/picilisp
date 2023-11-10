@@ -55,6 +55,7 @@ struct Window {
     free_cells: usize,
     worker_state: WorkerState,
     call_stack: Vec<StackFrame>,
+    interrupted: bool,
 }
 
 impl Window {
@@ -113,6 +114,7 @@ impl Window {
             umbilical: umbilical_high_end,
             worker_state: WorkerState::Evaluating,
             call_stack: Vec::new(),
+            interrupted: false,
         }
     }
 
@@ -212,6 +214,7 @@ impl Window {
                         if let Some(last) = self.call_stack.last_mut() {
                             *last = StackFrame::Unwind(msg.get("string").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string());
                         }
+                        self.interrupted = false;
                     },
                     Some("SIGNAL-TRAPPED") => {
                         if let Some(last) = self.call_stack.last_mut() {
@@ -362,23 +365,29 @@ impl App for Window {
             }
             ui.add_space(10.0);
 
-            ui.horizontal(|ui| {
-                match self.worker_state {
-                    WorkerState::Ready => {
+            match self.worker_state {
+                WorkerState::Ready => {
+                    ui.horizontal(|ui| {
                         if ui.button("Debug").clicked() {
                             self.eval_step_by_step();
                         }
                         if ui.button("Run without debugging").clicked() {
                             self.eval();
                         }
+                    });
+                    ui.horizontal(|ui| {
                         ui.add_enabled(false, egui::Button::new("Stop"));
                         ui.add_enabled(false, egui::Button::new("Force Stop"));
                         ui.add_enabled(false, egui::Button::new("Step over"));
                         ui.add_enabled(false, egui::Button::new("Step in"));
-                    },
-                    WorkerState::Evaluating => {
+                    });
+                },
+                WorkerState::Evaluating => {
+                    ui.horizontal(|ui| {
                         ui.add_enabled(false, egui::Button::new("Debug"));
                         ui.add_enabled(false, egui::Button::new("Run without deubbing"));
+                    });
+                    ui.horizontal(|ui| {
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
                         }
@@ -388,13 +397,18 @@ impl App for Window {
                         ui.add_enabled(false, egui::Button::new("Step over"));
                         ui.add_enabled(false, egui::Button::new("Step in"));
                         ui.label("working...");
-                        ctx.request_repaint();
-                    },
-                    WorkerState::Debugging => {
+                    });
+                    ctx.request_repaint();
+                },
+                WorkerState::Debugging => {
+                    ui.horizontal(|ui| {
                         ui.add_enabled(false, egui::Button::new("Debug"));
                         ui.add_enabled(false, egui::Button::new("Run without debugging"));
+                    });
+                    ui.horizontal(|ui| {
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
+                            self.interrupted = true;
                         }
                         if ui.button("Force stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "ABORT".to_string())])).expect("worker thread dissappeared");
@@ -406,10 +420,13 @@ impl App for Window {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP-IN".to_string())])).expect("worker thread dissappeared");
                         }
                         ui.label("working...");
-                        ctx.request_repaint_after(Duration::from_millis(500));
-                    },
-                }
-            });
+                        if self.interrupted {
+                            ui.label(" (INTERRUPT singal has been sent)");
+                        }
+                    });
+                    ctx.request_repaint_after(Duration::from_millis(500));
+                },
+            }
             ui.add_space(10.0);
 
             egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
