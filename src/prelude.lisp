@@ -484,6 +484,14 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                (send (list 'kind 'SIGNAL-UNWIND, 'string (print *trapped-signal*)))))
            (signal *trapped-signal*)))))
 
+(defun sequence-changed (elems)
+  ""
+  (foldr (lambda (x xs) (if (get-property 'changed x)
+                            (list 'result (cons (get-property 'result x) (get-property 'result xs)), 'changed t)
+                            (list 'result (cons (get-property 'result x) (get-property 'result xs)), 'changed (get-property 'changed xs))))
+         (list 'result nil, 'changed nil)
+         elems))
+
 (defun debug-expand-list (expr env)
   ""
   (let (operator (car expr)
@@ -493,20 +501,23 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                  'changed nil))
       ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env 'macro-type)
                                  'changed nil))
-      ('otherwise           (let (expanded-operator (get-property 'result (debug-expand operator env))
-                                  expanded-operands (map (lambda (x) (get-property 'result (debug-expand x env))) operands))
-                              (if (= 'macro (get-property 'function-kind (get-metadata expanded-operator)))
-                                  (let (body (get-body expanded-operator))
-                                    (list 'result (if body
-                                                      (debug-eval-internal (car body)
-                                                                           (add-parameters (get-parameters expanded-operator)
-                                                                                           expanded-operands
-                                                                                           (get-environment expanded-operator))
-                                                                           nil)
-                                                      (call-native-function expanded-operator expanded-operands env))
-                                          'changed t))
-                                  (list 'result  (cons expanded-operator expanded-operands)
-                                        'changed nil)))))))
+      ('otherwise           (let (expanded-operator-rc (debug-expand operator env)
+                                  expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env)) operands)))
+                              (let (expanded-operator (get-property 'result expanded-operator-rc)
+                                    expanded-operands (get-property 'result expanded-operands-rc) 
+                                    changed           (or (get-property 'changed expanded-operator-rc) (get-property 'changed expanded-operands-rc)))
+                                (if (= 'macro (get-property 'function-kind (get-metadata expanded-operator)))
+                                    (let (body (get-body expanded-operator))
+                                      (list 'result (if body
+                                                        (debug-eval-internal (car body)
+                                                                             (add-parameters (get-parameters expanded-operator)
+                                                                                             expanded-operands
+                                                                                             (get-environment expanded-operator))
+                                                                             nil)
+                                                        (call-native-function expanded-operator expanded-operands env))
+                                            'changed t))
+                                    (list 'result  (cons expanded-operator expanded-operands)
+                                          'changed changed))))))))
          
 (defun debug-expand (expr env)
   ""
