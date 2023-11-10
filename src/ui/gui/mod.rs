@@ -40,6 +40,7 @@ enum StackFrame {
 
 
 struct Window {
+    step_into_macroexpand: bool,
     to_worker: mpsc::Sender<String>,
     from_worker: mpsc::Receiver<Result<String, String>>,
     umbilical: UmbilicalHighEnd,
@@ -99,6 +100,7 @@ impl Window {
         }).expect("could not start worker thread");
 
         Self {
+            step_into_macroexpand: false,
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
@@ -245,7 +247,7 @@ impl Window {
     fn eval_step_by_step(&mut self) {
         self.result_text.clear();
         self.signal_text.clear();
-        let input = format!("(debug-eval '{} nil)", self.program_text);
+        let input = format!("(debug-eval '{} nil {})", self.program_text, if self.step_into_macroexpand {"t"} else {"nil"});
         self.to_worker.send(input).expect("worker thread dissappeared");
         self.worker_state = WorkerState::Debugging;
     }
@@ -374,6 +376,7 @@ impl App for Window {
                         if ui.button("Run without debugging").clicked() {
                             self.eval();
                         }
+                        ui.checkbox(&mut self.step_into_macroexpand, "Step into macroexpand");
                     });
                     ui.horizontal(|ui| {
                         ui.add_enabled(false, egui::Button::new("Stop"));
@@ -386,6 +389,7 @@ impl App for Window {
                     ui.horizontal(|ui| {
                         ui.add_enabled(false, egui::Button::new("Debug"));
                         ui.add_enabled(false, egui::Button::new("Run without deubbing"));
+                        ui.add_enabled(false, egui::Checkbox::new(&mut self.step_into_macroexpand, "Step into macroexpand"));
                     });
                     ui.horizontal(|ui| {
                         if ui.button("Stop").clicked() {
@@ -404,6 +408,7 @@ impl App for Window {
                     ui.horizontal(|ui| {
                         ui.add_enabled(false, egui::Button::new("Debug"));
                         ui.add_enabled(false, egui::Button::new("Run without debugging"));
+                        ui.checkbox(&mut self.step_into_macroexpand, "Step into macroexpand");
                     });
                     ui.horizontal(|ui| {
                         if ui.button("Stop").clicked() {

@@ -492,7 +492,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
          (list 'result nil, 'changed nil)
          elems))
 
-(defun debug-expand-list (expr env)
+(defun debug-expand-list (expr env step-in)
   ""
   (let (operator (car expr)
         operands (cdr expr))
@@ -501,8 +501,8 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                  'changed nil))
       ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env 'macro-type)
                                  'changed nil))
-      ('otherwise           (let (expanded-operator-rc (debug-expand operator env)
-                                  expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env)) operands)))
+      ('otherwise           (let (expanded-operator-rc (debug-expand operator env step-in)
+                                  expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env step-in)) operands)))
                               (let (expanded-operator (get-property 'result expanded-operator-rc)
                                     expanded-operands (get-property 'result expanded-operands-rc) 
                                     changed           (or (get-property 'changed expanded-operator-rc) (get-property 'changed expanded-operands-rc)))
@@ -513,19 +513,19 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                                                              (add-parameters (get-parameters expanded-operator)
                                                                                              expanded-operands
                                                                                              (get-environment expanded-operator))
-                                                                             nil)
+                                                                             step-in)
                                                         (call-native-function expanded-operator expanded-operands env))
                                             'changed t))
                                     (list 'result  (cons expanded-operator expanded-operands)
                                           'changed changed))))))))
          
-(defun debug-expand (expr env)
+(defun debug-expand (expr env step-in)
   ""
   (let (type (type-of expr))
     (case
-      ((= type 'list-type)   (debug-expand-list expr env)) 
-      ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env)
-                                   expanded-cdr (debug-expand (cdr expr) env))
+      ((= type 'list-type)   (debug-expand-list expr env step-in)) 
+      ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env step-in)
+                                   expanded-cdr (debug-expand (cdr expr) env step-in))
                                (let (changed (or (get-property 'changed expanded-car) (get-property 'changed expanded-cdr)))
                                  (list 'result  (cons (get-property 'result expanded-car) (get-property 'result expanded-cdr))
                                        'changed changed))))
@@ -540,19 +540,18 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
       ('otherwise            (list 'result  expr
                                    'changed nil)))))
 
-(defun keep-expanding (expr env ch)
+(defun keep-expanding (expr env step-in ch)
   ""
-  (let (e (debug-expand expr env))
+  (let (e (debug-expand expr env step-in))
     (let (changed  (get-property 'changed e)
           expanded (get-property 'result e))
       (if changed
-          (keep-expanding expanded env t)
+          (keep-expanding expanded env step-in t)
           (list 'result expanded, 'changed ch)))))
   
-                                                
-(defun debug-eval (expr env)
+(defun debug-eval (expr env step-into-macroexpand)
   ""
-  (let (e (keep-expanding expr env nil))
+  (let (e (keep-expanding expr env step-into-macroexpand nil))
     (let (changed  (get-property 'changed e)
           expanded (get-property 'result e))
       (block
