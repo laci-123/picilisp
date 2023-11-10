@@ -525,7 +525,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
     (case
       ((= type 'list-type)   (debug-expand-list expr env step-in)) 
       ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env step-in)
-                                   expanded-cdr (debug-expand (cdr expr) env step-in))
+                                                expanded-cdr (debug-expand (cdr expr) env step-in))
                                (let (changed (or (get-property 'changed expanded-car) (get-property 'changed expanded-cdr)))
                                  (list 'result  (cons (get-property 'result expanded-car) (get-property 'result expanded-cdr))
                                        'changed changed))))
@@ -542,12 +542,15 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
 
 (defun keep-expanding (expr env step-in ch)
   ""
-  (let (e (debug-expand expr env step-in))
-    (let (changed  (get-property 'changed e)
-          expanded (get-property 'result e))
-      (if changed
-          (keep-expanding expanded env step-in t)
-          (list 'result expanded, 'changed ch)))))
+  (block
+    (when step-in
+      (send (list 'kind 'BEGIN-EXPANDING, 'string (print expr))))
+    (let (e (debug-expand expr env step-in))
+      (let (changed  (get-property 'changed e)
+            expanded (get-property 'result e))
+        (if changed
+            (keep-expanding expanded env step-in t)
+            (list 'result expanded, 'changed ch))))))
   
 (defun debug-eval (expr env step-into-macroexpand)
   ""
