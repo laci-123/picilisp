@@ -16,8 +16,8 @@ use std::thread;
 #[derive(PartialEq, Eq)]
 enum WorkerState {
     Ready,
-    Working,
-    Paused,
+    Evaluating,
+    Debugging,
 }
 
 
@@ -110,7 +110,7 @@ impl Window {
             used_cells: 0,
             free_cells: 0,
             umbilical: umbilical_high_end,
-            worker_state: WorkerState::Working,
+            worker_state: WorkerState::Evaluating,
             call_stack: Vec::new(),
         }
     }
@@ -235,7 +235,7 @@ impl Window {
         self.result_text.clear();
         self.signal_text.clear();
         self.to_worker.send(self.program_text.clone()).expect("worker thread dissappeared");
-        self.worker_state = WorkerState::Working;
+        self.worker_state = WorkerState::Evaluating;
     }
 
     fn eval_step_by_step(&mut self) {
@@ -243,7 +243,7 @@ impl Window {
         self.signal_text.clear();
         let input = format!("(debug-eval '{} nil)", self.program_text);
         self.to_worker.send(input).expect("worker thread dissappeared");
-        self.worker_state = WorkerState::Paused;
+        self.worker_state = WorkerState::Debugging;
     }
 }
 
@@ -268,7 +268,7 @@ impl App for Window {
                         };
                         if value_label.clicked() {
                             self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
-                            self.worker_state = WorkerState::Working;
+                            self.worker_state = WorkerState::Evaluating;
                         }
                         ui.label(&value.value_type);
                     });
@@ -365,56 +365,51 @@ impl App for Window {
             ui.horizontal(|ui| {
                 match self.worker_state {
                     WorkerState::Ready => {
-                        if ui.button("Evaluate").clicked() {
-                            self.eval();
-                        }
-                        if ui.button("Step by step").clicked() {
+                        if ui.button("Debug").clicked() {
                             self.eval_step_by_step();
+                        }
+                        if ui.button("Run without debugging").clicked() {
+                            self.eval();
                         }
                         ui.add_enabled(false, egui::Button::new("Stop"));
                         ui.add_enabled(false, egui::Button::new("Force Stop"));
-                        ui.add_enabled(false, egui::Button::new("Pause"));
-                        ui.add_enabled(false, egui::Button::new("Step in"));
                         ui.add_enabled(false, egui::Button::new("Step over"));
+                        ui.add_enabled(false, egui::Button::new("Step in"));
                     },
-                    WorkerState::Working => {
-                        ui.add_enabled(false, egui::Button::new("Evaluate"));
-                        ui.add_enabled(false, egui::Button::new("Step by step"));
+                    WorkerState::Evaluating => {
+                        ui.add_enabled(false, egui::Button::new("Debug"));
+                        ui.add_enabled(false, egui::Button::new("Run without deubbing"));
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
                         }
                         if ui.button("Force stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "ABORT".to_string())])).expect("worker thread dissappeared");
                         }
-                        if ui.button("Pause").clicked() {
-                            self.worker_state = WorkerState::Paused;
-                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "PAUSE".to_string())])).expect("worker thread dissappeared");
-                        }
-                        ui.add_enabled(false, egui::Button::new("Step in"));
                         ui.add_enabled(false, egui::Button::new("Step over"));
+                        ui.add_enabled(false, egui::Button::new("Step in"));
                         ui.label("working...");
                         ctx.request_repaint();
                     },
-                    WorkerState::Paused => {
-                        ui.add_enabled(false, egui::Button::new("Evaluate"));
-                        ui.add_enabled(false, egui::Button::new("Step by step"));
+                    WorkerState::Debugging => {
+                        ui.add_enabled(false, egui::Button::new("Debug"));
+                        ui.add_enabled(false, egui::Button::new("Run without debugging"));
                         if ui.button("Stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "INTERRUPT".to_string())])).expect("worker thread dissappeared");
+                            ctx.request_repaint();
                         }
                         if ui.button("Force stop").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "ABORT".to_string())])).expect("worker thread dissappeared");
-                        }
-                        if ui.button("Continue").clicked() {
-                            self.worker_state = WorkerState::Working;
-                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "CONTINUE".to_string())])).expect("worker thread dissappeared");
-                        }
-                        if ui.button("Step in").clicked() {
-                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP-IN".to_string())])).expect("worker thread dissappeared");
+                            ctx.request_repaint();
                         }
                         if ui.button("Step over").clicked() {
                             self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP-OVER".to_string())])).expect("worker thread dissappeared");
+                            ctx.request_repaint();
                         }
-                        ui.label("PAUSED");
+                        if ui.button("Step in").clicked() {
+                            self.umbilical.to_low_end.send(DebugMessage::from([("command".to_string(), "STEP-IN".to_string())])).expect("worker thread dissappeared");
+                            ctx.request_repaint();
+                        }
+                        ui.label("working...");
                     },
                 }
             });
