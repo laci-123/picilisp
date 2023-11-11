@@ -47,6 +47,33 @@ fn read_character() {
 }
 
 #[test]
+fn read_unicode_character() {
+    let mut mem = Memory::new();
+
+    let input  = string_to_list(&mut mem, "%犬");
+    let r      = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
+    let status = property(&mut mem, "status", r.clone()).unwrap();
+    let result = property(&mut mem, "result", r.clone()).unwrap();
+    let rest   = property(&mut mem, "rest", r.clone()).unwrap();
+    assert_eq_symbol!(status, mem.symbol_for("ok"));
+    assert_eq!(*result.get().unwrap().as_character(), '犬');
+    assert_eq!(list_to_string(rest).unwrap(), "");
+}
+
+#[test]
+fn read_invalid_character() {
+    let mut mem = Memory::new();
+
+    let input     = string_to_list(&mut mem, "%ab");
+    let r         = read(&mut mem, &[input], GcRef::nil(), 0).ok().unwrap();
+    let status    = property(&mut mem, "status", r.clone()).unwrap();
+    assert_eq_symbol!(status, mem.symbol_for("error"));
+    let error     = property(&mut mem, "error", r).unwrap();
+    let error_msg = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
+    assert_eq!(error_msg, "invalid character: '%ab'");
+}
+
+#[test]
 fn read_escaped_character() {
     let mut mem = Memory::new();
 

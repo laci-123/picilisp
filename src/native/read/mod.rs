@@ -7,6 +7,7 @@ use crate::native::list::make_plist;
 use crate::error_utils::*;
 use crate::config;
 use super::NativeFunctionMetaData;
+use unicode_segmentation::UnicodeSegmentation;
 use std::path::PathBuf;
 use std::iter::Peekable;
 
@@ -265,13 +266,13 @@ fn is_atom_ending(ch: &Option<&Option<(char, GcRef)>>) -> Option<bool> { // None
 
 fn build_character(chars: &[char], location: Location, rest: StringWithPosition) -> Result<char, ReadError> {
     match chars.iter().collect::<String>().as_str() {
-        ""   => Err(ReadError::Error{ msg: format!("invalid character: '%' (empty literal)"), location, rest }),
-        "\\n" => Ok('\n'),
-        "\\t" => Ok('\t'),
-        "\\r" => Ok('\r'),
+        ""     => Err(ReadError::Error{ msg: format!("invalid character: '%' (empty literal)"), location, rest }),
+        "\\n"  => Ok('\n'),
+        "\\t"  => Ok('\t'),
+        "\\r"  => Ok('\r'),
         "\\\\" => Ok('\\'),
-        c if c.len() == 1 => Ok(c.chars().next().unwrap()),
-        c    => Err(ReadError::Error{ msg: format!("invalid character: '%{c}'"), location, rest }),
+        c if c.graphemes(true).count() == 1 => Ok(c.chars().next().unwrap()),
+        c      => Err(ReadError::Error{ msg: format!("invalid character: '%{c}'"), location, rest }),
     }
 }
 
