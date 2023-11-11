@@ -206,22 +206,22 @@ Otherwise substract all but the first argument from the first one."
     (if metadata
         (concat (if (= (type-of thing) 'function-type)
                     (concat "("
-                            (print (get-property 'function-kind metadata))
+                            (print (. metadata 'function-kind))
                             " "
-                            (print (get-property 'parameters metadata))
+                            (print (. metadata 'parameters))
                             " ...)\n\n")
                     "")
-                (or (get-property 'documentation metadata)
+                (or (. metadata 'documentation)
                     "[No documentation]")
                 "\n\nDefined in:\n "
-                (let (source (get-property 'file metadata))
+                (let (source (. metadata 'file))
                   (if (= source 'native)
                       "Rust source."
                       (concat (print source)
                               ":"
-                              (print (get-property 'line metadata))
+                              (print (. metadata 'line))
                               ":"
-                              (print (get-property 'column metadata))))))
+                              (print (. metadata 'column))))))
         "No description available")))
 
 (defmacro case (& cases)
@@ -236,7 +236,7 @@ If non of them is true then return `nil`."
 (defun get-property-safe (key plist )
   "Same as `get-property`, but return nil if either `key` is not found in `plist` or if `plist` is not a property-list"
   (eval (trap
-   (get-property key plist)
+   (. plist key)
    nil)))
 
 (defmacro catch (kind body)
@@ -268,8 +268,8 @@ that catches the signal."
          (list 'trap
                body
                (cons 'case
-                     (map (lambda (catcher) (list (get-property 'test catcher)
-                                                  (list (get-property 'body catcher) '*trapped-signal*)))
+                     (map (lambda (catcher) (list (. catcher 'test)
+                                                  (list (. catcher 'body) '*trapped-signal*)))
                           catchers)))))
 
 (defmacro throw (& body)
@@ -290,9 +290,9 @@ If `error` is not a valid property-list then just simply print it using the `pri
                      (let (md (get-metadata value))
                        (concat (print value)
                                "\n at: "
-                               (print (get-property 'file md))
-                               (if (get-property 'line md)
-                                   (concat ":" (print (get-property 'line md)) ":" (print (get-property 'column md)))
+                               (print (. md 'file))
+                               (if (. md 'line)
+                                   (concat ":" (print (. md 'line)) ":" (print (. md 'column)))
                                    nil)))
                      (print value))
                  "\n\n"
@@ -309,12 +309,12 @@ Stop the loop when end of input (EOF) is reached."
   (try
    (let (current-input (concat initial-input (input prompt)))
      (let (read-result (read current-input))
-       (let (read-status (get-property 'status read-result))
+       (let (read-status (. read-result 'status))
          (case ((= read-status 'invalid)    (throw 'kind 'invalid-string, 'source 'repl))
                ((= read-status 'nothing)    (repl prompt nil))
                ((= read-status 'incomplete) (repl "... " current-input))
-               ((= read-status 'error)      (throw 'kind 'syntax-error, 'source 'repl, 'details (get-property 'error read-result)))
-               ((= read-status 'ok)         (block (output (print (eval (get-property 'result read-result))))
+               ((= read-status 'error)      (throw 'kind 'syntax-error, 'source 'repl, 'details (. read-result 'error)))
+               ((= read-status 'ok)         (block (output (print (eval (. read-result 'result))))
                                                           (repl ">>> " nil)))
                (t                                  (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status))))))
    (catch eof
@@ -329,12 +329,12 @@ Stop the loop when end of input (EOF) is reached."
 If a signal is emmited during read evaluate or print then pretty-print it then forward it."
   (try
    (let (read-result (read string))
-     (let (read-status (get-property 'status read-result))
+     (let (read-status (. read-result 'status))
        (case ((= read-status 'invalid)    (throw 'kind 'invalid-string, 'source 'repl))
              ((= read-status 'nothing)    "")
              ((= read-status 'incomplete) (throw 'kind 'syntax-error,   'source 'read-eval-print, 'details 'incomplete-input))
-             ((= read-status 'error)      (throw 'kind 'syntax-error,   'source 'repl,            'details (get-property 'error read-result)))
-             ((= read-status 'ok)         (print (eval (get-property 'result read-result))))
+             ((= read-status 'error)      (throw 'kind 'syntax-error,   'source 'repl,            'details (. read-result 'error)))
+             ((= read-status 'ok)         (print (eval (. read-result 'result))))
              (t                           (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status)))))
   (catch-all
    (lambda (error) (signal (pretty-print-error error))))))
@@ -411,7 +411,7 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                               (if step-in
                                   (block
                                     (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr i)))
-                                    (debug-eval-internal x env (= (get-property 'command (receive)) 'STEP-IN)))
+                                    (debug-eval-internal x env (= (. (receive) 'command) 'STEP-IN)))
                                   (debug-eval-internal x env nil))))
     (case
       ((= operator 'quote)  (block
@@ -486,9 +486,9 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
 
 (defun sequence-changed (elems)
   ""
-  (foldr (lambda (x xs) (if (get-property 'changed x)
-                            (list 'result (cons (get-property 'result x) (get-property 'result xs)), 'changed t)
-                            (list 'result (cons (get-property 'result x) (get-property 'result xs)), 'changed (get-property 'changed xs))))
+  (foldr (lambda (x xs) (if (. x 'changed)
+                            (list 'result (cons (. x 'result) (. xs 'result)), 'changed t)
+                            (list 'result (cons (. x 'result) (. xs 'result)), 'changed (. xs 'changed))))
          (list 'result nil, 'changed nil)
          elems))
 
@@ -503,10 +503,10 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
                                  'changed nil))
       ('otherwise           (let (expanded-operator-rc (debug-expand operator env step-in)
                                   expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env step-in)) operands)))
-                              (let (expanded-operator (get-property 'result expanded-operator-rc)
-                                    expanded-operands (get-property 'result expanded-operands-rc) 
-                                    changed           (or (get-property 'changed expanded-operator-rc) (get-property 'changed expanded-operands-rc)))
-                                (if (= 'macro (get-property 'function-kind (get-metadata expanded-operator)))
+                              (let (expanded-operator (. expanded-operator-rc 'result)
+                                    expanded-operands (. expanded-operands-rc 'result) 
+                                    changed           (or (. expanded-operator-rc 'changed) (. expanded-operands-rc 'changed)))
+                                (if (= 'macro (. (get-metadata expanded-operator) 'function-kind))
                                     (let (body (get-body expanded-operator))
                                       (list 'result (if body
                                                         (debug-eval-internal (car body)
@@ -526,15 +526,15 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
       ((= type 'list-type)   (debug-expand-list expr env step-in)) 
       ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env step-in)
                                                 expanded-cdr (debug-expand (cdr expr) env step-in))
-                               (let (changed (or (get-property 'changed expanded-car) (get-property 'changed expanded-cdr)))
-                                 (list 'result  (cons (get-property 'result expanded-car) (get-property 'result expanded-cdr))
+                               (let (changed (or (. expanded-car 'changed) (. expanded-cdr 'changed)))
+                                 (list 'result  (cons (. expanded-car 'result) (. expanded-cdr 'result))
                                        'changed changed))))
       ((= type 'symbol-type) (eval (trap
                                     (let (expanded (lookup expr env))
-                                      (if (= 'macro (get-property 'function-kind (get-metadata expanded)))
+                                      (if (= 'macro (. (get-metadata expanded) 'function-kind))
                                           (list 'result expanded, 'changed t)
                                           (list 'result expr,     'changed nil)))
-                                    (if (= (get-property 'kind *trapped-signal*) 'unbound-symbol)
+                                    (if (= (. *trapped-signal* 'kind) 'unbound-symbol)
                                         (list 'result expr,     'changed nil)
                                         (signal *trapped-signal*)))))
       ('otherwise            (list 'result  expr
@@ -546,8 +546,8 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
     (when step-in
       (send (list 'kind 'BEGIN-EXPANDING, 'string (print expr))))
     (let (e (debug-expand expr env step-in))
-      (let (changed  (get-property 'changed e)
-            expanded (get-property 'result e))
+      (let (changed  (. e 'changed)
+            expanded (. e 'result))
         (if changed
             (keep-expanding expanded env step-in t)
             (list 'result expanded, 'changed ch))))))
@@ -555,8 +555,8 @@ If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop.
 (defun debug-eval (expr env step-into-macroexpand)
   ""
   (let (e (keep-expanding expr env step-into-macroexpand nil))
-    (let (changed  (get-property 'changed e)
-          expanded (get-property 'result e))
+    (let (changed  (. e 'changed)
+          expanded (. e 'result))
       (block
         (when changed
           (send (list 'kind 'EXPAND, 'expression (print expr), 'expanded (print expanded))))

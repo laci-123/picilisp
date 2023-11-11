@@ -99,16 +99,16 @@ pub fn property(mem: &mut Memory, key: &str, plist: GcRef) -> Option<GcRef> {
 pub const GET_PROPERTY: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      get_property,
-    name:          "get-property",
+    name:          ".",
     kind:          FunctionKind::Lambda,
-    parameters:    &["key", "plist"],
+    parameters:    &["plist", "key"],
     documentation: "Return the value associated with `key` in `plist`.
 Return nil of no value is associated with `key`.
 Error if `plist` is not a valid property-list."
 };
 
 pub fn get_property(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, GET_PROPERTY.name, args, (let key: TypeLabel::Symbol), (let plist: TypeLabel::List));
+    validate_args!(mem, GET_PROPERTY.name, args, (let plist: TypeLabel::List), (let key: TypeLabel::Symbol));
 
     if let Some(result) = get_property_internal(key, &plist) {
         Ok(result)
