@@ -177,6 +177,9 @@ impl Window {
                         }
                     },
                     Some("EXPAND") => {
+                        while let Some(StackFrame::BeginExpanding(_)) = self.call_stack.last() {
+                            self.call_stack.pop();
+                        }
                         self.call_stack.push(StackFrame::Expand(msg.get("expression").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string(),
                                                                 msg.get("expanded").unwrap_or(&"#<ERROR: MISSING>".to_string()).to_string()));
                     },
@@ -334,7 +337,8 @@ impl App for Window {
                             ui.label(egui::RichText::new(trim_quotes(result)).color(epaint::Color32::GREEN).font(epaint::FontId::monospace(12.0)))
                         },
                         StackFrame::BeginExpanding(expr) => {
-                            ui.label(egui::RichText::new(&format!("EXPANDING: {}", trim_quotes(expr))).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))
+                            ui.label(egui::RichText::new("EXPANDING:").color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)));
+                            ui.label(egui::RichText::new(trim_quotes(expr)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)))
                         },
                         StackFrame::Expand(expr, expand) => {
                             ui.label(egui::RichText::new(trim_quotes(expr)).color(epaint::Color32::LIGHT_BLUE).font(epaint::FontId::monospace(12.0)));
