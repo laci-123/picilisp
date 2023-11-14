@@ -620,20 +620,22 @@ impl Memory {
     pub fn get_global(&self, name: &str) -> Result<GcRef, Error> {
         let mut found = false;
         let mut result = GcRef::nil();
-        for module in self.globals.values() {
+        let mut colliding_modules = Vec::new();
+        for (module_name, module) in self.globals.iter() {
             if let Some(value) = module.borrow().get(name) {
-                if found {
-                    return Err(Error::GlobalNameInMultipleModules);
-                }
-                else {
-                    result = value;
-                    found = true;
-                }
+                colliding_modules.push(module_name.clone());
+                result = value;
+                found = true;
             }
         }
 
         if found {
-            Ok(result)
+            if colliding_modules.len() == 1 {
+                Ok(result)
+            }
+            else {
+                Err(Error::AmbiguousName(colliding_modules))
+            }
         }
         else {
             Err(Error::GlobalNonExistentOrPrivate)

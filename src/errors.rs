@@ -1,6 +1,6 @@
 #[derive(Debug, PartialEq, Eq)]
 pub enum Error {
-    GlobalNameInMultipleModules,
+    AmbiguousName(Vec<String>),
     GlobalNonExistentOrPrivate,
     NoSuchModule,
 }

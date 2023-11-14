@@ -336,13 +336,20 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     }
                 },
                 Some(PrimitiveValue::Symbol(_)) => {
-                    if let Ok(value) = lookup(mem, expression.clone(), env) {
-                        return Ok(value);
-                    }
-                    else {
-                        let error_details = vec![("symbol", expression)];
-                        let error = make_error(mem, "unbound-symbol", "eval", &error_details);
-                        return Err(error);
+                    match lookup(mem, expression.clone(), env) {
+                        Ok(value) => return Ok(value),
+                        Err(Error::AmbiguousName(modules)) => {
+                            let conflicting_modules = modules.iter().map(|m| mem.symbol_for(m)).collect::<Vec<GcRef>>();
+                            let error_details = vec![("symbol", expression), ("conflicting-modules", vec_to_list(mem, &conflicting_modules))];
+                            let error = make_error(mem, "ambiguous-name", EVAL.name, &error_details);
+                            return Err(error);
+                        },
+                        Err(Error::GlobalNonExistentOrPrivate) => {
+                            let error_details = vec![("symbol", expression)];
+                            let error = make_error(mem, "unbound-symbol", EVAL.name, &error_details);
+                            return Err(error);
+                        },
+                        _ => unreachable!(),
                     }
                 },
                 _ => {
@@ -418,14 +425,25 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
                 Ok(mem.allocate_cons(car, cdr))
             },
             Some(PrimitiveValue::Symbol(_)) => {
-                // only evaluate symbols if their value is a macro
-                if let Ok(value) = lookup(mem, expression.clone(), env) {
-                    if let Some(PrimitiveValue::Function(f)) = value.get() {
-                        if f.get_kind() == FunctionKind::Macro {
-                            *changed = true;
-                            return Ok(value);
+                match lookup(mem, expression.clone(), env) {
+                    Ok(value) => {
+                        if let Some(PrimitiveValue::Function(f)) = value.get() {
+                            if f.get_kind() == FunctionKind::Macro {
+                                *changed = true;
+                                return Ok(value);
+                            }
                         }
-                    }
+                    },
+                    Err(Error::AmbiguousName(modules)) => {
+                        let conflicting_modules = modules.iter().map(|m| mem.symbol_for(m)).collect::<Vec<GcRef>>();
+                        let error_details = vec![("symbol", expression), ("conflicting-modules", vec_to_list(mem, &conflicting_modules))];
+                        let error = make_error(mem, "ambiguous-name", MACROEXPAND.name, &error_details);
+                        return Err(error);
+                    },
+                    Err(Error::GlobalNonExistentOrPrivate) => {
+                        // do nothing
+                    },
+                    _ => unreachable!(),
                 }
                 Ok(expression)
             },
