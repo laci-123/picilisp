@@ -204,12 +204,10 @@ fn make_function_internal(mem: &mut Memory, args: &[GcRef], env: GcRef, source: 
     Ok(function)
 }
 
-fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut env_module: String, recursion_depth: usize) -> Result<GcRef, GcRef> {
     if recursion_depth > config::MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
-
-    let mut environment_module = mem.get_current_module();
 
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
     loop { 
@@ -244,7 +242,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("if")) {
                     validate_args!(mem, "if", &list_elems[1..], (let condition: TypeLabel::Any), (let then: TypeLabel::Any), (let otherwise: TypeLabel::Any));
-                    let evaled_condition = eval_internal(mem, condition, env.clone(), recursion_depth + 1)?;
+                    let evaled_condition = eval_internal(mem, condition, env.clone(), env_module.clone(), recursion_depth + 1)?;
                     if !evaled_condition.is_nil() {
                         // tail-call elimination: jump back to the beginning of this instance of `eval`
                         // instead of calling itself recursively
@@ -265,14 +263,14 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                 else {
                     // first element of `expression` is not a special operator
                     
-                    let operator = eval_internal(mem, first, env.clone(), recursion_depth + 1)?;
+                    let operator = eval_internal(mem, first, env.clone(), env_module.clone(), recursion_depth + 1)?;
 
                     if let Some(PrimitiveValue::Function(f)) = operator.get() {
                         // first element of `expression` evaluates to a function
 
                         // evaluate arguments
                         for i in 1..list_elems.len() {
-                            list_elems[i] = eval_internal(mem, list_elems[i].clone(), env.clone(), recursion_depth + 1)?;
+                            list_elems[i] = eval_internal(mem, list_elems[i].clone(), env.clone(), env_module.clone(), recursion_depth + 1)?;
                         }
 
                         match f {
@@ -294,7 +292,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                                 let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..])?;
                                 expression = nf.get_body();
                                 env = new_env;
-                                environment_module = nf.get_env_module();
+                                env_module = nf.get_env_module();
                                 continue;
                             },
                         }
@@ -318,12 +316,12 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
             
             match expression.get() {
                 Some(PrimitiveValue::Cons(cons)) => {
-                    let car = eval_internal(mem, cons.get_car(), env.clone(), recursion_depth + 1)?;
-                    let cdr = eval_internal(mem, cons.get_cdr(), env.clone(), recursion_depth + 1)?;
+                    let car = eval_internal(mem, cons.get_car(), env.clone(), env_module.clone(), recursion_depth + 1)?;
+                    let cdr = eval_internal(mem, cons.get_cdr(), env.clone(), env_module, recursion_depth + 1)?;
                     return Ok(mem.allocate_cons(car, cdr));
                 },
                 Some(PrimitiveValue::Trap(trap)) => {
-                    match eval_internal(mem, trap.get_normal_body(), env.clone(), recursion_depth + 1) {
+                    match eval_internal(mem, trap.get_normal_body(), env.clone(), env_module.clone(), recursion_depth + 1) {
                         Err(signal) => {
                             if signal.is_nil() {
                                 return Err(signal);
@@ -332,14 +330,14 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                                 let key       = mem.symbol_for("*trapped-signal*");
                                 let param_arg = mem.allocate_cons(key, signal);
                                 let new_env   = mem.allocate_cons(param_arg, env);
-                                return eval_internal(mem, trap.get_trap_body(), new_env, recursion_depth + 1);
+                                return eval_internal(mem, trap.get_trap_body(), new_env, env_module, recursion_depth + 1);
                             }
                         },
                         Ok(x) => return Ok(x),
                     }
                 },
                 Some(PrimitiveValue::Symbol(_)) => {
-                    match lookup(mem, expression.clone(), env, &environment_module) {
+                    match lookup(mem, expression.clone(), env, &env_module) {
                         Ok(value) => return Ok(value),
                         Err(Error::AmbiguousName(modules)) => {
                             let conflicting_modules = modules.iter().map(|m| mem.symbol_for(m)).collect::<Vec<GcRef>>();
@@ -403,7 +401,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
                             },
                             Function::NormalFunction(nf) => {
                                 let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..])?;
-                                return eval_internal(mem, nf.get_body(), new_env, recursion_depth + 1);
+                                return eval_internal(mem, nf.get_body(), new_env, nf.get_env_module(), recursion_depth + 1);
                             },
                         }
                     }
@@ -486,7 +484,9 @@ pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize
 
     let expanded = macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)?;
 
-    eval_internal(mem, expanded, env, recursion_depth + 1)
+    let env_module = mem.get_current_module();
+
+    eval_internal(mem, expanded, env, env_module, recursion_depth + 1)
 }
 
 

@@ -91,7 +91,7 @@ impl Window {
                 match eval_external(&mut mem, expression) {
                     Ok(x)    => {
                         let output = list_to_string(x).expect("read-eval-print returned something that cannot be converted to a string");
-                        from_worker_tx.send(Ok(output)).expect("no receiver for worker-thread messages");
+                        from_worker_tx.send(Ok(output)).expect("main thread disappeared");
                     },
                     Err(err) => {
                         from_worker_tx.send(Err(err)).expect("main thread disappeared");
@@ -99,6 +99,8 @@ impl Window {
                 }
             }
         }).expect("could not start worker thread");
+
+        to_worker_tx.send("(block (load-all (input-file \"debugger.lisp\") \"debugger\") \"loaded debugger\")".to_string()).expect("worker thread disappeared");
 
         Self {
             step_into_macroexpand: false,
