@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
+use crate::errors::Error;
 use crate::metadata::*;
 use crate::debug::*;
 use crate::config;
-use std::collections::{HashSet, HashMap, hash_map};
+use std::collections::{HashSet, HashMap};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
@@ -576,13 +577,13 @@ impl Memory {
         self.current_module.borrow_mut().definitions.remove(name);
     }
 
-    pub fn get_global(&self, name: &str) -> Option<GcRef> {
+    pub fn get_global(&self, name: &str) -> Result<GcRef, Error> {
         let mut found = false;
         let mut result = GcRef::nil();
         for module in self.globals.values() {
             if let Some(value) = module.borrow().get(name) {
                 if found {
-                    panic!("Conflicting definitions");
+                    return Err(Error::GlobalNameInMultipleModules);
                 }
                 else {
                     result = value;
@@ -592,10 +593,10 @@ impl Memory {
         }
 
         if found {
-            Some(result)
+            Ok(result)
         }
         else {
-            None
+            Err(Error::GlobalNonExistentOrPrivate)
         }
     }
 

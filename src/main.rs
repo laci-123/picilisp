@@ -19,6 +19,7 @@ fn main() -> Result<(), String> {
 
 
 
+mod errors;
 mod metadata;
 mod memory;
 mod util;

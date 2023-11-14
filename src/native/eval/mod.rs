@@ -1,6 +1,6 @@
 use crate::memory::*;
-use crate::metadata::Metadata;
 use crate::util::*;
+use crate::errors::Error;
 use crate::native::read::read;
 use crate::native::list::property;
 use crate::error_utils::*;
@@ -9,7 +9,7 @@ use super::NativeFunctionMetaData;
 
 
 
-fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
+fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Result<GcRef, Error> {
     let mut cursor = environment;
 
     while let Some(c) = cursor.get() {
@@ -17,7 +17,7 @@ fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Option<GcRef> {
         let key_value = cons.get_car();
 
         if key_value.get().unwrap().as_conscell().get_car().get().unwrap().as_symbol() == key.get().unwrap().as_symbol() {
-            return Some(key_value.get().unwrap().as_conscell().get_cdr());
+            return Ok(key_value.get().unwrap().as_conscell().get_cdr());
         }
 
         cursor = cons.get_cdr();
@@ -336,7 +336,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     }
                 },
                 Some(PrimitiveValue::Symbol(_)) => {
-                    if let Some(value) = lookup(mem, expression.clone(), env) {
+                    if let Ok(value) = lookup(mem, expression.clone(), env) {
                         return Ok(value);
                     }
                     else {
@@ -419,7 +419,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
             },
             Some(PrimitiveValue::Symbol(_)) => {
                 // only evaluate symbols if their value is a macro
-                if let Some(value) = lookup(mem, expression.clone(), env) {
+                if let Ok(value) = lookup(mem, expression.clone(), env) {
                     if let Some(PrimitiveValue::Function(f)) = value.get() {
                         if f.get_kind() == FunctionKind::Macro {
                             *changed = true;

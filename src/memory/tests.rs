@@ -267,10 +267,10 @@ fn mem_globals() {
     mem.define_global("y", y);
 
     assert_eq!(*mem.get_global("x").unwrap().get().unwrap().as_number(), 140);
-    assert!(mem.get_global("z").is_none());
+    assert_eq!(mem.get_global("z").err().unwrap(), Error::GlobalNonExistentOrPrivate);
 
     mem.undefine_global("x");
-    assert!(mem.get_global("x").is_none());
+    assert_eq!(mem.get_global("x").err().unwrap(), Error::GlobalNonExistentOrPrivate);
 
     mem.collect();
 

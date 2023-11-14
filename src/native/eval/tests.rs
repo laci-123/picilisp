@@ -11,7 +11,7 @@ fn lookup_empty() {
     let env = GcRef::nil();
     let key = mem.symbol_for("bird");
     let value = lookup(&mut mem, key, env);
-    assert!(value.is_none());
+    assert_eq!(value.err().unwrap(), Error::GlobalNonExistentOrPrivate);
 }
 
 #[test]
@@ -26,7 +26,7 @@ fn lookup_not_found() {
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("bird");
     let value = lookup(&mut mem, key, env);
-    assert!(value.is_none());
+    assert_eq!(value.err().unwrap(), Error::GlobalNonExistentOrPrivate);
 }
 
 #[test]
