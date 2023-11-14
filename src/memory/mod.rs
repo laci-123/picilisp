@@ -519,6 +519,7 @@ impl Drop for GcRef {
 
 
 struct Module {
+    name: String,
     definitions: HashMap<String, GcRef>,
     exports: Option<HashSet<String>>, // None: everything is public
 }
@@ -551,7 +552,7 @@ pub struct Memory {
 
 impl Memory {
     pub fn new() -> Self {
-        let default_module = Rc::new(RefCell::new(Module{ definitions: HashMap::new(), exports: None }));
+        let default_module = Rc::new(RefCell::new(Module{ name: "default".to_string(), definitions: HashMap::new(), exports: None }));
         Self { globals:        HashMap::from([("default".to_string(), default_module.clone())]),
                current_module: default_module,
                symbols:        HashMap::new(),
@@ -569,8 +570,24 @@ impl Memory {
         self.umbilical = Some(umbilical);
     }
 
+    pub fn get_current_module(&self) -> String {
+        self.current_module.borrow().name.clone()
+    }
+
+    pub fn set_current_module(&mut self, name: &str) -> Result<(), Error> {
+        if let Some(module) = self.globals.get(name) {
+            self.current_module = module.clone();
+            Ok(())
+        }
+        else {
+            Err(Error::NoSuchModule)
+        }
+    }
+
     pub fn define_module(&mut self, name: &str) {
-        self.globals.insert(name.to_string(), Rc::new(RefCell::new(Module{ definitions: HashMap::new(), exports: None })));
+        let new_module = Rc::new(RefCell::new(Module{ name: name.to_string(), definitions: HashMap::new(), exports: None }));
+        self.globals.insert(name.to_string(), new_module.clone());
+        self.current_module = new_module;
     }
 
     pub fn add_export(&mut self, name: &str) {

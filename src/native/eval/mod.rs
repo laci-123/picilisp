@@ -523,7 +523,7 @@ Error if `string` is not a valid string."
 };
 
 pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, LOAD_ALL.name, args, (let input: TypeLabel::Any), (let source: TypeLabel::Any));
+    validate_args!(mem, LOAD_ALL.name, args, (let _input: TypeLabel::String), (let source: TypeLabel::Any));
 
     let ok_symbol         = mem.symbol_for("ok");
     let incomplete_symbol = mem.symbol_for("incomplete");
@@ -531,7 +531,12 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: 
     let invalid_symbol    = mem.symbol_for("invalid");
     let mut line          = mem.allocate_number(1);
     let mut column        = mem.allocate_number(1);
-    let mut cursor        = input;
+    let mut cursor        = args[0].clone();
+
+    let old_module = mem.get_current_module();
+    if let Some(s) = list_to_string(source.clone()) {
+        mem.define_module(&s);
+    }
 
     while !cursor.is_nil() {
         let output     = read(mem, &[cursor.clone(), source.clone(), line.clone(), column.clone()], GcRef::nil(), recursion_depth + 1)?;
@@ -549,21 +554,23 @@ pub fn load_all(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: 
             }
         }
         else if symbol_eq!(status, incomplete_symbol) {
-            let error = make_error(mem, "input-incomplete", "load-all", &vec![]);
+            let error = make_error(mem, "input-incomplete", LOAD_ALL.name, &vec![]);
             return Err(error);
         }
         else if symbol_eq!(status, error_symbol) {
             let error_details = vec![("details", read_error)];
-            let error = make_error(mem, "read-error", "load-all", &error_details);
+            let error = make_error(mem, "read-error", LOAD_ALL.name, &error_details);
             return Err(error);
         }
         else if symbol_eq!(status, invalid_symbol) {
-            let error = make_error(mem, "input-invalid-string", "load-all", &vec![]);
+            let error = make_error(mem, "input-invalid-string", LOAD_ALL.name, &vec![]);
             return Err(error);
         }
 
         cursor = rest;
     }
+
+    mem.set_current_module(&old_module).unwrap();
 
     Ok(ok_symbol)
 }
