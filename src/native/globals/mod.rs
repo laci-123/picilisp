@@ -7,6 +7,34 @@ use super::NativeFunctionMetaData;
 
 
 
+pub const EXPORT: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      export,
+    name:          "export",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["names"],
+    documentation: ""
+};
+
+pub fn export(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, EXPORT.name, args, (let names: TypeLabel::List));    
+
+    for name in names {
+        if let Some(PrimitiveValue::Symbol(s)) = name.get() {
+            mem.add_export(&s.get_name());
+        }
+        else {
+            let details = vec![("expected", mem.symbol_for("symbol-type")),
+                               ("actual",   mem.symbol_for(name.get_type().to_string())),
+                               ("symbol",   name)];
+            return Err(make_error(mem, "wrong-argument-type", EXPORT.name, &details));
+        }
+    }
+
+    Ok(mem.symbol_for("ok"))
+}
+
+
 pub const WHEREIS: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      whereis,
