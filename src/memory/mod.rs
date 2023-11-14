@@ -7,6 +7,8 @@ use std::collections::{HashSet, HashMap, hash_map};
 use std::io::Write;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+use std::rc::Rc;
+use std::cell::RefCell;
 
 
 
@@ -515,12 +517,30 @@ impl Drop for GcRef {
 }
 
 
+struct Module {
+    definitions: HashMap<String, GcRef>,
+    exports: Option<Vec<String>>, // None: everything is public
+}
+
+impl Module {
+    fn get(&self, name: &str) -> Option<GcRef> {
+        if self.exports.as_ref().map(|exports| exports.iter().any(|e| e == name)).unwrap_or(true) {
+            self.definitions.get(name).map(|x| x.clone())
+        }
+        else {
+            None
+        }
+    }
+}
+
+
 pub struct Memory {
     // Order of fields matter!
     // Fields are dropped in declaration order.
-    // `globals` must be dropped before `cells`,
+    // `globals` and `current_module` must be dropped before `cells`,
     // because on drop `GcRef` wants to access `cells`.
-    globals: HashMap<String, GcRef>,
+    globals: HashMap<String, Rc<RefCell<Module>>>,
+    current_module: Rc<RefCell<Module>>,
     symbols: HashMap<String, *const CellContent>,
     cells: Vec<Cell>,
     first_free: usize,
@@ -530,7 +550,9 @@ pub struct Memory {
 
 impl Memory {
     pub fn new() -> Self {
-        Self { globals:    HashMap::new(),
+        let default_module = Rc::new(RefCell::new(Module{ definitions: HashMap::new(), exports: None }));
+        Self { globals:    HashMap::from([("default".to_string(), default_module.clone())]),
+               current_module: default_module,
                symbols:    HashMap::new(),
                cells:      (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
                first_free: 0,
@@ -547,23 +569,38 @@ impl Memory {
     }
 
     pub fn define_global(&mut self, name: &str, value: GcRef) {
-        self.globals.insert(name.to_string(), value);
+        self.current_module.borrow_mut().definitions.insert(name.to_string(), value);
     }
 
     pub fn undefine_global(&mut self, name: &str) {
-        self.globals.remove(name);
+        self.current_module.borrow_mut().definitions.remove(name);
     }
 
     pub fn get_global(&self, name: &str) -> Option<GcRef> {
-        self.globals.get(name).map(|r| r.clone())
+        let mut found = false;
+        let mut result = GcRef::nil();
+        for module in self.globals.values() {
+            if let Some(value) = module.borrow().get(name) {
+                if found {
+                    panic!("Conflicting definitions");
+                }
+                else {
+                    result = value;
+                    found = true;
+                }
+            }
+        }
+
+        if found {
+            Some(result)
+        }
+        else {
+            None
+        }
     }
 
     pub fn is_global_defined(&self, name: &str) -> bool {
         self.globals.contains_key(name)
-    }
-
-    pub fn all_globals(&self) -> hash_map::Iter<String, GcRef> {
-        self.globals.iter()
     }
 
     pub fn symbol_for(&mut self, name: &str) -> GcRef {
