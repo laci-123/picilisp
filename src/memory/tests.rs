@@ -266,13 +266,13 @@ fn mem_globals() {
     let y = mem.symbol_for("thing");
     mem.define_global("y", y);
 
-    assert_eq!(*mem.get_global("x").unwrap().get().unwrap().as_number(), 140);
-    assert_eq!(mem.get_global("z").err().unwrap(), Error::GlobalNonExistentOrPrivate);
+    assert_eq!(*mem.get_global("x", &mem.get_current_module()).unwrap().get().unwrap().as_number(), 140);
+    assert_eq!(mem.get_global("z", &mem.get_current_module()).err().unwrap(), Error::GlobalNonExistentOrPrivate);
 
     mem.undefine_global("x");
-    assert_eq!(mem.get_global("x").err().unwrap(), Error::GlobalNonExistentOrPrivate);
+    assert_eq!(mem.get_global("x", &mem.get_current_module()).err().unwrap(), Error::GlobalNonExistentOrPrivate);
 
     mem.collect();
 
-    assert_eq!(mem.get_global("y").unwrap().get().unwrap().as_symbol(), mem.symbol_for("thing").get().unwrap().as_symbol());
+    assert_eq!(mem.get_global("y", &mem.get_current_module()).unwrap().get().unwrap().as_symbol(), mem.symbol_for("thing").get().unwrap().as_symbol());
 }

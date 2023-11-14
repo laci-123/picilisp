@@ -10,7 +10,8 @@ fn lookup_empty() {
 
     let env = GcRef::nil();
     let key = mem.symbol_for("bird");
-    let value = lookup(&mut mem, key, env);
+    let current_module = mem.get_current_module();
+    let value = lookup(&mut mem, key, env, &current_module);
     assert_eq!(value.err().unwrap(), Error::GlobalNonExistentOrPrivate);
 }
 
@@ -25,7 +26,8 @@ fn lookup_not_found() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("bird");
-    let value = lookup(&mut mem, key, env);
+    let current_module = mem.get_current_module();
+    let value = lookup(&mut mem, key, env, &current_module);
     assert_eq!(value.err().unwrap(), Error::GlobalNonExistentOrPrivate);
 }
 
@@ -40,7 +42,8 @@ fn lookup_found() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("falcon");
-    let value = lookup(&mut mem, key, env);
+    let current_module = mem.get_current_module();
+    let value = lookup(&mut mem, key, env, &current_module);
     assert_eq!(*value.unwrap().get().unwrap().as_number(), 20);
 }
 
@@ -58,7 +61,8 @@ fn lookup_global() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
-    let value = lookup(&mut mem, key, env);
+    let current_module = mem.get_current_module();
+    let value = lookup(&mut mem, key, env, &current_module);
     assert_eq!(*value.unwrap().get().unwrap().as_number(), 00);
 }
 
@@ -76,7 +80,8 @@ fn lookup_shadowing() {
     let vec = vec![mem.allocate_cons(k1, v1), mem.allocate_cons(k2, v2)];
     let env = vec_to_list(&mut mem, &vec);
     let key = mem.symbol_for("starling");
-    let value = lookup(&mut mem, key, env);
+    let current_module = mem.get_current_module();
+    let value = lookup(&mut mem, key, env, &current_module);
     assert_eq!(*value.unwrap().get().unwrap().as_number(), 20);
 }
 

@@ -109,6 +109,7 @@ pub struct NormalFunction {
     parameters: Vec<*mut CellContent>,
     body: *mut CellContent,
     environment: *mut CellContent,
+    environment_module: String,
 }
 
 impl NormalFunction {
@@ -140,6 +141,10 @@ impl NormalFunction {
 
     pub fn get_env(&self) -> GcRef {
         GcRef::new(self.environment)
+    }
+
+    pub fn get_env_module(&self) -> String {
+        self.environment_module.clone()
     }
 }
 
@@ -617,13 +622,13 @@ impl Memory {
         self.current_module.borrow_mut().definitions.remove(name);
     }
 
-    pub fn get_global(&self, name: &str) -> Result<GcRef, Error> {
+    pub fn get_global(&self, name: &str, module_name: &str) -> Result<GcRef, Error> {
         let mut found = false;
         let mut result = GcRef::nil();
         let mut colliding_modules = Vec::new();
-        for (module_name, module) in self.globals.iter() {
-            if let Some(value) = module.borrow().get(name, &self.current_module.borrow().name) {
-                colliding_modules.push(module_name.clone());
+        for (mn, module) in self.globals.iter() {
+            if let Some(value) = module.borrow().get(name, module_name) {
+                colliding_modules.push(mn.clone());
                 result = value;
                 found = true;
             }
@@ -701,7 +706,12 @@ impl Memory {
             param_ptrs.push(param.pointer);
         }
 
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind, has_rest_params, body: body.pointer, parameters: param_ptrs, environment: environment.pointer })));
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind,
+                                                                                                           has_rest_params,
+                                                                                                           body: body.pointer,
+                                                                                                           parameters: param_ptrs,
+                                                                                                           environment: environment.pointer,
+                                                                                                           environment_module: self.get_current_module()})));
         GcRef::new(ptr)
     }
 

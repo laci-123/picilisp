@@ -9,7 +9,7 @@ use super::NativeFunctionMetaData;
 
 
 
-fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Result<GcRef, Error> {
+fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef, environment_module: &str) -> Result<GcRef, Error> {
     let mut cursor = environment;
 
     while let Some(c) = cursor.get() {
@@ -23,7 +23,7 @@ fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef) -> Result<GcRef, Err
         cursor = cons.get_cdr();
     }
 
-    mem.get_global(&key.get().unwrap().as_symbol().get_name())
+    mem.get_global(&key.get().unwrap().as_symbol().get_name(), environment_module)
 }
 
 
@@ -209,6 +209,8 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
         return Err(make_error(mem, "stackoverflow", EVAL.name, &vec![]));
     }
 
+    let mut environment_module = mem.get_current_module();
+
     // loop is only used to jump back to the beginning of the function (using `continue`); never runs until the end more than once
     loop { 
         if let Some(umb) = &mem.umbilical {
@@ -292,6 +294,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                                 let new_env = pair_params_and_args(mem, &nf, name, &list_elems[1..])?;
                                 expression = nf.get_body();
                                 env = new_env;
+                                environment_module = nf.get_env_module();
                                 continue;
                             },
                         }
@@ -336,7 +339,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, recurs
                     }
                 },
                 Some(PrimitiveValue::Symbol(_)) => {
-                    match lookup(mem, expression.clone(), env) {
+                    match lookup(mem, expression.clone(), env, &environment_module) {
                         Ok(value) => return Ok(value),
                         Err(Error::AmbiguousName(modules)) => {
                             let conflicting_modules = modules.iter().map(|m| mem.symbol_for(m)).collect::<Vec<GcRef>>();
@@ -425,7 +428,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
                 Ok(mem.allocate_cons(car, cdr))
             },
             Some(PrimitiveValue::Symbol(_)) => {
-                match lookup(mem, expression.clone(), env) {
+                match lookup(mem, expression.clone(), env, &mem.get_current_module()) {
                     Ok(value) => {
                         if let Some(PrimitiveValue::Function(f)) = value.get() {
                             if f.get_kind() == FunctionKind::Macro {
