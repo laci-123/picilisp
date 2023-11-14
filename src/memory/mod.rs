@@ -520,12 +520,12 @@ impl Drop for GcRef {
 
 struct Module {
     definitions: HashMap<String, GcRef>,
-    exports: Option<Vec<String>>, // None: everything is public
+    exports: Option<HashSet<String>>, // None: everything is public
 }
 
 impl Module {
     fn get(&self, name: &str) -> Option<GcRef> {
-        if self.exports.as_ref().map(|exports| exports.iter().any(|e| e == name)).unwrap_or(true) {
+        if self.exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true) {
             self.definitions.get(name).map(|x| x.clone())
         }
         else {
@@ -552,13 +552,13 @@ pub struct Memory {
 impl Memory {
     pub fn new() -> Self {
         let default_module = Rc::new(RefCell::new(Module{ definitions: HashMap::new(), exports: None }));
-        Self { globals:    HashMap::from([("default".to_string(), default_module.clone())]),
+        Self { globals:        HashMap::from([("default".to_string(), default_module.clone())]),
                current_module: default_module,
-               symbols:    HashMap::new(),
-               cells:      (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
-               first_free: 0,
-               stdout:     Arc::new(RwLock::new(std::io::stdout())),
-               umbilical:  None}
+               symbols:        HashMap::new(),
+               cells:          (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
+               first_free:     0,
+               stdout:         Arc::new(RwLock::new(std::io::stdout())),
+               umbilical:      None}
     }
 
     pub fn set_stdout(&mut self, stdout: Arc<RwLock<dyn Write>>) {
@@ -567,6 +567,29 @@ impl Memory {
 
     pub fn attach_umbilical(&mut self, umbilical: UmbilicalLowEnd) {
         self.umbilical = Some(umbilical);
+    }
+
+    pub fn define_module(&mut self, name: &str) {
+        self.globals.insert(name.to_string(), Rc::new(RefCell::new(Module{ definitions: HashMap::new(), exports: None })));
+    }
+
+    pub fn add_export(&mut self, name: &str) {
+        let mut current_module = self.current_module.borrow_mut();
+        if let Some(exports) = &mut current_module.exports {
+            exports.insert(name.to_string());
+        }
+        else {
+            let exports = HashSet::from([name.to_string()]);
+            current_module.exports = Some(exports);
+        }
+    }
+
+    pub fn get_module_of_global(&self, name: &str) -> Vec<String> {
+        self.globals
+            .iter()
+            .filter(|(_, module)| module.borrow().definitions.contains_key(name))
+            .map(|(module_name, _)| module_name.clone())
+            .collect()
     }
 
     pub fn define_global(&mut self, name: &str, value: GcRef) {

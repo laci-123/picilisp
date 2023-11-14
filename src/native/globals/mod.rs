@@ -7,6 +7,23 @@ use super::NativeFunctionMetaData;
 
 
 
+pub const WHEREIS: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      whereis,
+    name:          "whereis",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["name"],
+    documentation: "Return a list of modules where `name` is defined."
+};
+
+pub fn whereis(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, WHEREIS.name, args, (let name: TypeLabel::Symbol));    
+
+    let vec = mem.get_module_of_global(&name.get_name()).iter().map(|x| mem.symbol_for(x)).collect::<Vec<GcRef>>();
+    Ok(vec_to_list(mem, &vec))
+}
+
+
 pub const DEFINE: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      define,
