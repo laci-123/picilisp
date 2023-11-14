@@ -525,8 +525,8 @@ struct Module {
 }
 
 impl Module {
-    fn get(&self, name: &str) -> Option<GcRef> {
-        if self.exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true) {
+    fn get(&self, name: &str, current_module: &str) -> Option<GcRef> {
+        if self.exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true) || current_module == self.name {
             self.definitions.get(name).map(|x| x.clone())
         }
         else {
@@ -622,7 +622,7 @@ impl Memory {
         let mut result = GcRef::nil();
         let mut colliding_modules = Vec::new();
         for (module_name, module) in self.globals.iter() {
-            if let Some(value) = module.borrow().get(name) {
+            if let Some(value) = module.borrow().get(name, &self.current_module.borrow().name) {
                 colliding_modules.push(module_name.clone());
                 result = value;
                 found = true;
