@@ -146,7 +146,7 @@ pub fn unrest(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: u
 
     if let Function::NormalFunction(nf) = f {
         let has_rest_params = false;
-        let new_nf = mem.allocate_normal_function(nf.get_kind(), has_rest_params, nf.get_body(), &nf.get_params(), nf.get_env());
+        let new_nf = mem.allocate_normal_function(nf.get_kind(), has_rest_params, nf.get_body(), &nf.get_params(), nf.get_env(), &nf.get_env_module());
         Ok(new_nf)
     }
     else {

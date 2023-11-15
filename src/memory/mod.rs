@@ -697,7 +697,7 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_normal_function(&mut self, kind: FunctionKind, has_rest_params: bool, body: GcRef, params: &[GcRef], environment: GcRef) -> GcRef {
+    pub fn allocate_normal_function(&mut self, kind: FunctionKind, has_rest_params: bool, body: GcRef, params: &[GcRef], environment: GcRef, environment_module: &str) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
             if !matches!(param.get().unwrap_or(&PrimitiveValue::Nil), PrimitiveValue::Symbol(_)) {
@@ -711,7 +711,7 @@ impl Memory {
                                                                                                            body: body.pointer,
                                                                                                            parameters: param_ptrs,
                                                                                                            environment: environment.pointer,
-                                                                                                           environment_module: self.get_current_module()})));
+                                                                                                           environment_module: environment_module.to_string()})));
         GcRef::new(ptr)
     }
 

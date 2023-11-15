@@ -118,7 +118,7 @@ NativeFunctionMetaData{
     function:      make_function,
     name:          "make-function",
     kind:          FunctionKind::Lambda,
-    parameters:    &["params", "body", "environment", "kind"],
+    parameters:    &["params", "body", "environment", "environment-module", "kind"],
     documentation: "Manually construct a function-object form the given arguments.
 `kind` is either `lambda-type` or `macro-type`."
 };
@@ -127,7 +127,7 @@ pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_de
     if recursion_depth > config::MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", MAKE_FUNCTION.name, &vec![]));
     }
-    validate_args!(mem, MAKE_FUNCTION.name, args, (let _params: TypeLabel::List), (let _body: TypeLabel::Any), (let environment: TypeLabel::Any), (let kind: TypeLabel::Symbol));
+    validate_args!(mem, MAKE_FUNCTION.name, args, (let _params: TypeLabel::List), (let _body: TypeLabel::Any), (let environment: TypeLabel::Any), (let env_module: TypeLabel::String), (let kind: TypeLabel::Symbol));
 
     let (s, k) =
     match kind.get_name().as_str() {
@@ -136,11 +136,11 @@ pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_de
         _ => return Err(make_error(mem, "wrong-arg-value", MAKE_FUNCTION.name, &vec![])),
     };
 
-    make_function_internal(mem, &args[0..2], environment, s, k)
+    make_function_internal(mem, &args[0..2], environment, &env_module, s, k)
 }
 
 
-fn make_function_internal(mem: &mut Memory, args: &[GcRef], env: GcRef, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
+fn make_function_internal(mem: &mut Memory, args: &[GcRef], env: GcRef, env_module: &str, source: &str, kind: FunctionKind) -> Result<GcRef, GcRef> {
     validate_args!(mem, source, args, (let params: TypeLabel::List), (let body: TypeLabel::Any));
     
     let mut actual_params   = vec![];
@@ -200,7 +200,7 @@ fn make_function_internal(mem: &mut Memory, args: &[GcRef], env: GcRef, source: 
         i += 1;
     }
 
-    let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env);
+    let function = mem.allocate_normal_function(kind, has_rest_params, body, &actual_params, env, env_module);
     Ok(function)
 }
 
@@ -234,7 +234,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
                 // `expression` is a non-empty list
 
                 if symbol_eq!(list_elems[0], mem.symbol_for("lambda")) {
-                    return make_function_internal(mem, &list_elems[1..], env.clone(), "lambda", FunctionKind::Lambda);
+                    return make_function_internal(mem, &list_elems[1..], env.clone(), &env_module, "lambda", FunctionKind::Lambda);
                 }
                 else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
                     validate_args!(mem, "quote", &list_elems[1..], (let x: TypeLabel::Any));
@@ -279,7 +279,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
                                     // prevent `eval` from calling itself as regular native function;
                                     // instead "reuse" this instance of `eval`
                                     validate_args!(mem, EVAL.name, &list_elems[1..], (let x: TypeLabel::Any));
-                                    expression = macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)?;
+                                    expression = macroexpand_completely(mem, x, env.clone(), &env_module, recursion_depth + 1)?;
                                     continue;
                                 }
                                 else {
@@ -346,9 +346,10 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
                             return Err(error);
                         },
                         Err(Error::GlobalNonExistentOrPrivate) => {
-                            let error_details = vec![("symbol", expression)];
+                            let error_details = vec![("symbol", expression.clone())];
                             let error = make_error(mem, "unbound-symbol", EVAL.name, &error_details);
                             return Err(error);
+                            // panic!("{} | {}", crate::native::print::print_to_rust_string(expression.clone(), 0).unwrap(), mem.get_current_module());
                         },
                         _ => unreachable!(),
                     }
@@ -362,7 +363,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
 }
 
 
-fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursion_depth: usize, changed: &mut bool) -> Result<GcRef, GcRef> {
+fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, env_module: &str, recursion_depth: usize, changed: &mut bool) -> Result<GcRef, GcRef> {
     if recursion_depth > config::MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", MACROEXPAND.name, &vec![]));
     }
@@ -376,7 +377,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
             // `expression` is a non-empty list
             
             if symbol_eq!(list_elems[0], mem.symbol_for("macro")) {
-                return make_function_internal(mem, &list_elems[1..], env.clone(), "macro", FunctionKind::Macro);
+                return make_function_internal(mem, &list_elems[1..], env.clone(), env_module, "macro", FunctionKind::Macro);
             }
             else if symbol_eq!(list_elems[0], mem.symbol_for("quote")) {
                 return Ok(expression);
@@ -384,11 +385,11 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
             else {
                 // first element of `expression` is not a special operator
 
-                let operator = macroexpand_internal(mem, first, env.clone(), recursion_depth + 1, changed)?;
+                let operator = macroexpand_internal(mem, first, env.clone(), env_module, recursion_depth + 1, changed)?;
 
                 // expand all elements regardless what the operator is
                 for i in 1..list_elems.len() {
-                    list_elems[i] = macroexpand_internal(mem, list_elems[i].clone(), env.clone(), recursion_depth + 1, changed)?;
+                    list_elems[i] = macroexpand_internal(mem, list_elems[i].clone(), env.clone(), env_module, recursion_depth + 1, changed)?;
                 }
 
                 // if the operator is a macro then evaluate it... 
@@ -421,8 +422,8 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
         
         match expression.get() {
             Some(PrimitiveValue::Cons(cons)) => {
-                let car = macroexpand_internal(mem, cons.get_car(), env.clone(), recursion_depth + 1, changed)?;
-                let cdr = macroexpand_internal(mem, cons.get_cdr(), env.clone(), recursion_depth + 1, changed)?;
+                let car = macroexpand_internal(mem, cons.get_car(), env.clone(), env_module, recursion_depth + 1, changed)?;
+                let cdr = macroexpand_internal(mem, cons.get_cdr(), env.clone(), env_module, recursion_depth + 1, changed)?;
                 Ok(mem.allocate_cons(car, cdr))
             },
             Some(PrimitiveValue::Symbol(_)) => {
@@ -456,11 +457,11 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, recursi
 }
 
 
-fn macroexpand_completely(mem: &mut Memory, expression: GcRef, env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
+fn macroexpand_completely(mem: &mut Memory, expression: GcRef, env: GcRef, env_module: &str, recursion_depth: usize) -> Result<GcRef, GcRef> {
     let mut expanded = expression.clone();
     loop {
         let mut changed  = false;
-        expanded = macroexpand_internal(mem, expanded, env.clone(), recursion_depth + 1, &mut changed)?;
+        expanded = macroexpand_internal(mem, expanded, env.clone(), env_module, recursion_depth + 1, &mut changed)?;
         if !changed {
             break;
         }
@@ -482,10 +483,9 @@ NativeFunctionMetaData{
 pub fn eval(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, EVAL.name, args, (let x: TypeLabel::Any));
 
-    let expanded = macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)?;
-
     let env_module = mem.get_current_module();
 
+    let expanded = macroexpand_completely(mem, x, env.clone(), &env_module, recursion_depth + 1)?;
     eval_internal(mem, expanded, env, env_module, recursion_depth + 1)
 }
 
@@ -502,7 +502,8 @@ NativeFunctionMetaData{
 pub fn macroexpand(mem: &mut Memory, args: &[GcRef], env: GcRef, recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, MACROEXPAND.name, args, (let x: TypeLabel::Any));
 
-    macroexpand_completely(mem, x, env.clone(), recursion_depth + 1)
+    let env_module = mem.get_current_module();
+    macroexpand_completely(mem, x, env.clone(), &env_module, recursion_depth + 1)
 }
 
 

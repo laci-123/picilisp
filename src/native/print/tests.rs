@@ -47,13 +47,13 @@ fn print_function() {
     let mut mem = Memory::new();
 
     let has_rest_params = false;
-    let x = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, GcRef::nil(), &vec![], GcRef::nil());
+    let x = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, GcRef::nil(), &vec![], GcRef::nil(), "default");
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert!(s.starts_with("#<lambda-"));
 
     let has_rest_params = false;
-    let x = mem.allocate_normal_function(FunctionKind::Macro, has_rest_params, GcRef::nil(), &vec![], GcRef::nil());
+    let x = mem.allocate_normal_function(FunctionKind::Macro, has_rest_params, GcRef::nil(), &vec![], GcRef::nil(), "default");
     let p = print(&mut mem, &[x], GcRef::nil(), 0);
     let s = list_to_string(p.ok().unwrap()).unwrap();
     assert!(s.starts_with("#<macro-"));

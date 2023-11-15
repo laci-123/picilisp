@@ -171,7 +171,7 @@ fn mem_allocate_function() {
     let body = mem.allocate_character('ß');
 
     let has_rest_params = false;
-    let fun = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body, &vec![p1, p2, p3], GcRef::nil());
+    let fun = mem.allocate_normal_function(FunctionKind::Lambda, has_rest_params, body, &vec![p1, p2, p3], GcRef::nil(), "default");
     assert_eq!(*fun.get().unwrap().as_function().as_normal_function().get_body().get().unwrap().as_character(), 'ß');
     let mut params = fun.get().unwrap().as_function().as_normal_function().non_rest_params();
     assert_eq!(params.next().unwrap().get().unwrap().as_symbol(), mem.symbol_for("oak").get().unwrap().as_symbol());
@@ -194,7 +194,7 @@ fn gc_collect_functions() {
         let body = mem.allocate_character('🌻');
 
         let has_rest_params = false;
-        let fun = mem.allocate_normal_function(FunctionKind::Macro, has_rest_params, body, &vec![p1, p2, p3], GcRef::nil());
+        let fun = mem.allocate_normal_function(FunctionKind::Macro, has_rest_params, body, &vec![p1, p2, p3], GcRef::nil(), "default");
 
         mem.symbol_for("tulip");
 

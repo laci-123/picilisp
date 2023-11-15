@@ -67,6 +67,7 @@
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
                                            env
+                                           "default" ;; TODO!!!
                                            'lambda-type))
       ('otherwise           (let (evaled-expr (map (lambda (xi) (highlight-and-debug (car xi) (cdr xi)))
                                                    (enumerate expr)))
@@ -136,7 +137,7 @@
     (case
       ((= operator 'quote) (list 'result  expr
                                  'changed nil))
-      ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env 'macro-type)
+      ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env "default" 'macro-type) ;; TODO!!!
                                  'changed nil))
       ('otherwise           (let (expanded-operator-rc (debug-expand operator env step-in)
                                   expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env step-in)) operands)))
