@@ -101,8 +101,8 @@ impl Window {
             from_worker_tx.send(Ok("ready".to_string())).expect("main thread disappeared");
 
             for input in to_worker_rx.iter() {
-                // (read-eval-print "input string...")
-                let vec        = vec![mem.symbol_for("read-eval-print"), string_to_proper_list(&mut mem, &input)];
+                // (read-eval-print "input string..." t)
+                let vec        = vec![mem.symbol_for("read-eval-print"), string_to_proper_list(&mut mem, &input), mem.symbol_for("t")];
                 let expression = vec_to_list(&mut mem, &vec);
                 match eval_external(&mut mem, expression) {
                     Ok(x)    => {

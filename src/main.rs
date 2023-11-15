@@ -5,7 +5,9 @@ fn main() -> Result<(), String> {
         None            => ui::terminal::interactive(),
         Some("command") => {
             let command = args.get(2).ok_or("missing command")?;
-            ui::terminal::run_command(command)
+            let result  = ui::terminal::run_command(command)?;
+            println!("{result}");
+            Ok(())
         },
         Some("gui")     => ui::gui::run(),
         Some(other)     => Err(format!("Unknown command: '{other}'")),

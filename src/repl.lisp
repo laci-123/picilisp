@@ -46,7 +46,7 @@ Stop the loop when end of input (EOF) is reached."
     (lambda (error) (block (output (concat "UNHANDLED ERROR:\n\n" (pretty-print-error error)))
                            (repl ">>> " nil))))))
 
-(defun read-eval-print (string)
+(defun read-eval-print (string pretty-print-errors?)
   "Read a string, evaluate it then print it into a string.
 If a signal is emmited during read evaluate or print then pretty-print it then forward it."
   (try
@@ -59,4 +59,6 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
              ((= read-status 'ok)         (print (eval (. read-result 'result))))
              (t                           (throw 'kind 'unknown-read-status, 'source (qoute repl), 'read-status read-status)))))
   (catch-all
-   (lambda (error) (signal (pretty-print-error error))))))
+   (lambda (error) (if pretty-print-errors?
+                       (signal (pretty-print-error error))
+                       (signal error))))))
