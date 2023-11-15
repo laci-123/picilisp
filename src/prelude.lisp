@@ -339,24 +339,20 @@ If a signal is emmited during read evaluate or print then pretty-print it then f
   (catch-all
    (lambda (error) (signal (pretty-print-error error))))))
 
-(defun loop (step condition body)
-  "Call the one-parameter function `condition` on the result of zero-parameter function `step`.
-If it evaluates non-nil, then evaluate body and repeat, otherwise exit the loop."
-  (let (x (step))
-    (if (condition x)
-        (block
-          (body x)
-          (loop step condition body))
-        nil)))
+(defun --remove-extension (path)
+  ""
+  (when path
+    (if (= (car path) %.)
+        (reverse (cdr path))
+        (--remove-extension (cdr path)))))
 
-(defmacro while-let (binding-step condition body)
-  "Usage example: (while-let (x (input \"...\")) (/= x \"QUIT\") (output x))"
-  (let (binding (car binding-step)
-        step    (car (cdr binding-step)))
-    (list 'loop
-          (list 'lambda () step)
-          (list 'lambda (list binding) condition)
-          (list 'lambda (list binding) body))))
+(defun -remove-extension (path)
+  ""
+  (or (--remove-extension (reverse path)) path))
+
+(defun load (path)
+  "Load the lisp module at the file path `path`."
+  (load-all (input-file path) (-remove-extension path)))
 
 (defun infinite-loop (x)
   "for testing purposes"
