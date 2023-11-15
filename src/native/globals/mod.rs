@@ -100,6 +100,7 @@ pub fn define(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: us
             let mut dm = DebugMessage::new();
             dm.insert("kind".to_string(), GLOBAL_DEFINED.to_string());
             dm.insert("name".to_string(), name.get_name());
+            dm.insert("module".to_string(), mem.get_current_module());
             dm.insert("type".to_string(), value.get_type().to_string().to_string());
             match print_to_rust_string(value, recursion_depth + 1) {
                 Ok(x)  => dm.insert("value".to_string(), x),

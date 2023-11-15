@@ -49,7 +49,7 @@ struct Window {
     result_text: String,
     signal_text: String,
     cursor: usize,
-    globals: BTreeMap<String, GlobalConstant>,
+    globals: BTreeMap<String, BTreeMap<String, GlobalConstant>>,
     output: Arc<RwLock<OutputBuffer>>,
     free_memory_sapmles: VecDeque<(usize, usize)>,
     used_memory_sapmles: VecDeque<(usize, usize)>,
@@ -76,7 +76,7 @@ impl Window {
             load_native_functions(&mut mem);
             match super::load_prelude(&mut mem) {
                 Ok(_) => {
-                    from_worker_tx.send(Ok("\"loaded prelude\"".to_string())).expect("main thread disappeared");
+                    from_worker_tx.send(Ok("loaded prelude".to_string())).expect("main thread disappeared");
                 },
                 Err(err) => {
                     from_worker_tx.send(Err(err)).expect("main thread disappeared");
@@ -84,7 +84,7 @@ impl Window {
             }
             match super::load_debugger(&mut mem) {
                 Ok(_) => {
-                    from_worker_tx.send(Ok("\"loaded debugger\"".to_string())).expect("main thread disappeared");
+                    from_worker_tx.send(Ok("loaded debugger".to_string())).expect("main thread disappeared");
                 },
                 Err(err) => {
                     from_worker_tx.send(Err(err)).expect("main thread disappeared");
@@ -92,12 +92,13 @@ impl Window {
             }
             match super::load_repl(&mut mem) {
                 Ok(_) => {
-                    from_worker_tx.send(Ok("\"loaded repl\"".to_string())).expect("main thread disappeared");
+                    from_worker_tx.send(Ok("loaded repl".to_string())).expect("main thread disappeared");
                 },
                 Err(err) => {
                     from_worker_tx.send(Err(err)).expect("main thread disappeared");
                 },
             }
+            from_worker_tx.send(Ok("ready".to_string())).expect("main thread disappeared");
 
             for input in to_worker_rx.iter() {
                 // (read-eval-print "input string...")
@@ -156,7 +157,13 @@ impl Window {
             Ok(msg) => {
                 match msg.get("kind").map(|s| s.as_str()) {
                     Some(GLOBAL_DEFINED) => {
-                        self.globals.insert(msg.get("name").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")), GlobalConstant {
+                        let module = msg.get("module").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>"));
+
+                        if !self.globals.contains_key(&module) {
+                            self.globals.insert(module.clone(), BTreeMap::new());
+                        }
+
+                        self.globals.get_mut(&module).unwrap().insert(msg.get("name").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")), GlobalConstant {
                             value: msg.get("value").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")),
                             value_type: msg.get("type").map(|s| s.clone()).unwrap_or(format!("#<ERROR: MISSING>")),
                         });
@@ -282,26 +289,30 @@ impl App for Window {
         }
 
         egui::SidePanel::left("Left panel").default_width(300.0).show(ctx, |ui| {
-            ui.heading("Global constants");
-            egui::scroll_area::ScrollArea::vertical().max_height(300.0).show(ui, |ui| {
-                for (name, value) in self.globals.iter() {
-                    ui.collapsing(name, |ui| {
-                        let value_label =
-                        if value.value.starts_with("#<ERROR:") {
-                            ui.label(egui::RichText::new(&value.value).color(epaint::Color32::RED))
+            ui.heading("Loaded modules");
+            egui::scroll_area::ScrollArea::vertical().max_height(300.0).auto_shrink([false, false]).show(ui, |ui| {
+                for (module_name, module) in self.globals.iter() {
+                    ui.collapsing(module_name, |ui| {
+                        for (name, value) in module.iter() {
+                            ui.collapsing(name, |ui| {
+                                let value_label =
+                                if value.value.starts_with("#<ERROR:") {
+                                    ui.label(egui::RichText::new(&value.value).color(epaint::Color32::RED))
+                                }
+                                else {
+                                    ui.add(egui::Label::new(&value.value).sense(egui::Sense::click())).on_hover_text("click to show metadata")
+                                };
+                                if value_label.clicked() {
+                                    self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
+                                    self.worker_state = WorkerState::Evaluating;
+                                }
+                                ui.label(&value.value_type);
+                            });
                         }
-                        else {
-                            ui.add(egui::Label::new(&value.value).sense(egui::Sense::click())).on_hover_text("click to show metadata")
-                        };
-                        if value_label.clicked() {
-                            self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
-                            self.worker_state = WorkerState::Evaluating;
-                        }
-                        ui.label(&value.value_type);
                     });
                 }
             });
-            ui.add_space(20.0);
+            ui.add_space(10.0);
 
             ui.heading("Memory useage");
             let uc = self.used_cells;
@@ -336,9 +347,8 @@ impl App for Window {
 
         egui::SidePanel::right("Right panel").min_width(300.0).show(ctx, |ui| {
             ui.heading("Call stack");
-            egui::scroll_area::ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
+            egui::scroll_area::ScrollArea::vertical().max_height(400.0).stick_to_bottom(true).show(ui, |ui| {
                 for frame in self.call_stack.iter() {
-                    let response =
                     match frame {
                         StackFrame::Normal(x) => {
                             ui.add(egui::widgets::Label::new(highlight_param_layout(trim_quotes(x))))
@@ -367,7 +377,6 @@ impl App for Window {
                             ui.label(egui::RichText::new(&format!("HANDLING: {}", trim_quotes(x))).color(epaint::Color32::LIGHT_RED).font(epaint::FontId::monospace(12.0)))
                         },
                     };
-                    response.scroll_to_me(None);
                     ui.separator();
                 }
             });
@@ -471,7 +480,7 @@ impl App for Window {
             ui.add_space(10.0);
 
             ui.label("Output");
-            egui::scroll_area::ScrollArea::vertical().max_height(200.0).show(ui, |ui| {
+            egui::scroll_area::ScrollArea::vertical().max_height(200.0).stick_to_bottom(true).show(ui, |ui| {
                 egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
                     let outputbuffer = self.output.read().expect("RwLock poisoned");
                     let mut output = outputbuffer.to_string().expect("invalid unicode in stdout");
