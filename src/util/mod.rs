@@ -161,23 +161,6 @@ pub fn append_lists(mem: &mut Memory, list1: GcRef, list2: GcRef) -> Option<GcRe
 }
 
 
-pub struct Defer<F: Fn() -> ()> {
-    f: F,
-}
-
-impl<F: Fn() -> ()> Defer<F> {
-    pub fn new(f: F) -> Self {
-        Self{ f }
-    }
-}
-
-impl<F: Fn() -> ()> Drop for Defer<F> {
-    fn drop(&mut self) {
-        (self.f)();
-    }
-}
-
-
 macro_rules! symbol_eq {
     ($x:expr, $y:expr) => {
         if let Some(PrimitiveValue::Symbol(s1)) = $x.get() {
