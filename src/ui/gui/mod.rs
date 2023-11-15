@@ -303,7 +303,7 @@ impl App for Window {
                                     ui.add(egui::Label::new(&value.value).sense(egui::Sense::click())).on_hover_text("click to show metadata")
                                 };
                                 if value_label.clicked() {
-                                    self.to_worker.send(format!("(describe {name})")).expect("worker thread dissappeared");
+                                    self.to_worker.send(format!("(describe (from-module '{name} '{module_name}))")).expect("worker thread dissappeared");
                                     self.worker_state = WorkerState::Evaluating;
                                 }
                                 ui.label(&value.value_type);
