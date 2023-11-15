@@ -28,6 +28,7 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, globals::UNDEFINE);
     load_native_function(mem, globals::WHEREIS);
     load_native_function(mem, globals::EXPORT);
+    load_native_function(mem, globals::GET_CURRENT_MODULE);
     load_native_function(mem, reflection::DESTRUCTURE_TRAP);
     load_native_function(mem, reflection::GET_PARAMETERS);
     load_native_function(mem, reflection::GET_BODY);

@@ -7,6 +7,22 @@ use super::NativeFunctionMetaData;
 
 
 
+pub const GET_CURRENT_MODULE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      get_current_module,
+    name:          "get-current-module",
+    kind:          FunctionKind::Lambda,
+    parameters:    &[],
+    documentation: "Get current module."
+};
+
+pub fn get_current_module(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GET_CURRENT_MODULE.name, args);    
+
+    Ok(mem.symbol_for(&mem.get_current_module()))
+}
+
+
 pub const EXPORT: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      export,
