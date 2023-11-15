@@ -23,27 +23,6 @@ pub fn gensym(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: u
 }
 
 
-pub const BRANCH: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      branch,
-    name:          "branch",
-    kind:          FunctionKind::Lambda,
-    parameters:    &["condition", "then", "otherwise"],
-    documentation: "Return `otherwise` if `condition` is nil, return `then` if `condition` is anything else."
-};
-
-pub fn branch(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, BRANCH.name, args, (let condition: TypeLabel::Any), (let then: TypeLabel::Any), (let otherwise: TypeLabel::Any));
-
-    if !condition.is_nil() {
-        Ok(then)
-    }
-    else {
-        Ok(otherwise)
-    }
-}
-
-
 pub const EQUAL: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      equal,

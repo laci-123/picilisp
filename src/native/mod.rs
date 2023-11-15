@@ -4,6 +4,9 @@ use crate::metadata::*;
 
 
 pub fn load_native_functions(mem: &mut Memory) {
+    let old_module = mem.get_current_module();
+    mem.define_module("native");
+
     load_native_function(mem, list::CONS);
     load_native_function(mem, list::CAR);
     load_native_function(mem, list::CDR);
@@ -42,14 +45,14 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, io::INPUT_FILE);
     load_native_function(mem, io::OUTPUT_FILE);
     load_native_function(mem, misc::GENSYM);
-    load_native_function(mem, misc::BRANCH);
     load_native_function(mem, misc::EQUAL);
+
+    mem.set_current_module(&old_module).unwrap();
 }
 
 
 fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
     let empty_env = GcRef::nil();
-
     let md = Metadata {
         read_name:     nfmd.name.to_string(),
         location:      Location::Native,
@@ -62,6 +65,7 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
         let mut dm = DebugMessage::new();
         dm.insert("kind".to_string(), GLOBAL_DEFINED.to_string());
         dm.insert("name".to_string(), nfmd.name.to_string());
+        dm.insert("module".to_string(), mem.get_current_module());
         dm.insert("type".to_string(), TypeLabel::Function.to_string().to_string());
         dm.insert("value".to_string(), match nfmd.kind {
             FunctionKind::Macro  => "#<macro>",
