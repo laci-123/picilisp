@@ -1,3 +1,8 @@
+(export '(t nil defmacro defun let when foldl foldr reverse zip length enumerate map apply last init block
+          and or not /= + - * / range append concat describe case catch catch-all try throw pretty-print-error
+          repl read-eval-print load infinite-loop))
+
+
 (define 't 't "`t` is the canonical true value.")
 
 (define 'nil () "`nil` is a synonym for the empty list `()`.")
@@ -234,7 +239,7 @@ If non of them is true then return `nil`."
         cases)) 
 
 (defun get-property-safe (key plist )
-  "Same as `get-property`, but return nil if either `key` is not found in `plist` or if `plist` is not a property-list"
+  "Same as `.`, but return nil if either `key` is not found in `plist` or if `plist` is not a property-list"
   (eval (trap
    (. plist key)
    nil)))

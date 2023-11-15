@@ -100,8 +100,6 @@ impl Window {
             }
         }).expect("could not start worker thread");
 
-        to_worker_tx.send("(load-all (input-file \"debugger.lisp\") \"debugger\")".to_string()).expect("worker thread disappeared");
-
         Self {
             step_into_macroexpand: false,
             program_text: String::new(),
