@@ -74,10 +74,25 @@ impl Window {
             mem.attach_umbilical(umbilical_low_end);
 
             load_native_functions(&mut mem);
-
             match super::load_prelude(&mut mem) {
                 Ok(_) => {
                     from_worker_tx.send(Ok("\"loaded prelude\"".to_string())).expect("main thread disappeared");
+                },
+                Err(err) => {
+                    from_worker_tx.send(Err(err)).expect("main thread disappeared");
+                },
+            }
+            match super::load_debugger(&mut mem) {
+                Ok(_) => {
+                    from_worker_tx.send(Ok("\"loaded debugger\"".to_string())).expect("main thread disappeared");
+                },
+                Err(err) => {
+                    from_worker_tx.send(Err(err)).expect("main thread disappeared");
+                },
+            }
+            match super::load_repl(&mut mem) {
+                Ok(_) => {
+                    from_worker_tx.send(Ok("\"loaded repl\"".to_string())).expect("main thread disappeared");
                 },
                 Err(err) => {
                     from_worker_tx.send(Err(err)).expect("main thread disappeared");
