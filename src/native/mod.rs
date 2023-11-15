@@ -32,10 +32,13 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, globals::WHEREIS);
     load_native_function(mem, globals::EXPORT);
     load_native_function(mem, globals::GET_CURRENT_MODULE);
+    load_native_function(mem, globals::FROM_MODULE);
+    load_native_function(mem, globals::WITH_CURRENT_MODULE);
     load_native_function(mem, reflection::DESTRUCTURE_TRAP);
     load_native_function(mem, reflection::GET_PARAMETERS);
     load_native_function(mem, reflection::GET_BODY);
     load_native_function(mem, reflection::GET_ENVIRONMENT);
+    load_native_function(mem, reflection::GET_ENVIRONMENT_MODULE);
     load_native_function(mem, reflection::TYPE_OF);
     load_native_function(mem, reflection::GET_METADATA);
     load_native_function(mem, debug::SEND);

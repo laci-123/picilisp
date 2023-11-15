@@ -63,6 +63,27 @@ pub fn get_body(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth:
 }
 
 
+pub const GET_ENVIRONMENT_MODULE: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      get_environment_module,
+    name:          "get-environment-module",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["function"],
+    documentation: "Return the name of the module in wich the environment of `function` was captured."
+};
+
+pub fn get_environment_module(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GET_ENVIRONMENT_MODULE.name, args, (let f: TypeLabel::Function));
+
+    if let Function::NormalFunction(nf) = f {
+        Ok(mem.symbol_for(&nf.get_env_module()))
+    }
+    else {
+        Ok(GcRef::nil())
+    }
+}
+
+
 pub const GET_ENVIRONMENT: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      get_environment,

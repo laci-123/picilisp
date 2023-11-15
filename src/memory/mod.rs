@@ -647,6 +647,16 @@ impl Memory {
         }
     }
 
+    pub fn get_global_from_module(&self, name: &str, module_name: &str) -> Result<GcRef, Error> {
+        if let Some(module) = self.globals.get(module_name).map(|m| m.borrow()) {
+            if module.exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true) {
+                return module.definitions.get(name).map(|x| x.clone()).ok_or(Error::GlobalNonExistentOrPrivate);
+            }
+        }
+
+        Err(Error::GlobalNonExistentOrPrivate)
+    }
+
     pub fn is_global_defined(&self, name: &str) -> bool {
         self.current_module.borrow().definitions.contains_key(name)
     }

@@ -127,7 +127,7 @@ pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_de
     if recursion_depth > config::MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", MAKE_FUNCTION.name, &vec![]));
     }
-    validate_args!(mem, MAKE_FUNCTION.name, args, (let _params: TypeLabel::List), (let _body: TypeLabel::Any), (let environment: TypeLabel::Any), (let env_module: TypeLabel::String), (let kind: TypeLabel::Symbol));
+    validate_args!(mem, MAKE_FUNCTION.name, args, (let _params: TypeLabel::List), (let _body: TypeLabel::Any), (let environment: TypeLabel::Any), (let env_module: TypeLabel::Symbol), (let kind: TypeLabel::Symbol));
 
     let (s, k) =
     match kind.get_name().as_str() {
@@ -136,7 +136,7 @@ pub fn make_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_de
         _ => return Err(make_error(mem, "wrong-arg-value", MAKE_FUNCTION.name, &vec![])),
     };
 
-    make_function_internal(mem, &args[0..2], environment, &env_module, s, k)
+    make_function_internal(mem, &args[0..2], environment, &env_module.get_name(), s, k)
 }
 
 

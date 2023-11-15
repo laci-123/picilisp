@@ -1,14 +1,14 @@
 (export '(debug-eval))
 
 
-(defun lookup (key env)
+(defun lookup (key env env-module)
   ""
   (if env
       (let (key-value (car env))
         (if (= key (car key-value))
             (cdr key-value)
-            (lookup key (cdr env))))
-      (eval key)))
+            (lookup key (cdr env) env-module)))
+      (with-current-module key env-module)))
 
 (defun add-parameters (params args env)
   ""
@@ -40,7 +40,7 @@
                         (zip elems (range len)))))
           ")"))
 
-(defun debug-list (expr env step-in)
+(defun debug-list (expr env env-module step-in)
   ""
   (let (operator (car expr)
         operands (cdr expr)
@@ -48,8 +48,8 @@
                               (if step-in
                                   (block
                                     (send (list 'kind 'HIGHLIGHT-ELEM, 'string (highlight-list-elem expr i)))
-                                    (debug-eval-internal x env (= (. (receive) 'command) 'STEP-IN)))
-                                  (debug-eval-internal x env nil))))
+                                    (debug-eval-internal x env env-module (= (. (receive) 'command) 'STEP-IN)))
+                                  (debug-eval-internal x env env-module nil))))
     (case
       ((= operator 'quote)  (block
                               (when step-in
@@ -67,7 +67,7 @@
       ((= operator 'lambda) (make-function (car operands)
                                            (car (cdr operands))
                                            env
-                                           "default" ;; TODO!!!
+                                           env-module
                                            'lambda-type))
       ('otherwise           (let (evaled-expr (map (lambda (xi) (highlight-and-debug (car xi) (cdr xi)))
                                                    (enumerate expr)))
@@ -82,10 +82,11 @@
                                                            (add-parameters (get-parameters (car evaled-expr))
                                                                            (cdr evaled-expr)
                                                                            (get-environment (car evaled-expr)))
+                                                           (get-environment-module (car evaled-expr))
                                                            step-in)
                                       (call-native-function (car evaled-expr) (cdr evaled-expr) env)))))))))
                                       
-(defun debug-eval-internal (expr env step-in)
+(defun debug-eval-internal (expr env env-module step-in)
   ""
   (eval (trap
          (block
@@ -93,19 +94,19 @@
              (send (list 'kind 'EVAL, 'string (print expr))))
            (let (result (let (type (type-of expr))
                           (case
-                            ((= type 'list-type)   (debug-list expr env step-in))
-                            ((= type 'cons-type)   (cons (debug-eval-internal (car expr) env step-in)
-                                                         (debug-eval-internal (cdr expr) env step-in)))
-                            ((= type 'symbol-type) (lookup expr env))
+                            ((= type 'list-type)   (debug-list expr env env-module step-in))
+                            ((= type 'cons-type)   (cons (debug-eval-internal (car expr) env env-module step-in)
+                                                         (debug-eval-internal (cdr expr) env env-module step-in)))
+                            ((= type 'symbol-type) (lookup expr env env-module))
                             ((= type 'trap-type)   (let (nt (destructure-trap expr))
                                                      (let (normal-body (car nt)
                                                            trap-body   (car (cdr nt)))
                                                        (eval (trap
-                                                              (debug-eval-internal normal-body env step-in)
+                                                              (debug-eval-internal normal-body env env-module step-in)
                                                               (block
                                                                 (receive)
                                                                 (send (list 'kind 'SIGNAL-TRAPPED, 'string (print *trapped-signal*)))
-                                                                (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env) step-in)))))))
+                                                                (debug-eval-internal trap-body (cons (cons '*trapped-signal* *trapped-signal*) env) env-module step-in)))))))
                             ('otherwise            expr))))
              (block
                (when step-in
@@ -130,17 +131,17 @@
          (list 'result nil, 'changed nil)
          elems))
 
-(defun debug-expand-list (expr env step-in)
+(defun debug-expand-list (expr env env-module step-in)
   ""
   (let (operator (car expr)
         operands (cdr expr))
     (case
       ((= operator 'quote) (list 'result  expr
                                  'changed nil))
-      ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env "default" 'macro-type) ;; TODO!!!
+      ((= operator 'macro) (list 'result  (make-function (car operands) (car (cdr operands)) env env-module 'macro-type)
                                  'changed nil))
-      ('otherwise           (let (expanded-operator-rc (debug-expand operator env step-in)
-                                  expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env step-in)) operands)))
+      ('otherwise           (let (expanded-operator-rc (debug-expand operator env env-module step-in)
+                                  expanded-operands-rc (sequence-changed (map (lambda (x) (debug-expand x env env-module step-in)) operands)))
                               (let (expanded-operator (. expanded-operator-rc 'result)
                                     expanded-operands (. expanded-operands-rc 'result) 
                                     changed           (or (. expanded-operator-rc 'changed) (. expanded-operands-rc 'changed)))
@@ -151,24 +152,25 @@
                                                                              (add-parameters (get-parameters expanded-operator)
                                                                                              expanded-operands
                                                                                              (get-environment expanded-operator))
+                                                                             (get-environment-module expanded-operator)
                                                                              step-in)
                                                         (call-native-function expanded-operator expanded-operands env))
                                             'changed t))
                                     (list 'result  (cons expanded-operator expanded-operands)
                                           'changed changed))))))))
          
-(defun debug-expand (expr env step-in)
+(defun debug-expand (expr env env-module step-in)
   ""
   (let (type (type-of expr))
     (case
-      ((= type 'list-type)   (debug-expand-list expr env step-in)) 
-      ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env step-in)
-                                                expanded-cdr (debug-expand (cdr expr) env step-in))
+      ((= type 'list-type)   (debug-expand-list expr env env-module step-in)) 
+      ((= type 'cons-type)   (let (expanded-car (debug-expand (car expr) env env-module step-in)
+                                                expanded-cdr (debug-expand (cdr expr) env env-module step-in))
                                (let (changed (or (. expanded-car 'changed) (. expanded-cdr 'changed)))
                                  (list 'result  (cons (. expanded-car 'result) (. expanded-cdr 'result))
                                        'changed changed))))
       ((= type 'symbol-type) (eval (trap
-                                    (let (expanded (lookup expr env))
+                                    (let (expanded (lookup expr env env-module))
                                       (if (= 'macro (. (get-metadata expanded) 'function-kind))
                                           (list 'result expanded, 'changed t)
                                           (list 'result expr,     'changed nil)))
@@ -178,25 +180,25 @@
       ('otherwise            (list 'result  expr
                                    'changed nil)))))
 
-(defun keep-expanding (expr env step-in ch)
+(defun keep-expanding (expr env env-module step-in ch)
   ""
   (block
     (when step-in
       (send (list 'kind 'BEGIN-EXPANDING, 'string (print expr))))
-    (let (e (debug-expand expr env step-in))
+    (let (e (debug-expand expr env env-module step-in))
       (let (changed  (. e 'changed)
             expanded (. e 'result))
         (if changed
-            (keep-expanding expanded env step-in t)
+            (keep-expanding expanded env env-module step-in t)
             (list 'result expanded, 'changed ch))))))
   
 (defun debug-eval (expr env step-into-macroexpand)
   "Evaluate `expr` using `env` as the local environment while emitting and listening to debugger messages.
 If `step-into-macroexpand` is non-nil then also emit debugger messages in the macro expansion phase."
-  (let (e (keep-expanding expr env step-into-macroexpand nil))
+  (let (e (keep-expanding expr env (get-current-module) step-into-macroexpand nil))
     (let (changed  (. e 'changed)
           expanded (. e 'result))
       (block
         (when changed
           (send (list 'kind 'EXPAND, 'expression (print expr), 'expanded (print expanded))))
-        (debug-eval-internal expanded env t)))))
+        (debug-eval-internal expanded env (get-current-module) t)))))
