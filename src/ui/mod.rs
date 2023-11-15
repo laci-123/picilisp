@@ -17,17 +17,17 @@ fn load(mem: &mut Memory, string: &str, module: &str) -> Result<(), String> {
 
 pub fn load_prelude(mem: &mut Memory) -> Result<(), String> {
     let prelude_str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/prelude.lisp"));  
-    load(mem, prelude_str, "prelude")
+    load(mem, prelude_str, "*prelude*")
 }
 
 pub fn load_debugger(mem: &mut Memory) -> Result<(), String> {
     let prelude_str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/debugger.lisp"));  
-    load(mem, prelude_str, "debugger")
+    load(mem, prelude_str, "*debugger*")
 }
 
 pub fn load_repl(mem: &mut Memory) -> Result<(), String> {
     let prelude_str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/src/repl.lisp"));  
-    load(mem, prelude_str, "repl")
+    load(mem, prelude_str, "*repl*")
 }
 
 

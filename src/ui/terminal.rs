@@ -11,6 +11,8 @@ pub fn run() -> Result<(), String> {
 
     super::load_prelude(&mut mem)?;
     println!("Loaded prelude.");
+    super::load_repl(&mut mem)?;
+    println!("Loaded repl.");
 
     // (repl ">>> " nil)
     let vec        = vec![mem.symbol_for("repl"), string_to_proper_list(&mut mem, ">>> "), GcRef::nil()];

@@ -1,6 +1,6 @@
 (export '(t nil defmacro defun unzip-list let when foldl foldr reverse zip length enumerate map apply last
           init block and or not /= + - * / range append concat describe case catch catch-all try throw
-          pretty-print-error repl read-eval-print load infinite-loop))
+          get-property-safe pretty-print-error repl read-eval-print load infinite-loop))
 
 
 (define 't 't "`t` is the canonical true value.")
