@@ -1,9 +1,11 @@
 use crate::memory::*;
-use crate::util::{vec_to_list, string_to_proper_list};
+use crate::util::{vec_to_list, string_to_proper_list, list_to_string};
 use crate::native::eval::eval_external;
 use crate::native::load_native_functions;
 
-pub fn run() -> Result<(), String> {
+
+
+pub fn interactive() -> Result<(), String> {
     let mut mem = Memory::new();
 
     load_native_functions(&mut mem);
@@ -20,6 +22,25 @@ pub fn run() -> Result<(), String> {
     eval_external(&mut mem, expression)?;
 
     println!("Bye!");
+
+    Ok(())
+}
+
+
+pub fn run_command(command: &str) -> Result<(), String> {
+    let mut mem = Memory::new();
+
+    load_native_functions(&mut mem);
+    super::load_prelude(&mut mem)?;
+    super::load_repl(&mut mem)?;
+
+    // (read-eval-print "command")
+    let vec        = vec![mem.symbol_for("read-eval-print"), string_to_proper_list(&mut mem, command)];
+    let expression = vec_to_list(&mut mem, &vec);
+    match eval_external(&mut mem, expression).map(|x| list_to_string(x).expect("result of read-eval-print is not a string")) {
+        Ok(result) => println!("{result}"),
+        Err(err)   => println!("ERROR: \n {err}"),
+    }
 
     Ok(())
 }

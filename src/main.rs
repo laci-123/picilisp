@@ -1,22 +1,16 @@
 fn main() -> Result<(), String> {
-    let mut args = std::env::args();
-    let _program_name = args.next();
-    let run_gui =
-    if let Some(arg) = args.next() {
-        arg.trim().to_lowercase() == "gui"
-    }
-    else {
-        false
-    };
+    let args = std::env::args().collect::<Vec<String>>();
 
-    if run_gui {
-        ui::gui::run()
-    }
-    else {
-        ui::terminal::run()
+    match args.get(1).map(|s| s.as_ref()) {
+        None            => ui::terminal::interactive(),
+        Some("command") => {
+            let command = args.get(2).ok_or("missing command")?;
+            ui::terminal::run_command(command)
+        },
+        Some("gui")     => ui::gui::run(),
+        Some(other)     => Err(format!("Unknown command: '{other}'")),
     }
 }
-
 
 
 mod errors;
