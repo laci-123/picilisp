@@ -648,7 +648,11 @@ impl Memory {
     }
 
     pub fn is_global_defined(&self, name: &str) -> bool {
-        self.globals.contains_key(name)
+        self.current_module.borrow().definitions.contains_key(name)
+    }
+
+    pub fn is_global_exported(&self, name: &str) -> bool {
+        self.current_module.borrow().exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true)
     }
 
     pub fn symbol_for(&mut self, name: &str) -> GcRef {
