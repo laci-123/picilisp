@@ -1,11 +1,16 @@
-(export '(t nil defmacro defun unzip-list let when foldl foldr reverse zip length enumerate map apply last
-          init block and or not /= + - * / range append concat describe case catch catch-all try throw
-          get-property-safe pretty-print-error repl read-eval-print load infinite-loop))
+(export '(t nil *stdin* *stdout* defmacro defun unzip-list let when output input foldl foldr
+          reverse zip length enumerate map apply last init block and or not /= + - * /
+          range append concat describe case catch catch-all try throw get-property-safe
+          pretty-print-error repl read-eval-print load infinite-loop))
 
 
 (define 't 't "`t` is the canonical true value.")
 
 (define 'nil () "`nil` is a synonym for the empty list `()`.")
+
+(define '*stdin* '*stdin* "standard input")
+
+(define '*stdout* '*stdout* "standard output")
 
 (define 'defmacro (macro (name params doc-string body)
     (list 'define (list 'quote name) (list 'macro params body) doc-string)) "Globally define `name` as a macro.")
@@ -132,6 +137,16 @@ to the length of the shortest input list."
               end    (last body))
           (cons (list 'lambda params end) init-body)))
       nil))
+
+(defun output (msg)
+  "Write `msg` to stdout."
+  (output-file *stdout* (concat msg "\n")))
+
+(defun input (prompt)
+  "Write `prompt` to stdout then read a line from stdin."
+  (block
+    (output-file *stdout* prompt)
+    (input-file *stdin*)))
 
 (defmacro and (x y)
   "Logical and."
