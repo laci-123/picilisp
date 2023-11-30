@@ -1,71 +1,93 @@
 use pretty_assertions::assert_eq;
-use std::io::Write;
+use std::io::{Write, Read};
 use super::*;
 
 
 
 #[test]
-fn output_buffer_write_empty() {
-    let mut ob = OutputBuffer::new(10);
-    write!(ob, "").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "");
+fn io_write_empty() {
+    let (s, r) = mpsc::channel();
+    let mut sender = IoSender::new(s);
+    let mut receiver = IoReceiver::new(r, Duration::MAX);
+
+    sender.write("".as_bytes()).unwrap();
+    sender.flush().unwrap();
+
+    let mut x = String::new();
+    receiver.read_to_string(&mut x).unwrap();
+    assert_eq!(x, "");
 }
 
 #[test]
-fn output_buffer_write_short() {
-    let mut ob = OutputBuffer::new(10);
-    write!(ob, "abc").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "abc");
+fn io_write_short() {
+    let (s, r) = mpsc::channel();
+    let mut sender = IoSender::new(s);
+    let mut receiver = IoReceiver::new(r, Duration::MAX);
+
+    write!(sender, "abc").unwrap();
+    sender.flush().unwrap();
+    
+    let mut x = String::new();
+    receiver.read_to_string(&mut x).unwrap();
+    assert_eq!(x, "abc");
 }
 
 #[test]
-fn output_buffer_write_multiple() {
-    let mut ob = OutputBuffer::new(10);
-    write!(ob, "abc").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "abc");
-    write!(ob, "abc").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "abcabc");
-    write!(ob, "abc").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "abcabcabc");
+fn io_write_multiple() {
+    let (s, r) = mpsc::channel();
+    let mut sender = IoSender::new(s);
+    let mut receiver = IoReceiver::new(r, Duration::MAX);
+
+    write!(sender, "abc").unwrap();
+    write!(sender, "abc").unwrap();
+    write!(sender, "abc").unwrap();
+    sender.flush().unwrap();
+
+    let mut x = String::new();
+    receiver.read_to_string(&mut x).unwrap();
+    assert_eq!(x, "abcabcabc");
 }
 
 #[test]
-fn output_buffer_write_long() {
-    let mut ob = OutputBuffer::new(10);
-               //   0123456789
-    write!(ob, "abcdefghijklmn").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "efghijklmn");
-}
-
-#[test]
-fn output_buffer_clear() {
-    let mut ob = OutputBuffer::new(10);
-    write!(ob, "abc").unwrap();
-    write!(ob, "0123456789").unwrap();
-    assert_eq!(ob.to_string().unwrap(), "0123456789");
-    ob.clear();
-    assert_eq!(ob.to_string().unwrap(), "");
-}
-
-#[test]
-fn output_buffer_read_before_write() {
+fn io_read_before_write() {
     let ob = OutputBuffer::new(10);
     assert_eq!(ob.to_string().unwrap(), "");
 }
 
 #[test]
-fn output_buffer_write_unicode() {
-    let mut ob = OutputBuffer::new(5);
-             // 4*1 + 1*2 = 6 bytes, 2-byte glyph on boundary
-    write!(ob, "abcdé").unwrap();
-                                      // 3*1 + 1*2 = 5 bytes
-    assert_eq!(ob.to_string().unwrap(), "bcdé");
+fn io_write_unicode() {
+    let (s, r) = mpsc::channel();
+    let mut sender = IoSender::new(s);
+    let mut receiver = IoReceiver::new(r, Duration::MAX);
+
+    write!(sender, "鯨は海の中で住んでいる。").unwrap();
+    sender.flush().unwrap();
+    
+    let mut x = String::new();
+    receiver.read_to_string(&mut x).unwrap();
+    assert_eq!(x, "鯨は海の中で住んでいる。");
 }
 
 #[test]
-fn output_buffer_invalid_unicode() {
-    let mut ob = OutputBuffer::new(10);
-    ob.write(&[60, 61, 130, 131]).unwrap();
-    assert!(ob.to_string().is_err());
+fn io_invalid_unicode() {
+    let (s, r) = mpsc::channel();
+    let mut sender = IoSender::new(s);
+    let mut receiver = IoReceiver::new(r, Duration::MAX);
+
+    sender.write(&[91, 92, 93, 200, 201, 202, 203]).unwrap();
+    sender.flush().unwrap();
+    
+    let mut x = String::new();
+    assert!(receiver.read_to_string(&mut x).is_err());
+}
+
+#[test]
+fn io_timeout() {
+    let (_s, r) = mpsc::channel();
+    let mut receiver = IoReceiver::new(r, Duration::from_millis(1));
+
+    let mut x = String::new();
+    let err = receiver.read_to_string(&mut x);
+    assert_eq!(err.err().unwrap().kind(), io::ErrorKind::TimedOut);
 }
 
