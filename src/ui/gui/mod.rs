@@ -9,7 +9,7 @@ use crate::native::load_native_functions;
 use eframe::{App, Frame, egui, epaint, NativeOptions, run_native};
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
-use std::io::Read;
+use std::io::{Read, Write};
 use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
@@ -51,9 +51,11 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
+    input_text: String,
     output_text: String,
     cursor: usize,
     globals: BTreeMap<String, BTreeMap<String, GlobalConstant>>,
+    input: IoSender,
     output: IoReceiver,
     free_memory_sapmles: VecDeque<(usize, usize)>,
     used_memory_sapmles: VecDeque<(usize, usize)>,
@@ -70,10 +72,12 @@ impl Window {
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
         let (umbilical_high_end, umbilical_low_end) = make_umbilical();
         let (output_tx, output_rx) = make_io(Duration::ZERO);
+        let (input_tx, input_rx) = make_io(Duration::MAX);
 
         thread::Builder::new().stack_size(config::CALL_STACK_SIZE).spawn(move || {
             let mut mem = Memory::new();
             mem.set_stdout(Box::new(output_tx));
+            mem.set_stdin(Box::new(input_rx));
             mem.attach_umbilical(umbilical_low_end);
 
             load_native_functions(&mut mem);
@@ -124,11 +128,13 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
+            input_text: String::new(),
             output_text: String::new(),
             cursor: 0,
             globals: BTreeMap::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
+            input: input_tx,
             output: output_rx,
             free_memory_sapmles: VecDeque::with_capacity(100),
             used_memory_sapmles: VecDeque::with_capacity(100),
@@ -482,6 +488,13 @@ impl App for Window {
                 ui.add(egui::TextEdit::multiline(&mut self.signal_text.as_str()).desired_rows(2).text_color(epaint::Color32::RED));
             }
             ui.add_space(10.0);
+
+            ui.label("Input");
+            ui.text_edit_singleline(&mut self.input_text);
+            if ui.button("Enter").clicked() {
+                write!(self.input, "{}\n", self.input_text).expect("worker thread disappeared");
+                self.input_text.clear();
+            }
 
             ui.label("Output");
             egui::scroll_area::ScrollArea::vertical().max_height(200.0).stick_to_bottom(true).show(ui, |ui| {

@@ -5,8 +5,7 @@ use crate::metadata::*;
 use crate::debug::*;
 use crate::config;
 use std::collections::{HashSet, HashMap};
-use std::io::Write;
-use std::sync::{Arc, RwLock};
+use std::io::{Read, Write};
 use std::time::Instant;
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -552,6 +551,7 @@ pub struct Memory {
     cells: Vec<Cell>,
     first_free: usize,
     pub stdout: Box<dyn Write>,
+    pub stdin:  Box<dyn Read>,
     pub umbilical: Option<UmbilicalLowEnd>,
 }
 
@@ -564,11 +564,16 @@ impl Memory {
                cells:          (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
                first_free:     0,
                stdout:         Box::new(std::io::stdout()),
+               stdin:          Box::new(std::io::stdin()),
                umbilical:      None}
     }
 
     pub fn set_stdout(&mut self, stdout: Box<dyn Write>) {
         self.stdout = stdout;
+    }
+
+    pub fn set_stdin(&mut self, stdin: Box<dyn Read>) {
+        self.stdin = stdin;
     }
 
     pub fn attach_umbilical(&mut self, umbilical: UmbilicalLowEnd) {

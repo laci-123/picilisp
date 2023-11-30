@@ -2,7 +2,7 @@ use crate::{memory::*, util::string_to_list};
 use crate::util::*;
 use crate::error_utils::*;
 use super::NativeFunctionMetaData;
-use std::io::{self, BufRead};
+use std::io::BufReader;
 use std::io::prelude::*;
 
 
@@ -20,10 +20,10 @@ pub fn input_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_dept
     validate_args!(mem, INPUT_FILE.name, args, (let input_source: TypeLabel::Any));
 
     if symbol_eq!(input_source, mem.symbol_for("*stdin*")) {
-        let stdin = io::stdin();
         let mut line = String::new();
+        let mut stdin = BufReader::new(mem.stdin.as_mut());
 
-        match stdin.lock().read_line(&mut line) {
+        match stdin.read_line(&mut line) {
             Err(err) => {
                 let details = vec![("details", string_to_list(mem, &err.kind().to_string()))];
                 Err(make_error(mem, "cannot-read-file", INPUT_FILE.name, &details))
