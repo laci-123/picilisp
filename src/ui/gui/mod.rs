@@ -1,5 +1,4 @@
 use crate::config;
-use crate::config::GUI_OUTPUT_BUFFER_SIZE;
 use crate::memory::*;
 use crate::debug::*;
 use crate::io::*;
@@ -489,17 +488,16 @@ impl App for Window {
             }
             ui.add_space(10.0);
 
-            ui.label("Input");
-            ui.text_edit_singleline(&mut self.input_text);
-            if ui.button("Enter").clicked() {
-                write!(self.input, "{}\n", self.input_text).expect("worker thread disappeared");
-                self.input_text.clear();
-            }
-
-            ui.label("Output");
+            ui.horizontal(|ui| {
+                ui.label("Output");
+                if ui.button("Clear").clicked() {
+                    self.output_text.clear();
+                }
+            });
+            ui.add_space(2.0);
             egui::scroll_area::ScrollArea::vertical().max_height(200.0).stick_to_bottom(true).show(ui, |ui| {
                 egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
-                    if self.output_text.len() > GUI_OUTPUT_BUFFER_SIZE {
+                    if self.output_text.len() > config::GUI_OUTPUT_BUFFER_SIZE {
                         self.output_text.clear();
                     }
                     
@@ -511,10 +509,7 @@ impl App for Window {
                         match self.output.read_to_string(&mut new_output) {
                             Ok(_)    => self.output_text.push_str(&new_output),
                             Err(err) => {
-                                if err.kind() == std::io::ErrorKind::TimedOut {
-                                    break;
-                                }
-                                else {
+                                if err.kind() != std::io::ErrorKind::TimedOut {
                                     panic!("worker thread disappeared");
                                 }
                             }
@@ -527,8 +522,13 @@ impl App for Window {
                     ui.text_edit_multiline(&mut self.output_text.as_str());
                 });
             });
-            if ui.button("Clear").clicked() {
-                self.output_text.clear();
+            ui.add_space(10.0);
+
+            ui.label("Input");
+            let re = ui.text_edit_singleline(&mut self.input_text);
+            if re.lost_focus() && re.ctx.input(|c| c.key_pressed(egui::Key::Enter)) {
+                write!(self.input, "{}\n", self.input_text).expect("worker thread disappeared");
+                self.input_text.clear();
             }
         });
     }

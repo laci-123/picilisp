@@ -33,6 +33,20 @@ fn io_write_short() {
 }
 
 #[test]
+fn io_write_long() {
+    let (s, r) = mpsc::channel();
+    let mut sender = IoSender::new(s);
+    let mut receiver = IoReceiver::new(r, Duration::MAX);
+
+    write!(sender, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa").unwrap();
+    sender.flush().unwrap();
+    
+    let mut x = String::new();
+    receiver.read_to_string(&mut x).unwrap();
+    assert_eq!(x, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+}
+
+#[test]
 fn io_write_multiple() {
     let (s, r) = mpsc::channel();
     let mut sender = IoSender::new(s);
