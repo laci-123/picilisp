@@ -1,16 +1,19 @@
 use crate::config;
+use crate::config::GUI_OUTPUT_BUFFER_SIZE;
 use crate::memory::*;
 use crate::debug::*;
-use crate::io::OutputBuffer;
+use crate::io::*;
 use crate::util::*;
 use crate::native::eval::eval_external;
 use crate::native::load_native_functions;
 use eframe::{App, Frame, egui, epaint, NativeOptions, run_native};
 use std::collections::BTreeMap;
 use std::collections::VecDeque;
-use std::sync::{mpsc, Arc, RwLock};
+use std::io::Read;
+use std::sync::mpsc;
 use std::thread;
 use std::time::Duration;
+use std::time::Instant;
 
 
 
@@ -48,9 +51,10 @@ struct Window {
     program_text: String,
     result_text: String,
     signal_text: String,
+    output_text: String,
     cursor: usize,
     globals: BTreeMap<String, BTreeMap<String, GlobalConstant>>,
-    output: Arc<RwLock<OutputBuffer>>,
+    output: IoReceiver,
     free_memory_sapmles: VecDeque<(usize, usize)>,
     used_memory_sapmles: VecDeque<(usize, usize)>,
     used_cells: usize,
@@ -65,12 +69,11 @@ impl Window {
         let (to_worker_tx,   to_worker_rx)   = mpsc::channel::<String>();
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
         let (umbilical_high_end, umbilical_low_end) = make_umbilical();
-        let output = Arc::new(RwLock::new(OutputBuffer::new(config::GUI_OUTPUT_BUFFER_SIZE)));
-        let output_clone = Arc::clone(&output);
+        let (output_tx, output_rx) = make_io(Duration::ZERO);
 
         thread::Builder::new().stack_size(config::CALL_STACK_SIZE).spawn(move || {
             let mut mem = Memory::new();
-            mem.set_stdout(output_clone);
+            mem.set_stdout(Box::new(output_tx));
             mem.attach_umbilical(umbilical_low_end);
 
             load_native_functions(&mut mem);
@@ -121,11 +124,12 @@ impl Window {
             program_text: String::new(),
             result_text: String::new(),
             signal_text: String::new(),
+            output_text: String::new(),
             cursor: 0,
             globals: BTreeMap::new(),
             to_worker: to_worker_tx,
             from_worker: from_worker_rx,
-            output,
+            output: output_rx,
             free_memory_sapmles: VecDeque::with_capacity(100),
             used_memory_sapmles: VecDeque::with_capacity(100),
             used_cells: 0,
@@ -482,16 +486,36 @@ impl App for Window {
             ui.label("Output");
             egui::scroll_area::ScrollArea::vertical().max_height(200.0).stick_to_bottom(true).show(ui, |ui| {
                 egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
-                    let outputbuffer = self.output.read().expect("RwLock poisoned");
-                    let mut output = outputbuffer.to_string().expect("invalid unicode in stdout");
-                    if outputbuffer.is_truncated() {
-                        output.insert_str(0, "...");
+                    if self.output_text.len() > GUI_OUTPUT_BUFFER_SIZE {
+                        self.output_text.clear();
                     }
-                    ui.text_edit_multiline(&mut output.as_str());
+                    
+                    let mut new_output = String::new();
+                    let start = Instant::now();
+
+                    loop {
+                        new_output.clear();
+                        match self.output.read_to_string(&mut new_output) {
+                            Ok(_)    => self.output_text.push_str(&new_output),
+                            Err(err) => {
+                                if err.kind() == std::io::ErrorKind::TimedOut {
+                                    break;
+                                }
+                                else {
+                                    panic!("worker thread disappeared");
+                                }
+                            }
+                        }
+                        if start.elapsed() > Duration::from_millis(17) { // 60 FPS
+                            break;
+                        }
+                    }
+
+                    ui.text_edit_multiline(&mut self.output_text.as_str());
                 });
             });
             if ui.button("Clear").clicked() {
-                self.output.write().expect("RwLock poisoned").clear();
+                self.output_text.clear();
             }
         });
     }

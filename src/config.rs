@@ -18,7 +18,7 @@ pub const MAX_RECURSION_DEPTH: usize = 1024;
 pub const APPLICATION_NAME: &str = env!("CARGO_PKG_NAME");
 
 /// size of the output buffer in the graphical interface (in bytes)
-pub const GUI_OUTPUT_BUFFER_SIZE: usize = 512;
+pub const GUI_OUTPUT_BUFFER_SIZE: usize = 1024;
 
 /// size of the call stack of the worker thread (in bytes)
 pub const CALL_STACK_SIZE: usize = 8 * 1024 * 1024;

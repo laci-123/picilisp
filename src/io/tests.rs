@@ -49,12 +49,6 @@ fn io_write_multiple() {
 }
 
 #[test]
-fn io_read_before_write() {
-    let ob = OutputBuffer::new(10);
-    assert_eq!(ob.to_string().unwrap(), "");
-}
-
-#[test]
 fn io_write_unicode() {
     let (s, r) = mpsc::channel();
     let mut sender = IoSender::new(s);

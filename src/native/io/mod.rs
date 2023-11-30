@@ -61,12 +61,10 @@ pub fn output_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_dep
     validate_args!(mem, OUTPUT_FILE.name, args, (let output_source: TypeLabel::Any), (let string: TypeLabel::String));
 
     if symbol_eq!(output_source, mem.symbol_for("*stdout*")) {
-        let status = {
-            let mut stdout = mem.stdout.write().expect("RwLock poisoned");
-            write!(stdout, "{string}").and_then(|_| {
-                stdout.flush()
-            })
-        };
+        let status = 
+        write!(mem.stdout, "{string}").and_then(|_| {
+            mem.stdout.flush()
+        });
         match status {
             Ok(_)    => {
                 Ok(mem.symbol_for("ok"))

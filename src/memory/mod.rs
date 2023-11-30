@@ -551,7 +551,7 @@ pub struct Memory {
     symbols: HashMap<String, *const CellContent>,
     cells: Vec<Cell>,
     first_free: usize,
-    pub stdout: Arc<RwLock<dyn Write>>,
+    pub stdout: Box<dyn Write>,
     pub umbilical: Option<UmbilicalLowEnd>,
 }
 
@@ -563,11 +563,11 @@ impl Memory {
                symbols:        HashMap::new(),
                cells:          (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
                first_free:     0,
-               stdout:         Arc::new(RwLock::new(std::io::stdout())),
+               stdout:         Box::new(std::io::stdout()),
                umbilical:      None}
     }
 
-    pub fn set_stdout(&mut self, stdout: Arc<RwLock<dyn Write>>) {
+    pub fn set_stdout(&mut self, stdout: Box<dyn Write>) {
         self.stdout = stdout;
     }
 
