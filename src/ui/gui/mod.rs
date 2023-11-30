@@ -395,7 +395,7 @@ impl App for Window {
             ctx.set_pixels_per_point(1.5);
 
             ui.spacing_mut().text_edit_width = ui.available_width();
-            ui.heading(config::APPLICATION_NAME);
+            ui.heading("Evaluation");
             ui.add_space(10.0);
 
             let mut layouter = |ui: &egui::Ui, string: &str, _wrap_width: f32| {
@@ -409,7 +409,7 @@ impl App for Window {
             if ui.input(|i| i.key_pressed(egui::Key::F5)) {
                 self.eval();
             }
-            ui.add_space(10.0);
+            ui.add_space(20.0);
 
             match self.worker_state {
                 WorkerState::Ready => {
@@ -476,7 +476,7 @@ impl App for Window {
                     ctx.request_repaint_after(Duration::from_millis(500));
                 },
             }
-            ui.add_space(10.0);
+            ui.add_space(20.0);
 
             egui::Frame::none().fill(ui.visuals().extreme_bg_color).show(ui, |ui| {
                 ui.add(egui::TextEdit::multiline(&mut self.result_text.as_str()).font(egui::FontId::monospace(12.0)));
@@ -486,7 +486,7 @@ impl App for Window {
                 // makes it selectable/copyable but not editable
                 ui.add(egui::TextEdit::multiline(&mut self.signal_text.as_str()).desired_rows(2).text_color(epaint::Color32::RED));
             }
-            ui.add_space(10.0);
+            ui.add_space(20.0);
 
             ui.horizontal(|ui| {
                 ui.label("Output");
