@@ -71,7 +71,7 @@ impl Window {
         let (from_worker_tx, from_worker_rx) = mpsc::channel::<Result<String, String>>();
         let (umbilical_high_end, umbilical_low_end) = make_umbilical();
         let (output_tx, output_rx) = make_io(Duration::ZERO);
-        let (input_tx, input_rx) = make_io(Duration::MAX);
+        let (input_tx, input_rx) = make_io(Duration::from_millis(10));
 
         thread::Builder::new().stack_size(config::CALL_STACK_SIZE).spawn(move || {
             let mut mem = Memory::new();

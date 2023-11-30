@@ -23,13 +23,33 @@ pub fn input_file(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_dept
         let mut line = String::new();
         let mut stdin = BufReader::new(mem.stdin.as_mut());
 
-        match stdin.read_line(&mut line) {
-            Err(err) => {
-                let details = vec![("details", string_to_list(mem, &err.kind().to_string()))];
-                Err(make_error(mem, "cannot-read-file", INPUT_FILE.name, &details))
-            },
-            Ok(0) => Err(make_error(mem, "eof", INPUT_FILE.name, &vec![])),
-            Ok(_) => Ok(string_to_list(mem, &line)),
+        loop {
+            match stdin.read_line(&mut line) {
+                Err(err) => {
+                    if err.kind() == std::io::ErrorKind::TimedOut {
+                        if let Some(umb) = &mem.umbilical {
+                            if let Ok(msg) = umb.from_high_end.try_recv() {
+                                match msg.get("command").map(|s| s.as_str()) {
+                                    Some("INTERRUPT") => {
+                                        return Err(make_error(mem, "interrupted", INPUT_FILE.name, &vec![]));
+                                    },
+                                    Some("ABORT") => {
+                                        return Err(GcRef::nil());
+                                    },
+                                    _ => {},
+                                }
+                            }
+                        }
+                        continue;
+                    }
+                    else {
+                        let details = vec![("details", string_to_list(mem, &err.kind().to_string()))];
+                        return Err(make_error(mem, "cannot-read-file", INPUT_FILE.name, &details));
+                    }
+                },
+                Ok(0) => return Err(make_error(mem, "eof", INPUT_FILE.name, &vec![])),
+                Ok(_) => return Ok(string_to_list(mem, &line)),
+            }
         }
     }
     else {
