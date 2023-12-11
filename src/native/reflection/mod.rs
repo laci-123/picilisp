@@ -24,84 +24,27 @@ pub fn destructure_trap(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursio
 }
 
 
-pub const GET_PARAMETERS: NativeFunctionMetaData =
+pub const DESTRUCTURE_FUNCTION: NativeFunctionMetaData =
 NativeFunctionMetaData{
-    function:      get_parameters,
-    name:          "get-parameters",
+    function:      destructure_function,
+    name:          "destructure-function",
     kind:          FunctionKind::Lambda,
     parameters:    &["function"],
-    documentation: "Return a list of the formal parameters of `function`."
+    documentation: "Return a property list containing
+the kind, the parameter list, body, captured environment and captured module of `function`.
+For native functions and special operators body will be nil."
 };
 
-pub fn get_parameters(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, GET_PARAMETERS.name, args, (let f: TypeLabel::Function));
+pub fn destructure_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, DESTRUCTURE_FUNCTION.name, args, (let f: TypeLabel::Function));
 
-    let vec = f.get_param_names().iter().map(|pn| mem.symbol_for(&pn)).collect::<Vec<GcRef>>();
+    let params = f.get_param_names().iter().map(|pn| mem.symbol_for(&pn)).collect::<Vec<GcRef>>();
+    let vec    = vec![mem.symbol_for("kind"),        mem.symbol_for(f.get_kind().to_string()),
+                      mem.symbol_for("parameters"),  vec_to_list(mem, &params),
+                      mem.symbol_for("body"),        f.get_body(),
+                      mem.symbol_for("environment"), f.get_env(),
+                      mem.symbol_for("module"),      string_to_list(mem, &f.get_module())];
     Ok(vec_to_list(mem, &vec))
-}
-
-
-pub const GET_BODY: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      get_body,
-    name:          "get-body",
-    kind:          FunctionKind::Lambda,
-    parameters:    &["function"],
-    documentation: "Return a list whose single element is the body of `function` if it isn't a native function.
-If `function` is a native function then return nil."
-};
-
-pub fn get_body(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, GET_BODY.name, args, (let f: TypeLabel::Function));
-
-    if f.is_normal() {
-        Ok(mem.allocate_cons(f.get_body(), GcRef::nil()))
-    }
-    else {
-        Ok(GcRef::nil())
-    }
-}
-
-
-pub const GET_ENVIRONMENT_MODULE: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      get_environment_module,
-    name:          "get-environment-module",
-    kind:          FunctionKind::Lambda,
-    parameters:    &["function"],
-    documentation: "Return the name of the module in wich the environment of `function` was captured."
-};
-
-pub fn get_environment_module(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, GET_ENVIRONMENT_MODULE.name, args, (let f: TypeLabel::Function));
-
-    if let Function::NormalFunction(nf) = f {
-        Ok(mem.symbol_for(&nf.get_env_module()))
-    }
-    else {
-        Ok(GcRef::nil())
-    }
-}
-
-
-pub const GET_ENVIRONMENT: NativeFunctionMetaData =
-NativeFunctionMetaData{
-    function:      get_environment,
-    name:          "get-environment",
-    kind:          FunctionKind::Lambda,
-    parameters:    &["function"],
-    documentation: "Return captured environment of `function`."
-};
-
-pub fn get_environment(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
-    validate_args!(mem, GET_ENVIRONMENT.name, args, (let f: TypeLabel::Function));
-
-    if let Function::NormalFunction(nf) = f {
-        Ok(nf.get_env())
-    }
-    else {
-        Ok(GcRef::nil())
-    }
 }
 
 
@@ -153,7 +96,7 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
 
     match metadata {
         Some(md) => {
-            let doc     = string_to_list(mem, &md.documentation);
+            let doc = string_to_list(mem, &md.documentation);
             let file;
             let line;
             let column;
@@ -188,38 +131,11 @@ pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_de
             if !column.is_nil() {
                 vec.push(("column", column));
             }
-
-            if let Some(PrimitiveValue::Function(f)) = x.get() {
-                let pns = f.get_param_names().iter().map(|pn| mem.symbol_for(pn)).collect::<Vec<GcRef>>();
-                vec.insert(0, ("parameters", vec_to_list(mem, &pns)));
-
-                let kind =
-                match f.get_kind() {
-                    FunctionKind::Macro         => mem.symbol_for("macro"),
-                    FunctionKind::Lambda        => mem.symbol_for("lambda"),
-                };
-                vec.insert(0, ("function-kind", kind));
-            }
  
             Ok(make_plist(mem, &vec))
         },
         None => {
-            if let Some(PrimitiveValue::Function(f)) = x.get() {
-                let mut vec = vec![];
-                let pns = f.get_param_names().iter().map(|pn| mem.symbol_for(pn)).collect::<Vec<GcRef>>();
-                vec.insert(0, ("parameters", vec_to_list(mem, &pns)));
-
-                let kind =
-                match f.get_kind() {
-                    FunctionKind::Macro         => mem.symbol_for("macro"),
-                    FunctionKind::Lambda        => mem.symbol_for("lambda"),
-                };
-                vec.insert(0, ("function-kind", kind));
-                Ok(make_plist(mem, &vec))
-            }
-            else {
-                Ok(GcRef::nil())
-            }
+            Ok(GcRef::nil())
         },
     }
 }

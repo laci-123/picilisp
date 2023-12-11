@@ -101,6 +101,15 @@ pub enum FunctionKind {
     Lambda,
 }
 
+impl FunctionKind {
+    pub fn to_string(&self) -> &'static str {
+        match self {
+            Self::Macro  => "macro",
+            Self::Lambda => "lambda",
+        }
+    }
+}
+
 
 pub struct NormalFunction {
     kind: FunctionKind,
@@ -246,6 +255,20 @@ impl Function {
         match self {
             Self::NormalFunction(nf) => nf.get_body(),
             _ => GcRef::nil(),
+        }
+    }
+
+    pub fn get_env(&self) -> GcRef {
+        match self {
+            Self::NormalFunction(nf) => nf.get_env(),
+            _ => GcRef::nil(),
+        }
+    }
+
+    pub fn get_module(&self) -> String {
+        match self {
+            Self::NormalFunction(nf) => nf.get_env_module(),
+            _ => String::new(),
         }
     }
 
