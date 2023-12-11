@@ -184,6 +184,9 @@ impl Iterator for TokenIterator {
                         status = Character;
                         beginning_location = self.location.clone();
                     }
+                    else {
+                        buffer.push(ch);
+                    }
                 },
                 '+' | '-' => {
                     if status == WhiteSpace {
@@ -215,9 +218,7 @@ impl Iterator for TokenIterator {
                             status = Symbol;
                         },
                         Number => {
-                            if !ch.is_ascii_digit() {
-                                status = Symbol;
-                            }
+                            return Some(Err(ReadError::Error{ msg: format!("unexpected character in number literal: '{ch}'"), location: self.location.clone(), rest }));
                         },
                         _ => {},
                     }
@@ -323,7 +324,7 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: StringW
 fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(GcRef, StringWithPosition), ReadError> {
     let mut stack = vec![];
     let mut quoted = false;
-    
+
     for maybe_token_and_rest in TokenIterator::new(input, location) {
         let TokenAndRest{token, rest} = maybe_token_and_rest?;
 

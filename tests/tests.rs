@@ -24,17 +24,17 @@ fn number_literals() {
     check("+5", "5");
     check("0", "0");
     check("-0", "0");
-    check_error("2.0", "unbound-symbol", "symbol 2.0"); // TODO: should be a syntax error
+    check_error("2.0", "syntax-error", "unexpected character in number literal: '.'");
 }
 
 #[test]
 fn character_literals() {
     check("%a", "%a");
     check("%ő", "%ő");
-    // check("%\n", "%\n"); TODO!
-    // check("%\t", "%\t"); TODO!
+    check(r"%\n", r"%\n");
+    check(r"%\t", r"%\t");
     check(r"%\\", r"%\\");
-    // check("%%", "%%"); TODO!
+    check("%%", "%%");
     check("%猫", "%猫");
     check_error("%abc", "syntax-error", "invalid character: '%abc'");
 }
@@ -43,6 +43,7 @@ fn character_literals() {
 fn symbols_and_quoting() {
     check("(quote abc)", "abc");
     check("(quote -abc*def>!)", "-abc*def>!");
+    check("(quote cat%dog)", "cat%dog");
     check("'thing", "thing");
 }
 
