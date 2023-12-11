@@ -71,18 +71,18 @@
                                            'lambda-type))
       ('otherwise           (let (evaled-expr (map (lambda (xi) (highlight-and-debug (car xi) (cdr xi)))
                                                    (enumerate expr)))
-                              (let (body (get-body (car evaled-expr)))
+                              (let (evaled-parts (destructure-function (car evaled-expr)))
                                 (block
                                   (when step-in
                                     (block
                                       (receive)
                                       (send (list 'kind 'ALL-ELEMS-EVALED, 'expression (print expr), 'result (print evaled-expr)))))
-                                  (if body
-                                      (debug-eval-internal (car body)
-                                                           (add-parameters (get-parameters (car evaled-expr))
+                                  (if (. evaled-parts 'body)
+                                      (debug-eval-internal (. evaled-parts 'body)
+                                                           (add-parameters (. evaled-parts 'parameters)
                                                                            (cdr evaled-expr)
-                                                                           (get-environment (car evaled-expr)))
-                                                           (get-environment-module (car evaled-expr))
+                                                                           (. evaled-parts 'environment))
+                                                           (. evaled-parts 'module)
                                                            step-in)
                                       (call-native-function (car evaled-expr) (cdr evaled-expr) env)))))))))
                                       
@@ -145,19 +145,21 @@
                               (let (expanded-operator (. expanded-operator-rc 'result)
                                     expanded-operands (. expanded-operands-rc 'result) 
                                     changed           (or (. expanded-operator-rc 'changed) (. expanded-operands-rc 'changed)))
-                                (if (= 'macro (. (get-metadata expanded-operator) 'function-kind))
-                                    (let (body (get-body expanded-operator))
-                                      (list 'result (if body
-                                                        (debug-eval-internal (car body)
-                                                                             (add-parameters (get-parameters expanded-operator)
-                                                                                             expanded-operands
-                                                                                             (get-environment expanded-operator))
-                                                                             (get-environment-module expanded-operator)
-                                                                             step-in)
-                                                        (call-native-function expanded-operator expanded-operands env))
-                                            'changed t))
-                                    (list 'result  (cons expanded-operator expanded-operands)
-                                          'changed changed))))))))
+                                (let (expanded-operator-parts (and (= (type-of expanded-operator) 'function-type)
+                                                                   (destructure-function expanded-operator)))
+                                  (if (= 'macro (. expanded-operator-parts 'kind))
+                                      (let (body (. expanded-operator-parts 'body))
+                                        (list 'result (if body
+                                                          (debug-eval-internal body
+                                                                               (add-parameters (. expanded-operator-parts 'parameters)
+                                                                                               expanded-operands
+                                                                                               (. expanded-operator-parts 'environment))
+                                                                               (. expanded-operator-parts 'module)
+                                                                               step-in)
+                                                          (call-native-function expanded-operator expanded-operands env))
+                                              'changed t))
+                                      (list 'result  (cons expanded-operator expanded-operands)
+                                            'changed changed)))))))))
          
 (defun debug-expand (expr env env-module step-in)
   ""
@@ -171,7 +173,7 @@
                                        'changed changed))))
       ((= type 'symbol-type) (eval (trap
                                     (let (expanded (lookup expr env env-module))
-                                      (if (= 'macro (. (get-metadata expanded) 'function-kind))
+                                      (if (= 'macro (. (destructure-function expanded) 'kind))
                                           (list 'result expanded, 'changed t)
                                           (list 'result expr,     'changed nil)))
                                     (if (= (. *trapped-signal* 'kind) 'unbound-symbol)

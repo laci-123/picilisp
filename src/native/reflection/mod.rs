@@ -43,7 +43,7 @@ pub fn destructure_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recu
                       mem.symbol_for("parameters"),  vec_to_list(mem, &params),
                       mem.symbol_for("body"),        f.get_body(),
                       mem.symbol_for("environment"), f.get_env(),
-                      mem.symbol_for("module"),      string_to_list(mem, &f.get_module())];
+                      mem.symbol_for("module"),      mem.symbol_for(&f.get_module())];
     Ok(vec_to_list(mem, &vec))
 }
 
