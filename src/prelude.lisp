@@ -233,11 +233,12 @@ Otherwise substract all but the first argument from the first one."
   (let (metadata (get-metadata thing))
     (if metadata
         (concat (if (= (type-of thing) 'function-type)
-                    (concat "("
-                            (print (. metadata 'function-kind))
-                            " "
-                            (print (. metadata 'parameters))
-                            " ...)\n\n")
+                    (let (thing-parts (destructure-function thing))
+                      (concat "("
+                              (print (. thing-parts 'kind))
+                              " "
+                              (print (. thing-parts 'parameters))
+                              " ...)\n\n"))
                     "")
                 (or (. metadata 'documentation)
                     "[No documentation]")
