@@ -21,7 +21,7 @@ pub fn add(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usiz
         Ok(mem.allocate_number(z))
     }
     else {
-        Err(mem.symbol_for("addition-overflow"))
+        Err(make_error(mem, "arithmetic-overflow", ADD.name, &vec![]))
     }
 }
 
@@ -43,7 +43,7 @@ pub fn substract(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth
         Ok(mem.allocate_number(z))
     }
     else {
-        Err(mem.symbol_for("substraction-overflow"))
+        Err(make_error(mem, "arithmetic-overflow", SUBSTRACT.name, &vec![]))
     }
 }
 
@@ -65,7 +65,7 @@ pub fn multiply(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth:
         Ok(mem.allocate_number(z))
     }
     else {
-        Err(mem.symbol_for("multiplication-overflow"))
+        Err(make_error(mem, "arithmetic-overflow", MULTIPLY.name, &vec![]))
     }
 }
 
@@ -84,7 +84,7 @@ pub fn divide(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: u
     validate_args!(mem, DIVIDE.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
 
     if *y == 0 {
-        Err(mem.symbol_for("divide-by-zero"))
+        Err(make_error(mem, "divide-by-zero", DIVIDE.name, &vec![]))
     }
     else {
         Ok(mem.allocate_number(*x / *y))
