@@ -33,6 +33,7 @@ fn character_literals() {
     check("%ő", "%ő");
     check(r"%\n", r"%\n");
     check(r"%\t", r"%\t");
+    check(r"%\s", r"%\s");
     check(r"%\\", r"%\\");
     check("%%", "%%");
     check("%猫", "%猫");
@@ -54,9 +55,9 @@ fn string_literals() {
 second line
 
 fourth line""#);
-    check(r#""something in quotes: \"something\".""#, r#""something in quotes: "something".""#); // TODO: escape the "s in the output too: \"something\"
+    check(r#""something in quotes: \"something\".""#, r#""something in quotes: \"something\".""#); 
     check("(list %a %b %c)", r#""abc""#);
-    check_error(r#""ci\ca""#, "syntax-error", "\'c\' is not a valid escape character in a string literal"); // TODO: why are single quotes escaped?
+    check_error(r#""ci\ca""#, "syntax-error", "'c' is not a valid escape character in a string literal");
 }
 
 #[test]
@@ -144,7 +145,7 @@ fn print() {
     check(r#"(print 123)"#, r#""123""#);
     check(r#"(print %🐋)"#, r#""%🐋""#);
     check(r#"(print 'elephant)"#, r#""elephant""#);
-    check(r#"(print "this is a string")"#, r#"""this is a string"""#); // TODO: escape the "s in the output too: \"this is a string\"
+    check(r#"(print "this is a string")"#, r#""\"this is a string\"""#); 
     check(r#"(print (list 1 (list %a 'b) () 3))"#, r#""(1 (%a b) () 3)""#);
 }
 

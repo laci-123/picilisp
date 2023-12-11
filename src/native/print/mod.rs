@@ -16,9 +16,10 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
         PrimitiveValue::Character(x) => {
             let y =
             match x {
-                '\t'  => "\\t".to_string(),
-                '\n'  => "\\n".to_string(),
-                '\r'  => "\\r".to_string(),
+                '\t' => "\\t".to_string(),
+                '\n' => "\\n".to_string(),
+                '\r' => "\\r".to_string(),
+                ' '  => "\\s".to_string(),
                 '\\' => "\\\\".to_string(),
                 _    => format!("{x}"),
             };
@@ -36,10 +37,14 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
 }
 
 fn print_string(mem: &mut Memory, string: String) -> GcRef {
+    let backslash = mem.allocate_character('\\');
     let mut result = string_to_list(mem, "\"");
     for c in string.chars().rev() {
         let character = mem.allocate_character(c);
         result = mem.allocate_cons(character, result);
+        if c == '"' {
+            result = mem.allocate_cons(backslash.clone(), result);
+        }
     }
 
     let quote = mem.allocate_character('"');
@@ -132,6 +137,7 @@ pub fn print_to_rust_string(expression: GcRef, recursion_depth: usize) -> Result
                 let y =
                 match x {
                     '\t'  => "\\t".to_string(),
+                    ' '  => "\\s".to_string(),
                     '\n'  => "\\n".to_string(),
                     '\r'  => "\\r".to_string(),
                     '\\' => "\\\\".to_string(),

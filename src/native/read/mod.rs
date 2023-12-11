@@ -270,6 +270,7 @@ fn build_character(chars: &[char], location: Location, rest: StringWithPosition)
         ""     => Err(ReadError::Error{ msg: format!("invalid character: '%' (empty literal)"), location, rest }),
         "\\n"  => Ok('\n'),
         "\\t"  => Ok('\t'),
+        "\\s"  => Ok(' '),
         "\\r"  => Ok('\r'),
         "\\\\" => Ok('\\'),
         c if c.graphemes(true).count() == 1 => Ok(c.chars().next().unwrap()),
