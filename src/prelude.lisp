@@ -1,5 +1,5 @@
 (export '(t nil *stdin* *stdout* defmacro defun unzip-list let when output input foldl foldr
-          reverse zip length enumerate map apply last init block and or not /= + - * /
+          reverse zip length enumerate map apply last init block and or not /= <= >= + - * /
           range append concat describe case catch catch-all try throw get-property-safe
           pretty-print-error repl read-eval-print load infinite-loop))
 
@@ -163,6 +163,14 @@ to the length of the shortest input list."
 (defun /= (x y)
   "Not equals"
   (not (= x y)))
+
+(defun <= (x y)
+  "`x` is less than or equal to `y`"
+  (or (< x y) (= x y)))
+
+(defun >= (x y)
+  "`x` is greater than or equal to `y`"
+  (or (> x y) (= x y)))
 
 (defun + (& numbers)
   "Add all numbers together. Return 0 if called whith 0 arguments."

@@ -90,3 +90,45 @@ pub fn divide(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: u
         Ok(mem.allocate_number(*x / *y))
     }
 }
+
+
+pub const LESS: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      less,
+    name:          "<",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["x", "y"],
+    documentation: "Return t if and only if `x` is less than `y`."
+};
+
+pub fn less(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, LESS.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
+
+    if *x < *y {
+        Ok(mem.symbol_for("t"))
+    }
+    else {
+        Ok(GcRef::nil())
+    }
+}
+
+
+pub const GREATER: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      greater,
+    name:          ">",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["x", "y"],
+    documentation: "Return t if and only if `x` is greater than `y`."
+};
+
+pub fn greater(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, GREATER.name, args, (let x: TypeLabel::Number), (let y: TypeLabel::Number));
+
+    if *x > *y {
+        Ok(mem.symbol_for("t"))
+    }
+    else {
+        Ok(GcRef::nil())
+    }
+}

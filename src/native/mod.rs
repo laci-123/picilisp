@@ -27,6 +27,8 @@ pub fn load_native_functions(mem: &mut Memory) {
     load_native_function(mem, numbers::SUBSTRACT);
     load_native_function(mem, numbers::MULTIPLY);
     load_native_function(mem, numbers::DIVIDE);
+    load_native_function(mem, numbers::LESS);
+    load_native_function(mem, numbers::GREATER);
     load_native_function(mem, globals::DEFINE);
     load_native_function(mem, globals::UNDEFINE);
     load_native_function(mem, globals::WHEREIS);
