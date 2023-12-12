@@ -131,6 +131,22 @@ pub fn make_plist(mem: &mut Memory, kv: &[(&str, GcRef)]) -> GcRef {
 }
 
 
+pub const APPEND: NativeFunctionMetaData =
+NativeFunctionMetaData{
+    function:      append,
+    name:          "append",
+    kind:          FunctionKind::Lambda,
+    parameters:    &["list1", "list2"],
+    documentation: "Append `list1` to the beginning of `list2`.",
+};
+
+pub fn append(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
+    validate_args!(mem, APPEND.name, args, (let list1: TypeLabel::List), (let list2: TypeLabel::List));
+
+    Ok(vec_to_list(mem, &[list1, list2].concat()))
+}
+
+
 pub const UNREST: NativeFunctionMetaData =
 NativeFunctionMetaData{
     function:      unrest,

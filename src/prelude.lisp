@@ -215,13 +215,6 @@ Otherwise substract all but the first argument from the first one."
   "Range of numbers from 0 to `n` (including 0, excluding `n`)."
   (-range (substract n 1) nil))
 
-(defun append (list1 list2)
-  "Append `list1` to the beginning of `list2`."
-  (if list1
-      (cons (car list1)
-            (append (cdr list1) list2))
-      list2))
-
 (defun concat (& lists)
   "Concatenate all lists in `lists`."
   (let (f (lambda (f xs) (if xs
