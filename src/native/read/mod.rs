@@ -363,8 +363,10 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
                 }
             },
             TokenValue::Character(c) => {
-                let x = mem.allocate_character(c).with_metadata(Metadata{ read_name: format!("{c}"), location: token.location, documentation: String::new() });
-                let y =
+                let md = Metadata{ read_name: format!("{c}"), location: token.location, documentation: String::new() };
+                let v  = mem.allocate_character(c);
+                let x  = mem.allocate_metadata(v, md);
+                let y  =
                 if quoted {
                     let vec = vec![mem.symbol_for("quote"), x];
                     quoted = false;
@@ -382,8 +384,10 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
                 }
             },
             TokenValue::Number(n) => {
-                let x = mem.allocate_number(n).with_metadata(Metadata{ read_name: format!("{n}"), location: token.location, documentation: String::new() });
-                let y =
+                let md = Metadata{ read_name: format!("{n}"), location: token.location, documentation: String::new() };
+                let v  = mem.allocate_number(n);
+                let x  = mem.allocate_metadata(v, md);
+                let y  =
                 if quoted {
                     let vec = vec![mem.symbol_for("quote"), x];
                     quoted = false;
@@ -401,8 +405,10 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
                 }
             },
             TokenValue::Symbol(s) => {
-                let x = mem.symbol_for(s.as_str()).with_metadata(Metadata{ read_name: format!("{s}"), location: token.location, documentation: String::new() });
-                let y =
+                let md = Metadata{ read_name: format!("{s}"), location: token.location, documentation: String::new() };
+                let v  = mem.symbol_for(s.as_str());
+                let x  = mem.allocate_metadata(v, md);
+                let y  =
                 if quoted {
                     let vec = vec![mem.symbol_for("quote"), x];
                     quoted = false;
@@ -420,8 +426,10 @@ fn read_internal(mem: &mut Memory, input: GcRef, location: Location) -> Result<(
                 }
             },
             TokenValue::String(s) => {
-                let x = string_to_proper_list(mem, s.as_str()).with_metadata(Metadata{ read_name: String::new(), location: token.location, documentation: String::new() });
-                let y =
+                let md = Metadata{ read_name: s.clone(), location: token.location, documentation: String::new() };
+                let v  = string_to_proper_list(mem, s.as_str());
+                let x  = mem.allocate_metadata(v, md);
+                let y  =
                 if quoted {
                     let vec = vec![mem.symbol_for("quote"), x];
                     quoted = false;

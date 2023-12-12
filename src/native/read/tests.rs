@@ -372,9 +372,9 @@ fn read_location_atom() {
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     assert_eq_symbol!(result, mem.symbol_for("abc"));
-    assert_eq!(result.get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(result.get_metadata().unwrap().location.get_line().unwrap(), 2);
-    assert_eq!(result.get_metadata().unwrap().location.get_column().unwrap(), 3);
+    assert_eq!(result.get_meta().unwrap().location.get_file(), None);
+    assert_eq!(result.get_meta().unwrap().location.get_line().unwrap(), 2);
+    assert_eq!(result.get_meta().unwrap().location.get_column().unwrap(), 3);
 }
 
 
@@ -388,9 +388,9 @@ fn read_location_string() {
     let status = property(&mut mem, "status", r.clone()).unwrap();
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
-    assert_eq!(result.get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(result.get_metadata().unwrap().location.get_line().unwrap(), 3);
-    assert_eq!(result.get_metadata().unwrap().location.get_column().unwrap(), 4);
+    assert_eq!(result.get_meta().unwrap().location.get_file(), None);
+    assert_eq!(result.get_meta().unwrap().location.get_line().unwrap(), 3);
+    assert_eq!(result.get_meta().unwrap().location.get_column().unwrap(), 4);
 }
 
 #[test]
@@ -404,15 +404,15 @@ fn read_location_list() {
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     let elems = list_to_vec(result).unwrap();
-    assert_eq!(elems[0].get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(elems[0].get_metadata().unwrap().location.get_line().unwrap(), 1);
-    assert_eq!(elems[0].get_metadata().unwrap().location.get_column().unwrap(), 2);
-    assert_eq!(elems[1].get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(elems[1].get_metadata().unwrap().location.get_line().unwrap(), 1);
-    assert_eq!(elems[1].get_metadata().unwrap().location.get_column().unwrap(), 4);
-    assert_eq!(elems[2].get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(elems[2].get_metadata().unwrap().location.get_line().unwrap(), 1);
-    assert_eq!(elems[2].get_metadata().unwrap().location.get_column().unwrap(), 9);
+    assert_eq!(elems[0].get_meta().unwrap().location.get_file(), None);
+    assert_eq!(elems[0].get_meta().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[0].get_meta().unwrap().location.get_column().unwrap(), 2);
+    assert_eq!(elems[1].get_meta().unwrap().location.get_file(), None);
+    assert_eq!(elems[1].get_meta().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[1].get_meta().unwrap().location.get_column().unwrap(), 4);
+    assert_eq!(elems[2].get_meta().unwrap().location.get_file(), None);
+    assert_eq!(elems[2].get_meta().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[2].get_meta().unwrap().location.get_column().unwrap(), 9);
 }
 
 #[test]
@@ -426,15 +426,15 @@ fn read_location_list_2() {
     let result = property(&mut mem, "result", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("ok"));
     let elems = list_to_vec(result).unwrap();
-    assert_eq!(elems[0].get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(elems[0].get_metadata().unwrap().location.get_line().unwrap(), 1);
-    assert_eq!(elems[0].get_metadata().unwrap().location.get_column().unwrap(), 4);
-    assert_eq!(elems[1].get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(elems[1].get_metadata().unwrap().location.get_line().unwrap(), 2);
-    assert_eq!(elems[1].get_metadata().unwrap().location.get_column().unwrap(), 1);
-    assert_eq!(elems[2].get_metadata().unwrap().location.get_file(), None);
-    assert_eq!(elems[2].get_metadata().unwrap().location.get_line().unwrap(), 2);
-    assert_eq!(elems[2].get_metadata().unwrap().location.get_column().unwrap(), 6);
+    assert_eq!(elems[0].get_meta().unwrap().location.get_file(), None);
+    assert_eq!(elems[0].get_meta().unwrap().location.get_line().unwrap(), 1);
+    assert_eq!(elems[0].get_meta().unwrap().location.get_column().unwrap(), 4);
+    assert_eq!(elems[1].get_meta().unwrap().location.get_file(), None);
+    assert_eq!(elems[1].get_meta().unwrap().location.get_line().unwrap(), 2);
+    assert_eq!(elems[1].get_meta().unwrap().location.get_column().unwrap(), 1);
+    assert_eq!(elems[2].get_meta().unwrap().location.get_file(), None);
+    assert_eq!(elems[2].get_meta().unwrap().location.get_line().unwrap(), 2);
+    assert_eq!(elems[2].get_meta().unwrap().location.get_column().unwrap(), 6);
 }
 
 #[test]

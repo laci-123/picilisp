@@ -225,7 +225,7 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
             }
         }
 
-        let name = expression.get_metadata().map(|md| md.read_name.clone());
+        let name = expression.get_meta().map(|md| md.read_name.clone());
 
         if let Some(mut list_elems) = list_to_vec(expression.clone()) {
             // `expression` is a list
@@ -368,7 +368,7 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, env_mod
         return Err(make_error(mem, "stackoverflow", MACROEXPAND.name, &vec![]));
     }
     
-    let name = expression.get_metadata().map(|md| md.read_name.clone());
+    let name = expression.get_meta().map(|md| md.read_name.clone());
 
     if let Some(mut list_elems) = list_to_vec(expression.clone()) {
         // `expression` is a list

@@ -19,12 +19,12 @@ pub struct Cell {
 }
 
 impl Cell {
-    pub fn new(value: PrimitiveValue) -> Self {
-        Self{ content: Box::new(CellContent::new(value)) }
+    pub fn new(content: MetaValue) -> Self {
+        Self{ content: Box::new(CellContent::new(content)) }
     }
     
-    pub fn set(&mut self, value: PrimitiveValue) {
-        self.content.as_mut().value = value;
+    pub fn set(&mut self, content: MetaValue) {
+        self.content.as_mut().content = content;
     }
 
     pub fn as_ptr_mut(&self) -> *mut CellContent {
@@ -35,14 +35,13 @@ impl Cell {
 
 #[derive(Default)]
 pub struct CellContent {
-    value: PrimitiveValue,
+    content: MetaValue,
     external_ref_count: usize,
-    metadata: Option<Metadata>,
 }
 
 impl CellContent {
-    pub fn new(value: PrimitiveValue) -> Self {
-        Self{ value, external_ref_count: 0, metadata: None }
+    pub fn new(content: MetaValue) -> Self {
+        Self{ content, external_ref_count: 0 }
     }
 }
 
@@ -338,10 +337,7 @@ impl TypeLabel {
 }
 
 
-#[derive(Default)]
 pub enum PrimitiveValue {
-    #[default]
-    Nil,
     Number(i64),
     Character(char),
     Cons(ConsCell),
@@ -351,15 +347,6 @@ pub enum PrimitiveValue {
 }
 
 impl PrimitiveValue { 
-    pub fn is_nil(&self) -> bool {
-        if let Self::Nil = self {
-            true
-        }
-        else {
-            false
-        }
-    }
-
     #[cfg(test)]
     pub fn as_number(&self) -> &i64 {
         if let Self::Number(x) = self {
@@ -421,6 +408,62 @@ impl PrimitiveValue {
 }
 
 
+#[derive(Default)]
+pub enum MetaValue {
+    #[default]
+    Nil,
+    Value(PrimitiveValue),
+    Meta{ value: *mut CellContent, meta: Metadata},
+}
+
+impl MetaValue {
+    fn is_nil(&self) -> bool {
+        match self {
+            Self::Nil => true,
+            Self::Value(_) => false,
+            Self::Meta{value, meta: _} => {
+                if value.is_null() {
+                    true
+                }
+                else {
+                    unsafe {
+                        // eprintln!("### {}", line!());
+                        (**value).content.is_nil()
+                    }
+                }
+            }
+        }
+    }
+
+    fn get_value(&self) -> Option<&PrimitiveValue> {
+        match self {
+            Self::Nil      => None,
+            Self::Value(v) => Some(v),
+            Self::Meta{value: actual_value, meta: _} => {
+                if actual_value.is_null() {
+                    None
+                }
+                else {
+                    unsafe {
+                        // eprintln!("### {}", line!());
+                        (**actual_value).content.get_value()
+                    }
+                }
+            },
+        }
+    }
+
+    fn get_meta(&self) -> Option<&Metadata> {
+        match self {
+            Self::Nil      => None,
+            Self::Value(_) => None,
+            Self::Meta{value: _, meta: metadata} => {
+                Some(metadata)
+            },
+        }
+    }
+}
+
 pub struct GcRef {
     pointer: *mut CellContent,
 }
@@ -429,6 +472,7 @@ impl GcRef {
     fn new(pointer: *mut CellContent) -> Self {
         if !pointer.is_null() {
             unsafe {
+                // eprintln!("### {}", line!());
                 (*pointer).external_ref_count += 1;
             }
         }
@@ -445,12 +489,13 @@ impl GcRef {
             return true;
         }
 
-        let value =
+        let content =
         unsafe {
-            &(*self.pointer).value
+            // eprintln!("### {}", line!());
+            &(*self.pointer).content
         };
 
-        value.is_nil()
+        content.is_nil()
     }
 
     pub fn get(&self) -> Option<&PrimitiveValue> {
@@ -458,32 +503,27 @@ impl GcRef {
             return None;
         }
         
-        let value =
+        let content =
         unsafe {
-            &(*self.pointer).value
+            // eprintln!("### {}", line!());
+            &(*self.pointer).content
         };
 
-        Some(value)
+        content.get_value()
     }
 
-    pub fn with_metadata(self, md: Metadata) -> GcRef {
-        if !self.pointer.is_null() {
-            unsafe {
-                (*self.pointer).metadata = Some(md);
-            }
-        }
-        self
-    }
-
-    pub fn get_metadata(&self) -> Option<&Metadata> {
+    pub fn get_meta(&self) -> Option<&Metadata> {
         if self.pointer.is_null() {
-            None
+            return None;
         }
-        else {
-            unsafe {
-                (*self.pointer).metadata.as_ref()
-            }
-        }
+        
+        let content =
+        unsafe {
+            // eprintln!("### {}", line!());
+            &(*self.pointer).content
+        };
+
+        content.get_meta()
     }
 
     pub fn get_type(&self) -> TypeLabel {
@@ -491,18 +531,41 @@ impl GcRef {
             return TypeLabel::Nil;
         }
 
-        let value = unsafe {
-            &(*self.pointer).value
+        let content =
+        unsafe {
+            // eprintln!("### {}", line!());
+            &(*self.pointer).content
         };
 
-        match value {
-            PrimitiveValue::Nil          => return TypeLabel::Nil,
-            PrimitiveValue::Number(_)    => return TypeLabel::Number,
-            PrimitiveValue::Character(_) => return TypeLabel::Character,
-            PrimitiveValue::Cons(_)      => return TypeLabel::Cons,
-            PrimitiveValue::Symbol(_)    => return TypeLabel::Symbol,
-            PrimitiveValue::Function(_)  => return TypeLabel::Function,
-            PrimitiveValue::Trap(_)      => return TypeLabel::Trap,
+        match content {
+            MetaValue::Nil      => TypeLabel::Nil,
+            MetaValue::Value(v) => match v {
+                PrimitiveValue::Number(_)    => TypeLabel::Number,
+                PrimitiveValue::Character(_) => TypeLabel::Character,
+                PrimitiveValue::Cons(_)      => TypeLabel::Cons,
+                PrimitiveValue::Symbol(_)    => TypeLabel::Symbol,
+                PrimitiveValue::Function(_)  => TypeLabel::Function,
+                PrimitiveValue::Trap(_)      => TypeLabel::Trap,
+            },
+            MetaValue::Meta{value: actual_value, meta: _} => GcRef::new(*actual_value).get_type(),
+        }
+    }
+
+    pub fn clone_without_meta(&self) -> Self {
+        if self.pointer.is_null() {
+            return self.clone();
+        }
+
+        let content =
+        unsafe {
+            // eprintln!("### {}", line!());
+            &(*self.pointer).content
+        };
+
+        match content {
+            MetaValue::Nil      => self.clone(),
+            MetaValue::Value(_) => self.clone(),
+            MetaValue::Meta{value, meta: _} => Self::new(*value),
         }
     }
 }
@@ -511,6 +574,7 @@ impl Clone for GcRef {
     fn clone(&self) -> Self {
         if !self.pointer.is_null() {
             unsafe {
+                // eprintln!("### {}", line!());
                 (*self.pointer).external_ref_count += 1;
             }
         }
@@ -523,6 +587,7 @@ impl Drop for GcRef {
     fn drop(&mut self) {
         if !self.pointer.is_null() {
             unsafe {
+                // eprintln!("### {}", line!());
                 (*self.pointer).external_ref_count -= 1;
             }
         }
@@ -684,11 +749,17 @@ impl Memory {
 
     pub fn symbol_for(&mut self, name: &str) -> GcRef {
         if let Some(sym_ptr) = self.symbols.get(name) {
+            // if name == "*stdout*" {
+            //     println!("@@@ {:?}", sym_ptr);
+            // }
             GcRef::new(*sym_ptr as *mut CellContent)
         }
         else {
-            let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() }));
-            if let PrimitiveValue::Symbol(sym) = unsafe {&mut (*sym_ptr).value} {
+            let sym_ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() })));
+            // if name == "*stdout*" {
+            //     println!("&&& {:?}, {:?}", sym_ptr, self.symbols);
+            // }
+            if let MetaValue::Value(PrimitiveValue::Symbol(sym)) = unsafe {/* eprintln!("### {}", line!());*/ &mut (*sym_ptr).content} {
                 sym.own_address = sym_ptr;
             }
             else {
@@ -702,8 +773,8 @@ impl Memory {
     }
 
     pub fn unique_symbol(&mut self) -> GcRef {
-        let sym_ptr = self.allocate_internal(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() }));
-        if let PrimitiveValue::Symbol(sym) = unsafe {&mut (*sym_ptr).value} {
+        let sym_ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() })));
+        if let MetaValue::Value(PrimitiveValue::Symbol(sym)) = unsafe {/* eprintln!("### {}", line!());*/ &mut (*sym_ptr).content} {
             sym.own_address = sym_ptr;
         }
         else {
@@ -713,50 +784,59 @@ impl Memory {
         GcRef::new(sym_ptr)
     }
 
+    pub fn allocate_metadata(&mut self, x: GcRef, md: Metadata) -> GcRef {
+        if let Some(_) = x.get_meta() {
+            panic!("attempted to construct metadata whose data pointer is another metadata object");
+        }
+        let ptr = self.allocate_internal(MetaValue::Meta { value: x.pointer, meta: md });
+        GcRef::new(ptr)
+    }
+
     pub fn allocate_number(&mut self, number: i64) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Number(number));
+        let ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Number(number)));
         GcRef::new(ptr)
     }
 
     pub fn allocate_character(&mut self, character: char) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Character(character));
+        let ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Character(character)));
         GcRef::new(ptr)
     }
 
     pub fn allocate_cons(&mut self, car: GcRef, cdr: GcRef) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Cons(ConsCell{ car: car.pointer, cdr: cdr.pointer }));
+        let ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Cons(ConsCell{ car: car.pointer, cdr: cdr.pointer })));
         GcRef::new(ptr)
     }
 
     pub fn allocate_normal_function(&mut self, kind: FunctionKind, has_rest_params: bool, body: GcRef, params: &[GcRef], environment: GcRef, environment_module: &str) -> GcRef {
         let mut param_ptrs = vec![];
         for param in params {
-            if !matches!(param.get().unwrap_or(&PrimitiveValue::Nil), PrimitiveValue::Symbol(_)) {
+            if !matches!(param.get(), Some(PrimitiveValue::Symbol(_))) {
                 panic!("Function parameter is not a Symbol");
             }
             param_ptrs.push(param.pointer);
         }
 
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind,
-                                                                                                           has_rest_params,
-                                                                                                           body: body.pointer,
-                                                                                                           parameters: param_ptrs,
-                                                                                                           environment: environment.pointer,
-                                                                                                           environment_module: environment_module.to_string()})));
+        let f = PrimitiveValue::Function(Function::NormalFunction(NormalFunction{ kind,
+                                                                                  has_rest_params,
+                                                                                  body: body.pointer,
+                                                                                  parameters: param_ptrs,
+                                                                                  environment: environment.pointer,
+                                                                                  environment_module: environment_module.to_string()}));
+        let ptr = self.allocate_internal(MetaValue::Value(f));
         GcRef::new(ptr)
     }
 
     pub fn allocate_native_function(&mut self, kind: FunctionKind, parameters: Vec<String>, function: fn(&mut Self, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, parameters, function })));
+        let ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, parameters, function }))));
         GcRef::new(ptr)
     }
 
     pub fn allocate_trap(&mut self, normal_body: GcRef, trap_body: GcRef) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Trap(Trap{ normal_body: normal_body.pointer, trap_body: trap_body.pointer }));
+        let ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Trap(Trap{ normal_body: normal_body.pointer, trap_body: trap_body.pointer })));
         GcRef::new(ptr)
     }
 
-    fn allocate_internal(&mut self, value: PrimitiveValue) -> *mut CellContent {
+    fn allocate_internal(&mut self, content: MetaValue) -> *mut CellContent {
         if self.first_free > self.cells.len() - 1 {
             self.collect();
         }
@@ -765,11 +845,11 @@ impl Memory {
         if self.first_free <= self.cells.len() - 1 {
             let cell = &mut self.cells[self.first_free];
             self.first_free += 1;
-            cell.set(value);
+            cell.set(content);
             cell.as_ptr_mut()
         }
         else {
-            let new_cell = Cell::new(value);
+            let new_cell = Cell::new(content);
             let ptr = new_cell.as_ptr_mut();
             self.cells.push(new_cell);
             self.first_free += 1;
@@ -821,10 +901,26 @@ impl Memory {
 
         while let Some(cell) = stack.pop() {
             reachable.insert(cell);
+            
+            if cell.is_null() {
+                continue;
+            }
 
-            let value = unsafe {
-                &(*cell).value
+            let content = unsafe {
+                // eprintln!("### {}", line!());
+                &(*cell).content
             };
+
+            let value =
+            match content {
+                MetaValue::Nil      => continue,
+                MetaValue::Value(v) => v,
+                MetaValue::Meta{value: actual_value, meta: _ } => {
+                    stack.push(*actual_value);
+                    continue;
+                },
+            };
+
             match value {
                 PrimitiveValue::Cons(cons) => {
                     if !cons.car.is_null() {
@@ -868,7 +964,7 @@ impl Memory {
             }
             else {
                 let cell = &self.cells[i];
-                if let PrimitiveValue::Symbol(s) = &cell.content.value {
+                if let MetaValue::Value(PrimitiveValue::Symbol(s)) = &cell.content.content {
                     if let Some(name) = &s.name {
                         self.symbols.remove(name);
                     }

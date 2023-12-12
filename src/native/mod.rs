@@ -57,8 +57,9 @@ fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
         location:      Location::Native,
         documentation: nfmd.documentation.to_string(),
     };
-    let nf = mem.allocate_native_function(nfmd.kind, nfmd.parameters.iter().map(|s| s.to_string()).collect(), nfmd.function).with_metadata(md);
-    mem.define_global(nfmd.name, nf);
+    let nf = mem.allocate_native_function(nfmd.kind, nfmd.parameters.iter().map(|s| s.to_string()).collect(), nfmd.function);
+    let x  = mem.allocate_metadata(nf, md);
+    mem.define_global(nfmd.name, x);
 
     if let Some(umb) = &mem.umbilical {
         let mut dm = DebugMessage::new();

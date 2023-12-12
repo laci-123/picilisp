@@ -92,7 +92,7 @@ NativeFunctionMetaData{
 pub fn get_metadata(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: usize) -> Result<GcRef, GcRef> {
     validate_args!(mem, GET_METADATA.name, args, (let x: TypeLabel::Any));
 
-    let metadata = x.get_metadata();
+    let metadata = x.get_meta();
 
     match metadata {
         Some(md) => {

@@ -1,5 +1,5 @@
 use pretty_assertions::assert_eq;
-use crate::util::{vec_to_list, assert_eq_symbol};
+use crate::{util::{vec_to_list, assert_eq_symbol}, metadata::{Metadata, Location}};
 use super::*;
 
 
@@ -139,4 +139,37 @@ fn euqal_list() {
 
     let e = equal(&mut mem, &[x, y], GcRef::nil(), 0).ok().unwrap();
     assert!(e.is_nil());
+}
+
+#[test]
+fn equal_through_metadata() {
+    let mut mem = Memory::new();
+    
+    let x1   = mem.allocate_number(1);
+    let md1 = Metadata{read_name: "x1".to_string(), location: Location::Native, documentation: "cat".to_string()};
+    let y1  = mem.allocate_metadata(x1, md1);
+
+    let x2   = mem.allocate_number(1);
+    let md2 = Metadata{read_name: "x2".to_string(), location: Location::Native, documentation: "dog".to_string()};
+    let y2  = mem.allocate_metadata(x2, md2);
+
+    let e = equal(&mut mem, &[y1, y2], GcRef::nil(), 0).ok().unwrap();
+    assert!(!e.is_nil());
+}
+
+
+#[test]
+fn equal_symbol_through_metadata() {
+    let mut mem = Memory::new();
+    
+    let x1   = mem.symbol_for("kitten");
+    let md1 = Metadata{read_name: "x1".to_string(), location: Location::Native, documentation: "cat".to_string()};
+    let y1  = mem.allocate_metadata(x1, md1);
+
+    let x2   = mem.symbol_for("kitten");
+    let md2 = Metadata{read_name: "x2".to_string(), location: Location::Native, documentation: "lion".to_string()};
+    let y2  = mem.allocate_metadata(x2, md2);
+
+    let e = equal(&mut mem, &[y1, y2], GcRef::nil(), 0).ok().unwrap();
+    assert!(!e.is_nil());
 }

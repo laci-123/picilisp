@@ -1,4 +1,6 @@
 use pretty_assertions::assert_eq;
+use crate::metadata::{Metadata, Location};
+
 use super::*;
 
 
@@ -192,3 +194,36 @@ fn util_string_iterator_invalid_string() {
     assert_eq!(c, 'b');
     assert!(it.next().unwrap().is_none());
 }
+
+#[test]
+fn util_symbol_eq() {
+    let mut mem = Memory::new();
+
+    let s1 = mem.symbol_for("butterfly");
+    let s2 = mem.symbol_for("butterfly");
+    assert!(symbol_eq!(s1, s2));
+
+    let s1 = mem.symbol_for("butterfly");
+    let s2 = mem.symbol_for("eagle");
+    assert!(!symbol_eq!(s1, s2));
+}
+
+#[test]
+fn util_symbol_eq_through_meta() {
+    let mut mem = Memory::new();
+    
+    let s1  = mem.symbol_for("parrot");
+    let md1 = Metadata{ read_name: "parrot".to_string(), location: Location::Native, documentation: "it is some kind of bird".to_string() };
+    let x1  = mem.allocate_metadata(s1, md1);
+    let s2  = mem.symbol_for("parrot");
+    let md2 = Metadata{ read_name: "parrot".to_string(), location: Location::Native, documentation: "a parrot".to_string() };
+    let x2  = mem.allocate_metadata(s2, md2);
+    assert!(symbol_eq!(x1, x2));
+
+    let s1  = mem.symbol_for("bat");
+    let md1 = Metadata{ read_name: "bat".to_string(), location: Location::Native, documentation: "not a bird at all".to_string() };
+    let x1  = mem.allocate_metadata(s1, md1);
+    let x2  = mem.symbol_for("bat");
+    assert!(symbol_eq!(x1, x2));
+}
+

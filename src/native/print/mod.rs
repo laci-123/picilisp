@@ -10,10 +10,10 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
         return string_to_list(mem, "()");
     }
     
-    match atom.get().unwrap() {
-        PrimitiveValue::Nil          => string_to_list(mem, "()"),
-        PrimitiveValue::Number(x)    => string_to_list(mem, &format!("{x}")),
-        PrimitiveValue::Character(x) => {
+    match atom.get() {
+        None                               => string_to_list(mem, "()"),
+        Some(PrimitiveValue::Number(x))    => string_to_list(mem, &format!("{x}")),
+        Some(PrimitiveValue::Character(x)) => {
             let y =
             match x {
                 '\t' => "\\t".to_string(),
@@ -25,10 +25,10 @@ fn print_atom(mem: &mut Memory, atom: GcRef) -> GcRef {
             };
             string_to_list(mem, &format!("%{y}"))
         },
-        PrimitiveValue::Symbol(x)    => string_to_list(mem, &x.get_name()),
-        PrimitiveValue::Trap(t)      => string_to_list(mem, &t.to_string()),
-        PrimitiveValue::Function(f)  => string_to_list(mem, &f.to_string()),
-        PrimitiveValue::Cons(x)      => {
+        Some(PrimitiveValue::Symbol(x))   => string_to_list(mem, &x.get_name()),
+        Some(PrimitiveValue::Trap(t))     => string_to_list(mem, &t.to_string()),
+        Some(PrimitiveValue::Function(f)) => string_to_list(mem, &f.to_string()),
+        Some(PrimitiveValue::Cons(x))     => {
             let car = list_to_string(print_atom(mem, x.get_car())).unwrap();
             let cdr = list_to_string(print_atom(mem, x.get_cdr())).unwrap();
             string_to_list(mem, &format!("(cons {car} {cdr})"))
@@ -130,10 +130,10 @@ pub fn print_to_rust_string(expression: GcRef, recursion_depth: usize) -> Result
             return Ok(format!("()"));
         }
 
-        match expression.get().unwrap() {
-            PrimitiveValue::Nil          => Ok(format!("()")),
-            PrimitiveValue::Number(x)    => Ok(format!("{x}")),
-            PrimitiveValue::Character(x) => {
+        match expression.get() {
+            None                               => Ok(format!("()")),
+            Some(PrimitiveValue::Number(x))    => Ok(format!("{x}")),
+            Some(PrimitiveValue::Character(x)) => {
                 let y =
                 match x {
                     '\t'  => "\\t".to_string(),
@@ -145,15 +145,15 @@ pub fn print_to_rust_string(expression: GcRef, recursion_depth: usize) -> Result
                 };
                 Ok(format!("%{y}"))
             },
-            PrimitiveValue::Symbol(x)    => Ok(format!("{}", x.get_name())),
-            PrimitiveValue::Trap(_)      => Ok(format!("#<trap>")),
-            PrimitiveValue::Function(f)  => {
+            Some(PrimitiveValue::Symbol(x))   => Ok(format!("{}", x.get_name())),
+            Some(PrimitiveValue::Trap(_))     => Ok(format!("#<trap>")),
+            Some(PrimitiveValue::Function(f)) => {
                 match f.get_kind() {
-                    FunctionKind::Lambda        => Ok(format!("#<lambda>")),
-                    FunctionKind::Macro         => Ok(format!("#<macro>")),
+                    FunctionKind::Lambda      => Ok(format!("#<lambda>")),
+                    FunctionKind::Macro       => Ok(format!("#<macro>")),
                 }
             },
-            PrimitiveValue::Cons(x)      => {
+            Some(PrimitiveValue::Cons(x))     => {
                 let car = print_to_rust_string(x.get_car(), recursion_depth + 1)?;
                 let cdr = print_to_rust_string(x.get_cdr(), recursion_depth + 1)?;
                 Ok(format!("(cons {car} {cdr})"))

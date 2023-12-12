@@ -134,10 +134,11 @@ pub fn define(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: us
         return Err(mem.symbol_for("already-defined"));
     }
 
-    if let Some(meta) = args[0].get_metadata() {
-        let mut new_md         = meta.clone();
-        new_md.documentation   = documentation;
-        mem.define_global(&name.get_name(), value.clone().with_metadata(new_md));
+    if let Some(meta) = args[0].get_meta() {
+        let mut new_md       = meta.clone();
+        new_md.documentation = documentation;
+        let x = mem.allocate_metadata(value.clone_without_meta(), new_md);
+        mem.define_global(&name.get_name(), x);
     }
     else {
         mem.define_global(&name.get_name(), value.clone());
