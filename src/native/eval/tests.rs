@@ -111,7 +111,7 @@ fn make_lambda_bad_param_list() {
     let tree   = vec_to_list(&mut mem, &vec);
 
     let value = eval_external(&mut mem, tree);
-    assert_eq!(value.err().unwrap(), "(kind wrong-argument-type source lambda expected list-type actual symbol-type)");
+    assert_eq!(value.err().unwrap(), "(kind wrong-argument-type source lambda argument-value x expected list-type actual symbol-type)");
 }
 
 #[test]

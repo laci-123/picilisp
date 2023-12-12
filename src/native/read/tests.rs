@@ -447,12 +447,12 @@ fn read_error_location() {
     let status         = property(&mut mem, "status", r.clone()).unwrap();
     let error          = property(&mut mem, "error", r.clone()).unwrap();
     assert_eq_symbol!(status, mem.symbol_for("error"));
-    let error_location = list_to_vec(property(&mut mem, "location", error.clone()).unwrap()).unwrap();
+    let error_location = property(&mut mem, "location", error.clone()).unwrap();
     let error_msg      = list_to_string(property(&mut mem, "message", error).unwrap()).unwrap();
     assert_eq!(error_msg, "'d' is not a valid escape character in a string literal");
-    assert_eq_symbol!(error_location[0], mem.symbol_for("stdin"));
-    assert_eq!(*error_location[1].get().unwrap().as_number(), 1);
-    assert_eq!(*error_location[2].get().unwrap().as_number(), 7);
+    assert_eq_symbol!(property(&mut mem, "file", error_location.clone()).unwrap(), mem.symbol_for("stdin"));
+    assert_eq!(*property(&mut mem, "line",   error_location.clone()).unwrap().get().unwrap().as_number(), 1);
+    assert_eq!(*property(&mut mem, "column", error_location).unwrap().get().unwrap().as_number(), 7);
 }
 
 #[test]

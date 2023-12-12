@@ -121,7 +121,9 @@ macro_rules! _validate_args {
                     x
                 }
                 else {
-                    let error_details = vec![("expected", mem.symbol_for($($params)+.to_string())), ("actual", mem.symbol_for(extended_get_type(arg.clone()).to_string()))];
+                    let error_details = vec![("argument-value", arg.clone()),
+                                             ("expected", mem.symbol_for($($params)+.to_string())),
+                                             ("actual", mem.symbol_for(extended_get_type(arg.clone()).to_string()))];
                     let error         = make_error(mem, "wrong-argument-type", source, &error_details);
                     return Err(error);
                 }

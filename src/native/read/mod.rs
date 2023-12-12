@@ -312,7 +312,7 @@ fn format_error(mem: &mut Memory, location: Location, msg: String, rest: StringW
             column = mem.allocate_number(cn as i64);
         },
     }
-    let error_loc = vec_to_list(mem, &vec![file, line, column]);
+    let error_loc = make_plist(mem, &vec![("file", file), ("line", line), ("column", column)]);
     let error     = make_plist(mem, &vec![("location", error_loc), ("message", error_msg)]);
     let ln        = mem.allocate_number(rest.line as i64);
     let cn        = mem.allocate_number(rest.column as i64);

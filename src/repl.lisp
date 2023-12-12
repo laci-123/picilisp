@@ -1,5 +1,18 @@
 (export '(repl read-eval-print))
 
+(defun -pretty-print-syntax-error (error)
+  ""
+  (concat "message: \n"
+          (. error 'message)
+          "\n at: "
+          (let (location (. error 'location))
+            (concat (print (. location 'file))
+                    ":"
+                    (print (. location 'line))
+                    ":"
+                    (print (. location 'column))))
+          "\n"))
+
 (defun pretty-print-error (error)
   "Print `erorr` in a more human-readable format.
 If `error` is not a valid property-list then just simply print it using the `print` function."
@@ -8,17 +21,19 @@ If `error` is not a valid property-list then just simply print it using the `pri
        (let (key (car error), value (car (cdr error)))
          (concat (print key)
                  ":\n"
-                 (if (= key 'symbol)
+                 (if (or (= key 'symbol) (= key 'argument-value))
                      (let (md (get-metadata value))
                        (concat (print value)
                                "\n at: "
                                (print (. md 'file))
-                               (if (. md 'line)
+                               (if (and (. md 'line) (. md 'column))
                                    (concat ":" (print (. md 'line)) ":" (print (. md 'column)))
-                                   nil)))
+                                   "")))
                      (print value))
                  "\n\n"
-                 (pretty-print-error (cdr (cdr error)))))
+                 (if (= value 'syntax-error)
+                     (-pretty-print-syntax-error (. error 'details))
+                     (pretty-print-error         (cdr (cdr error))))))
        (catch-all (lambda (_) (print error))))
       ""))
 
