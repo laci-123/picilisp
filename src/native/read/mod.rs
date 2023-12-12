@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::memory::*;
 use crate::metadata::*;
 use crate::util::*;

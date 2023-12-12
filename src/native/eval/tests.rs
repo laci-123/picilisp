@@ -352,7 +352,7 @@ fn test_native_function(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursio
 fn eval_native_function_not_enough_args() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], test_native_function, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], test_native_function);
 
     let vec  = vec![lambda, mem.allocate_character('c')];
     let tree = vec_to_list(&mut mem, &vec);
@@ -365,7 +365,7 @@ fn eval_native_function_not_enough_args() {
 fn eval_native_function_too_many_args() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], test_native_function, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], test_native_function);
 
     let vec  = vec![lambda, mem.allocate_character('a'), mem.allocate_character('b'), mem.allocate_character('c')];
     let tree = vec_to_list(&mut mem, &vec);
@@ -378,7 +378,7 @@ fn eval_native_function_too_many_args() {
 fn eval_native_function() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], test_native_function, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], test_native_function);
 
     let vec  = vec![lambda, mem.allocate_number(-123), mem.allocate_number(190)];
     let tree = vec_to_list(&mut mem, &vec);
@@ -391,7 +391,7 @@ fn eval_native_function() {
 fn eval_native_eval() {
     let mut mem = Memory::new();
 
-    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], eval, GcRef::nil());
+    let lambda = mem.allocate_native_function(FunctionKind::Lambda, vec!["x".to_string(), "y".to_string()], eval);
 
     let vec  = vec![lambda, mem.allocate_number(-123)];
     let tree = vec_to_list(&mut mem, &vec);

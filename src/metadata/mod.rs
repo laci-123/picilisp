@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use std::path::PathBuf;
 
 
@@ -12,21 +11,13 @@ pub enum Location {
 }
 
 impl Location {
+    #[cfg(test)]
     pub fn get_file(&self) -> Option<PathBuf> {
         if let Self::File{path, line: _, column: _} = self {
             Some(path.clone())
         }
         else {
             None
-        }
-    }
-
-    pub fn to_string(&self) -> String {
-        match self {
-            Self::Native => format!("Rust source"),
-            Self::Prelude{line, column} => format!("Prelude:{line}:{column}"),
-            Self::Stdin{line, column} => format!("stdin:{line}:{column}"),
-            Self::File{path, line, column} => format!("{}:{line}:{column}", path.to_str().unwrap_or("<ERROR reading filepath>")),
         }
     }
 

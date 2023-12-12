@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-
 use crate::errors::Error;
 use crate::metadata::*;
 use crate::debug::*;
@@ -29,10 +27,6 @@ impl Cell {
         self.content.as_mut().value = value;
     }
 
-    pub fn as_ptr(&self) -> *const CellContent {
-        &*self.content as *const CellContent
-    }
-    
     pub fn as_ptr_mut(&self) -> *mut CellContent {
         (&*self.content as *const CellContent) as *mut CellContent
     }
@@ -190,7 +184,6 @@ pub struct NativeFunction {
               // memory,     argumetns, environment, recursion depth           value  signal
     function: fn(&mut Memory, &[GcRef], GcRef,       usize)          -> Result<GcRef, GcRef>,
     parameters: Vec<String>,
-    environment: *mut CellContent,
 }
 
 impl NativeFunction {
@@ -222,6 +215,7 @@ impl Function {
         }
     }
     
+    #[cfg(test)]
     pub fn as_normal_function(&self) -> &NormalFunction {
         if let Self::NormalFunction(nf) = self {
             nf
@@ -231,24 +225,11 @@ impl Function {
         }
     }
 
-    pub fn as_native_function(&self) -> &NativeFunction {
-        if let Self::NativeFunction(nf) = self {
-            nf
-        }
-        else {
-            panic!("attempted to cast a normal function to a native function")
-        }
-    }
-
     pub fn get_kind(&self) -> FunctionKind {
         match self {
             Self::NormalFunction(nf) => nf.kind,
             Self::NativeFunction(nf) => nf.kind,
         }
-    }
-
-    pub fn is_normal(&self) -> bool {
-        matches!(self, Self::NormalFunction(_))
     }
 
     pub fn get_body(&self) -> GcRef {
@@ -379,6 +360,7 @@ impl PrimitiveValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_number(&self) -> &i64 {
         if let Self::Number(x) = self {
             x
@@ -388,6 +370,7 @@ impl PrimitiveValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_character(&self) -> &char {
         if let Self::Character(x) = self {
             x
@@ -416,6 +399,7 @@ impl PrimitiveValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_function(&self) -> &Function{
         if let Self::Function(x) = self {
             x
@@ -425,6 +409,7 @@ impl PrimitiveValue {
         }
     }
 
+    #[cfg(test)]
     pub fn as_trap(&self) -> &Trap{
         if let Self::Trap(x) = self {
             x
@@ -761,8 +746,8 @@ impl Memory {
         GcRef::new(ptr)
     }
 
-    pub fn allocate_native_function(&mut self, kind: FunctionKind, parameters: Vec<String>, function: fn(&mut Self, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>, environment: GcRef) -> GcRef {
-        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, parameters, function, environment: environment.pointer })));
+    pub fn allocate_native_function(&mut self, kind: FunctionKind, parameters: Vec<String>, function: fn(&mut Self, &[GcRef], GcRef, usize) -> Result<GcRef, GcRef>) -> GcRef {
+        let ptr = self.allocate_internal(PrimitiveValue::Function(Function::NativeFunction(NativeFunction { kind, parameters, function })));
         GcRef::new(ptr)
     }
 
@@ -920,43 +905,6 @@ impl Memory {
         //               ^
         //               first_free
         self.cells.len() - self.first_free
-    }
-
-    fn dump_memory(&self) {
-        let used_count = self.used_count();
-        let free_count = self.free_count();
-        let total_count = self.cells.len();
-        let total_size_kb = (total_count * (std::mem::size_of::<Cell>() + std::mem::size_of::<CellContent>())) as f32 / 1024.0;
-        
-        println!("Total: {} cells ({:.2} kB)", total_count, total_size_kb);
-        println!("  - used: {}", used_count);
-        println!("  - free: {}", free_count);
-        println!("");
-
-        println!("Used Address        Type      Value                                    External RefCount");
-        println!("---- -------        ----      -----                                    -----------------");
-        for (i, c) in self.cells.iter().enumerate() {
-            let string = 
-            match c.content.value {
-                PrimitiveValue::Nil             => format!("NIL       NIL"),
-                PrimitiveValue::Number(n)       => format!("NUMBER    {n}"),
-                PrimitiveValue::Character(ch)   => format!("CHARACTER {ch}"),
-                PrimitiveValue::Symbol(ref s)   => format!("{}", s.name.as_ref().map_or("UNIQUE SYMBOL".to_string(), |n| format!("SYMBOL    \"{n}\""))),
-                PrimitiveValue::Cons(ref cons)  => format!("CONS      car: {car:p} cdr: {cdr:p}", car = cons.car, cdr = cons.cdr),
-                PrimitiveValue::Function(ref f) => {
-                    match f {
-                        Function::NormalFunction(nf) => format!("FUNCTION   body: {:p}", nf.body),
-                        Function::NativeFunction(_)  => format!("FUNCTION   body: <native>"),
-                    }
-                },
-                PrimitiveValue::Trap(ref t)     => format!("TRAP      normal: {:p}, trap: {:p}", t.normal_body, t.trap_body),
-            };
-            let used = if i < self.first_free { "[x] " } else { "[ ] " };
-            let rc = c.content.external_ref_count;
-            println!("{} {:p} {:<50} {}", used, c.as_ptr(), string, rc);
-        }
-
-        println!("");
     }
 }
 

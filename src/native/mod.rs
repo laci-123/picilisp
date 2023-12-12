@@ -52,13 +52,12 @@ pub fn load_native_functions(mem: &mut Memory) {
 
 
 fn load_native_function(mem: &mut Memory, nfmd: NativeFunctionMetaData) {
-    let empty_env = GcRef::nil();
     let md = Metadata {
         read_name:     nfmd.name.to_string(),
         location:      Location::Native,
         documentation: nfmd.documentation.to_string(),
     };
-    let nf = mem.allocate_native_function(nfmd.kind, nfmd.parameters.iter().map(|s| s.to_string()).collect(), nfmd.function, empty_env).with_metadata(md);
+    let nf = mem.allocate_native_function(nfmd.kind, nfmd.parameters.iter().map(|s| s.to_string()).collect(), nfmd.function).with_metadata(md);
     mem.define_global(nfmd.name, nf);
 
     if let Some(umb) = &mem.umbilical {
