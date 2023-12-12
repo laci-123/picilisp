@@ -24,7 +24,7 @@ impl Cell {
     }
     
     pub fn set(&mut self, content: MetaValue) {
-        self.content.as_mut().content = content;
+        self.content.as_mut().metavalue = content;
     }
 
     pub fn as_ptr_mut(&self) -> *mut CellContent {
@@ -35,13 +35,13 @@ impl Cell {
 
 #[derive(Default)]
 pub struct CellContent {
-    content: MetaValue,
+    metavalue: MetaValue,
     external_ref_count: usize,
 }
 
 impl CellContent {
     pub fn new(content: MetaValue) -> Self {
-        Self{ content, external_ref_count: 0 }
+        Self{ metavalue: content, external_ref_count: 0 }
     }
 }
 
@@ -427,8 +427,7 @@ impl MetaValue {
                 }
                 else {
                     unsafe {
-                        // eprintln!("### {}", line!());
-                        (**value).content.is_nil()
+                        (**value).metavalue.is_nil()
                     }
                 }
             }
@@ -445,8 +444,7 @@ impl MetaValue {
                 }
                 else {
                     unsafe {
-                        // eprintln!("### {}", line!());
-                        (**actual_value).content.get_value()
+                        (**actual_value).metavalue.get_value()
                     }
                 }
             },
@@ -472,7 +470,6 @@ impl GcRef {
     fn new(pointer: *mut CellContent) -> Self {
         if !pointer.is_null() {
             unsafe {
-                // eprintln!("### {}", line!());
                 (*pointer).external_ref_count += 1;
             }
         }
@@ -491,8 +488,7 @@ impl GcRef {
 
         let content =
         unsafe {
-            // eprintln!("### {}", line!());
-            &(*self.pointer).content
+            &(*self.pointer).metavalue
         };
 
         content.is_nil()
@@ -505,8 +501,7 @@ impl GcRef {
         
         let content =
         unsafe {
-            // eprintln!("### {}", line!());
-            &(*self.pointer).content
+            &(*self.pointer).metavalue
         };
 
         content.get_value()
@@ -519,8 +514,7 @@ impl GcRef {
         
         let content =
         unsafe {
-            // eprintln!("### {}", line!());
-            &(*self.pointer).content
+            &(*self.pointer).metavalue
         };
 
         content.get_meta()
@@ -533,8 +527,7 @@ impl GcRef {
 
         let content =
         unsafe {
-            // eprintln!("### {}", line!());
-            &(*self.pointer).content
+            &(*self.pointer).metavalue
         };
 
         match content {
@@ -558,8 +551,7 @@ impl GcRef {
 
         let content =
         unsafe {
-            // eprintln!("### {}", line!());
-            &(*self.pointer).content
+            &(*self.pointer).metavalue
         };
 
         match content {
@@ -574,7 +566,6 @@ impl Clone for GcRef {
     fn clone(&self) -> Self {
         if !self.pointer.is_null() {
             unsafe {
-                // eprintln!("### {}", line!());
                 (*self.pointer).external_ref_count += 1;
             }
         }
@@ -587,7 +578,6 @@ impl Drop for GcRef {
     fn drop(&mut self) {
         if !self.pointer.is_null() {
             unsafe {
-                // eprintln!("### {}", line!());
                 (*self.pointer).external_ref_count -= 1;
             }
         }
@@ -749,17 +739,11 @@ impl Memory {
 
     pub fn symbol_for(&mut self, name: &str) -> GcRef {
         if let Some(sym_ptr) = self.symbols.get(name) {
-            // if name == "*stdout*" {
-            //     println!("@@@ {:?}", sym_ptr);
-            // }
             GcRef::new(*sym_ptr as *mut CellContent)
         }
         else {
             let sym_ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Symbol(Symbol{ name: Some(name.to_string()), own_address: std::ptr::null() })));
-            // if name == "*stdout*" {
-            //     println!("&&& {:?}, {:?}", sym_ptr, self.symbols);
-            // }
-            if let MetaValue::Value(PrimitiveValue::Symbol(sym)) = unsafe {/* eprintln!("### {}", line!());*/ &mut (*sym_ptr).content} {
+            if let MetaValue::Value(PrimitiveValue::Symbol(sym)) = unsafe {&mut (*sym_ptr).metavalue} {
                 sym.own_address = sym_ptr;
             }
             else {
@@ -774,7 +758,7 @@ impl Memory {
 
     pub fn unique_symbol(&mut self) -> GcRef {
         let sym_ptr = self.allocate_internal(MetaValue::Value(PrimitiveValue::Symbol(Symbol{ name: None, own_address: std::ptr::null() })));
-        if let MetaValue::Value(PrimitiveValue::Symbol(sym)) = unsafe {/* eprintln!("### {}", line!());*/ &mut (*sym_ptr).content} {
+        if let MetaValue::Value(PrimitiveValue::Symbol(sym)) = unsafe {&mut (*sym_ptr).metavalue} {
             sym.own_address = sym_ptr;
         }
         else {
@@ -907,8 +891,7 @@ impl Memory {
             }
 
             let content = unsafe {
-                // eprintln!("### {}", line!());
-                &(*cell).content
+                &(*cell).metavalue
             };
 
             let value =
@@ -964,7 +947,7 @@ impl Memory {
             }
             else {
                 let cell = &self.cells[i];
-                if let MetaValue::Value(PrimitiveValue::Symbol(s)) = &cell.content.content {
+                if let MetaValue::Value(PrimitiveValue::Symbol(s)) = &cell.content.metavalue {
                     if let Some(name) = &s.name {
                         self.symbols.remove(name);
                     }
