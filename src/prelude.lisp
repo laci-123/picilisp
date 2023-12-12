@@ -28,7 +28,7 @@
           (cons (car (cdr pairs)) (cdr fsts-snds))))
        (unzip-list (cdr (if (cdr pairs)
                             (cdr pairs)
-                            (signal 'odd-number-of-elements)))))
+                            (signal (list 'kind 'wrong-argument, 'source 'unzip-list, 'details 'odd-number-of-elements))))))
       (cons nil nil)))
 
 (defmacro let (bindings body)
@@ -39,7 +39,8 @@ The value of the last form in `body` is returned."
         (cons (list 'lambda params body) args))
       (car params-args)
       (cdr params-args)))
-   (unzip-list bindings)))
+   (eval (trap (unzip-list bindings)
+               (signal (list 'kind 'wrong-argument, 'source 'let, 'details 'incomplete-binding))))))
 
 (defmacro when (condition then)
   "Same as `if` but the `otherwise` arm is always `nil`."
@@ -119,7 +120,7 @@ to the length of the shortest input list."
       (if (cdr things)
           (last (cdr things))
           (car things))
-      (signal 'empty-list)))
+      (signal (list 'kind 'wrong-argument, 'soruce 'last, 'details 'empty-list))))
 
 (defun init (things)
   "Return all elements of `things` except the last one."
