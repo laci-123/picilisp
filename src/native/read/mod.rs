@@ -471,7 +471,7 @@ NativeFunctionMetaData{
     function:      read,
     name:          "read",
     kind:          FunctionKind::Lambda,
-    parameters:    &["input", "&", "source", "start-line", "start-column"],
+    parameters:    &["input", "source", "start-line", "start-column"],
     documentation: 
 r"Converts a Lisp-style string to an AST.
 
@@ -499,58 +499,26 @@ pub fn read(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: usiz
     if recursion_depth > config::MAX_RECURSION_DEPTH {
         return Err(make_error(mem, "stackoverflow", READ.name, &vec![]));
     }
+    validate_args!(mem, READ.name, args, (let input: TypeLabel::Any), (let source: TypeLabel::Any), (let start_line: TypeLabel::Number), (let start_column: TypeLabel::Number));
 
-    if args.len() != 1 && args.len() != 4 {
-        let vec           = vec![mem.symbol_for("or"), mem.allocate_number(1), mem.allocate_number(4)];
-        let error_details = vec![("expected", vec_to_list(mem, &vec)), ("actual", fit_to_number(mem, args.len()))];
-        let error         = make_error(mem, "wrong-number-of-arguments", READ.name, &error_details);
-        return Err(error);
+    let sl = *start_line         as usize;
+    let sc = (*start_column - 1) as usize;
+
+    let location =
+    if let Some(path) = list_to_string(source.clone()) {
+        Location::File { path: PathBuf::from(path), line: sl, column: sc}
     }
-
-    let start_line;
-    let start_column;
-    let location;
-    if args.len() == 4 {
-        if let Some(PrimitiveValue::Number(x)) = args[2].get() {
-            start_line = *x as usize;
-        }
-        else {
-            let actual_type = crate::native::reflection::type_of(mem, &[args[2].clone()], GcRef::nil(), recursion_depth + 1)?;
-            let error_details = vec![("expected", mem.symbol_for("number")), ("actual", actual_type)];
-            let error = make_error(mem, "wrong-argument-type", READ.name, &error_details);
-            return Err(error);
-        }
-
-        if let Some(PrimitiveValue::Number(x)) = args[3].get() {
-            start_column = *x as usize - 1;
-        }
-        else {
-            let actual_type = crate::native::reflection::type_of(mem, &[args[3].clone()], GcRef::nil(), recursion_depth + 1)?;
-            let error_details = vec![("expected", mem.symbol_for("number")), ("actual", actual_type)];
-            let error = make_error(mem, "wrong-argument-type", READ.name, &error_details);
-            return Err(error);
-        }
-
-        if let Some(path) = list_to_string(args[1].clone()) {
-            location = Location::File { path: PathBuf::from(path), line: start_line, column: start_column };
-        }
-        else if symbol_eq!(args[1], mem.symbol_for("prelude")) {
-            location = Location::Prelude { line: start_line, column: start_column };
-        }
-        else if symbol_eq!(args[1], mem.symbol_for("stdin")) {
-            location = Location::Stdin { line: start_line, column: start_column };
-        }
-        else {
-            let error_details = vec![("the-unknown-source", args[1].clone())];
-            let error = make_error(mem, "unknown-read-source", READ.name, &error_details);
-            return Err(error);
-        }
+    else if symbol_eq!(args[1], mem.symbol_for("prelude")) {
+        Location::Prelude { line: sl, column: sc }
+    }
+    else if symbol_eq!(args[1], mem.symbol_for("stdin")) {
+        Location::Stdin { line: sl, column: sc }
     }
     else {
-        location = Location::Stdin { line: 1, column: 0 };
-    }
-
-    let input = args[0].clone();
+        let error_details = vec![("the-unknown-source", source)];
+        let error = make_error(mem, "unknown-read-source", READ.name, &error_details);
+        return Err(error);
+    };
 
     match read_internal(mem, input, location) {
         Ok((result, rest)) => {

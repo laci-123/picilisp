@@ -45,7 +45,7 @@ then repeat (or (L)oop) from the beginning.
 Stop the loop when end of input (EOF) is reached."
   (try
    (let (current-input (concat initial-input (input prompt)))
-     (let (read-result (read current-input))
+     (let (read-result (read current-input 'stdin 1 1))
        (let (read-status (. read-result 'status))
          (case ((= read-status 'invalid)    (throw 'kind 'invalid-string, 'source 'repl))
                ((= read-status 'nothing)    (repl prompt nil))
@@ -65,7 +65,7 @@ Stop the loop when end of input (EOF) is reached."
   "Read a string, evaluate it then print it into a string.
 If a signal is emmited during read evaluate or print then pretty-print it then forward it."
   (try
-   (let (read-result (read string))
+   (let (read-result (read string 'stdin 1 1))
      (let (read-status (. read-result 'status))
        (case ((= read-status 'invalid)    (throw 'kind 'invalid-string, 'source 'repl))
              ((= read-status 'nothing)    "")

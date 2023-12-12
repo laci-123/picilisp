@@ -1,7 +1,7 @@
 (export '(t nil *stdin* *stdout* defmacro defun unzip-list let when output input foldl foldr
           reverse zip length enumerate map apply last init block and or not /= <= >= + - * /
           range append concat describe case catch catch-all try throw get-property-safe
-          load infinite-loop))
+          load read-simple infinite-loop))
 
 
 (define 't 't "`t` is the canonical true value.")
@@ -322,6 +322,14 @@ that catches the signal."
 (defun load (path)
   "Load the lisp module at the file path `path`."
   (load-all (input-file path) (-remove-extension path)))
+
+(defun read-simple (input)
+  "Like `read`, but simple return the result without any additional data.
+Error if `read` would return non-ok status."
+  (let (read-result (read input 'stdin 1 1))
+    (if (= (. read-result 'status) 'ok)
+        (. read-result 'result)
+        (throw 'kind 'read-error, 'details read-result))))
 
 (defun infinite-loop (x)
   "for testing purposes"
