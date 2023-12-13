@@ -19,3 +19,5 @@
    (catch unbound-symbol
      (lambda(error) (concat (print "This is the bad one: ")
                             (print (. error 'symbol)))))))
+
+(output (print (do-something-bad)))

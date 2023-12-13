@@ -1,17 +1,38 @@
 fn main() -> Result<(), String> {
-    let args = std::env::args().collect::<Vec<String>>();
+    let mut args = std::env::args();
 
-    match args.get(1).map(|s| s.as_ref()) {
-        None            => ui::terminal::interactive(),
-        Some("command") => {
-            let command = args.get(2).ok_or("missing command")?;
-            let result  = ui::terminal::run_command(command)?;
+    let _program_name = args.next();
+
+    match args.next().as_deref() {
+        None => ui::terminal::interactive(),
+        Some("--expression") => {
+            let command = args.next().ok_or_else(|| "Missing expression. Use --help flag for help.")?;
+            let result = ui::terminal::run_command(&command)?;
             println!("{result}");
             Ok(())
         },
-        Some("gui")     => ui::gui::run(),
-        Some(other)     => Err(format!("Unknown command: '{other}'")),
+        Some("--load") => {
+            let filename = args.next().ok_or_else(|| "Missing filename. Use --help flag for help.")?;
+            ui::terminal::run_file(&filename)
+        },
+        Some("--gui")  => ui::gui::run(),
+        Some("--help") => {
+            println!("{}", usage());
+            Ok(())
+        },
+        Some(other)    => Err(format!("Unknown command: {other}. Use --help flag for help.")),
     }
+}
+
+fn usage() -> String {
+    let name = crate::config::APPLICATION_NAME;
+    format!("Usage:
+
+{name}                         start interactive REPL
+{name} --load <filename>       load the {name}-module defined in <filename>
+{name} --expression <expr>     evaluate <expr>, print its result to standard output, then exit
+{name} --gui                   start the graphical debugger
+{name} --help                  print this help message")
 }
 
 

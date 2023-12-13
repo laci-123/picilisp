@@ -5,13 +5,13 @@ use predicates::{*, prelude::PredicateBooleanExt};
 
 fn check(input: &str, output: &str) {
     Command::cargo_bin("picilisp").unwrap()
-                                  .args(&["command", input])
+                                  .args(&["--expression", input])
                                   .assert().stdout(format!("{output}\n"));
 }
 
 fn check_error(input: &str, error_kind: &str, error_details: &str) {
     Command::cargo_bin("picilisp").unwrap()
-                                  .args(&["command", input])
+                                  .args(&["--expression", input])
                                   .assert().stderr(str::contains(format!("kind {error_kind}")).and(str::contains(error_details)));
 }
 
@@ -81,12 +81,12 @@ fn comments() {
 fn function_literals() {
     let input = "(lambda (x) x)";
     Command::cargo_bin("picilisp").unwrap()
-                                  .args(&["command", input])
+                                  .args(&["--expression", input])
                                   .assert().stdout(str::contains("#<lambda-0x"));
 
     let input = "(macro (x) x)";
     Command::cargo_bin("picilisp").unwrap()
-                                  .args(&["command", input])
+                                  .args(&["--expression", input])
                                   .assert().stdout(str::contains("#<macro-0x"));
 }
 
@@ -186,7 +186,7 @@ fn equality_2() {
 fn gensyms() {
     let input = "(gensym)";
     Command::cargo_bin("picilisp").unwrap()
-                                  .args(&["command", input])
+                                  .args(&["--expression", input])
                                   .assert().stdout(str::contains("#<symbol-0x"));
     check("(= (gensym) (gensym))", "()");
     check("(let (x (gensym)) (= x x))", "t");

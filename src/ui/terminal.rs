@@ -39,3 +39,16 @@ pub fn run_command(command: &str) -> Result<String, String> {
     let expression = vec_to_list(&mut mem, &vec);
     eval_external(&mut mem, expression).map(|x| list_to_string(x).expect("result of read-eval-print is not a string"))
 }
+
+pub fn run_file(path: &str) -> Result<(), String> {
+    let mut mem = Memory::new();
+    load_native_functions(&mut mem);
+    super::load_prelude(&mut mem)?;
+
+    // (load "input...")
+    let vec        = vec![mem.symbol_for("load"), string_to_proper_list(&mut mem, path)];
+    let expression = vec_to_list(&mut mem, &vec);
+    let _result    = eval_external(&mut mem, expression)?;
+
+    Ok(())
+}
