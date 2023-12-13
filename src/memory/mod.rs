@@ -408,35 +408,32 @@ impl PrimitiveValue {
 }
 
 
-#[derive(Default)]
 pub enum MetaValue {
-    #[default]
-    Nil,
     Value(PrimitiveValue),
     Meta{ value: *mut CellContent, meta: Metadata},
+}
+
+impl Default for MetaValue {
+    fn default() -> Self {
+        Self::Value(PrimitiveValue::Number(0))
+    }
 }
 
 impl MetaValue {
     fn is_nil(&self) -> bool {
         match self {
-            Self::Nil => true,
-            Self::Value(_) => false,
-            Self::Meta{value, meta: _} => {
-                if value.is_null() {
-                    true
-                }
-                else {
-                    unsafe {
-                        (**value).metavalue.is_nil()
-                    }
-                }
-            }
+            Self::Value(_)             => false,
+            Self::Meta{value, meta: _} => value.is_null(),
         }
+    }
+
+    #[cfg(test)]
+    fn is_default(&self) -> bool {
+        matches!(self, Self::Value(PrimitiveValue::Number(0)))
     }
 
     fn get_value(&self) -> Option<&PrimitiveValue> {
         match self {
-            Self::Nil      => None,
             Self::Value(v) => Some(v),
             Self::Meta{value: actual_value, meta: _} => {
                 if actual_value.is_null() {
@@ -453,7 +450,6 @@ impl MetaValue {
 
     fn get_meta(&self) -> Option<&Metadata> {
         match self {
-            Self::Nil      => None,
             Self::Value(_) => None,
             Self::Meta{value: _, meta: metadata} => {
                 Some(metadata)
@@ -531,7 +527,6 @@ impl GcRef {
         };
 
         match content {
-            MetaValue::Nil      => TypeLabel::Nil,
             MetaValue::Value(v) => match v {
                 PrimitiveValue::Number(_)    => TypeLabel::Number,
                 PrimitiveValue::Character(_) => TypeLabel::Character,
@@ -555,7 +550,6 @@ impl GcRef {
         };
 
         match content {
-            MetaValue::Nil      => self.clone(),
             MetaValue::Value(_) => self.clone(),
             MetaValue::Meta{value, meta: _} => Self::new(*value),
         }
@@ -896,7 +890,6 @@ impl Memory {
 
             let value =
             match content {
-                MetaValue::Nil      => continue,
                 MetaValue::Value(v) => v,
                 MetaValue::Meta{value: actual_value, meta: _ } => {
                     stack.push(*actual_value);

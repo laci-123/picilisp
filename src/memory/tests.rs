@@ -10,7 +10,7 @@ fn memory_init() {
 
     assert_eq!(mem.free_count(), config::INITIAL_FREE_CELLS);
     for i in mem.first_free .. mem.cells.len() {
-        assert!(mem.cells[i].content.metavalue.is_nil());
+        assert!(mem.cells[i].content.metavalue.is_default());
     }
 }
 
