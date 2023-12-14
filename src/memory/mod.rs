@@ -600,9 +600,9 @@ impl Module {
 pub struct Memory {
     // Order of fields matter!
     // Fields are dropped in declaration order.
-    // `globals` and `current_module` must be dropped before `cells`,
+    // `modules` and `current_module` must be dropped before `cells`,
     // because on drop `GcRef` wants to access `cells`.
-    globals: HashMap<String, Rc<RefCell<Module>>>,
+    modules: HashMap<String, Rc<RefCell<Module>>>,
     current_module: Rc<RefCell<Module>>,
     symbols: HashMap<String, *const CellContent>,
     cells: Vec<Cell>,
@@ -615,7 +615,7 @@ pub struct Memory {
 impl Memory {
     pub fn new() -> Self {
         let default_module = Rc::new(RefCell::new(Module{ name: "default".to_string(), definitions: HashMap::new(), exports: None }));
-        Self { globals:        HashMap::from([("default".to_string(), default_module.clone())]),
+        Self { modules:        HashMap::from([("default".to_string(), default_module.clone())]),
                current_module: default_module,
                symbols:        HashMap::new(),
                cells:          (0 .. config::INITIAL_FREE_CELLS).map(|_| Default::default()).collect(),
@@ -642,7 +642,7 @@ impl Memory {
     }
 
     pub fn set_current_module(&mut self, name: &str) -> Result<(), Error> {
-        if let Some(module) = self.globals.get(name) {
+        if let Some(module) = self.modules.get(name) {
             self.current_module = module.clone();
             Ok(())
         }
@@ -653,7 +653,7 @@ impl Memory {
 
     pub fn define_module(&mut self, name: &str) {
         let new_module = Rc::new(RefCell::new(Module{ name: name.to_string(), definitions: HashMap::new(), exports: None }));
-        self.globals.insert(name.to_string(), new_module.clone());
+        self.modules.insert(name.to_string(), new_module.clone());
         self.current_module = new_module;
     }
 
@@ -669,7 +669,7 @@ impl Memory {
     }
 
     pub fn get_module_of_global(&self, name: &str) -> Vec<String> {
-        self.globals
+        self.modules
             .iter()
             .filter(|(_, module)| module.borrow().definitions.contains_key(name))
             .map(|(module_name, _)| module_name.clone())
@@ -688,7 +688,7 @@ impl Memory {
         let mut found = false;
         let mut result = GcRef::nil();
         let mut colliding_modules = Vec::new();
-        for (mn, module) in self.globals.iter() {
+        for (mn, module) in self.modules.iter() {
             if let Some(value) = module.borrow().get(name, module_name) {
                 colliding_modules.push(mn.clone());
                 result = value;
@@ -710,7 +710,7 @@ impl Memory {
     }
 
     pub fn get_global_from_module(&self, name: &str, module_name: &str) -> Result<GcRef, Error> {
-        if let Some(module) = self.globals.get(module_name).map(|m| m.borrow()) {
+        if let Some(module) = self.modules.get(module_name).map(|m| m.borrow()) {
             if module.exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true) {
                 module.definitions.get(name).map(|x| x.clone()).ok_or(Error::GlobalNonExistentOrPrivate)
             }
