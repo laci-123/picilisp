@@ -132,3 +132,7 @@ pub fn greater(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_depth: 
         Ok(GcRef::nil())
     }
 }
+
+
+#[cfg(test)]
+mod tests;
