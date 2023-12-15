@@ -9,6 +9,8 @@ fn memory_init() {
     let mem = Memory::new();
 
     assert_eq!(mem.free_count(), config::INITIAL_FREE_CELLS);
+
+    assert_eq!(mem.first_free, 0);
     for i in mem.first_free .. mem.cells.len() {
         assert!(mem.cells[i].content.metavalue.is_default());
     }

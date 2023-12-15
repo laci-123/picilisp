@@ -3,7 +3,6 @@ use crate::memory::*;
 use crate::debug::*;
 use crate::error_utils::*;
 use crate::util::*;
-use crate::native::print::print_to_rust_string;
 use super::NativeFunctionMetaData;
 
 
@@ -145,16 +144,16 @@ pub fn define(mem: &mut Memory, args: &[GcRef], _env: GcRef, recursion_depth: us
     }
 
     if mem.is_global_exported(&name.get_name()) {
+        let mut dm = DebugMessage::new();
+        dm.insert("kind".to_string(), GLOBAL_DEFINED.to_string());
+        dm.insert("name".to_string(), name.get_name());
+        dm.insert("module".to_string(), mem.get_current_module());
+        dm.insert("type".to_string(), value.get_type().to_string().to_string());
+        match crate::native::print::print(mem, &[value], GcRef::nil(), recursion_depth + 1) {
+            Ok(x)  => dm.insert("value".to_string(), list_to_string(x).unwrap()),
+            Err(_) => dm.insert("value".to_string(), "#<ERROR: CANNOT CONVERT TO STRING>".to_string()),
+        };
         if let Some(umb) = &mem.umbilical {
-            let mut dm = DebugMessage::new();
-            dm.insert("kind".to_string(), GLOBAL_DEFINED.to_string());
-            dm.insert("name".to_string(), name.get_name());
-            dm.insert("module".to_string(), mem.get_current_module());
-            dm.insert("type".to_string(), value.get_type().to_string().to_string());
-            match print_to_rust_string(value, recursion_depth + 1) {
-                Ok(x)  => dm.insert("value".to_string(), x),
-                Err(_) => dm.insert("value".to_string(), "#<ERROR: CANNOT CONVERT TO STRING>".to_string()),
-            };
             umb.to_high_end.send(dm).expect("supervisor thread disappeared");
         }
     }
