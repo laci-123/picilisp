@@ -162,6 +162,16 @@ fn cons_car_cdr() {
 }
 
 #[test]
+fn append() {
+    check("(append nil nil)", "()");
+    check("(append '(1 2 3) nil)", "(1 2 3)");
+    check("(append nil '(1 2 3))", "(1 2 3)");
+    check("(append '(1 2 3) '(a b c))", "(1 2 3 a b c)");
+    check("(append '(1 2 3) \"xyz\")", "(1 2 3 %x %y %z)");
+}
+
+
+#[test]
 fn equality() {
     check("(= 1 1)", "t");
     check("(= 1 2)", "()");
@@ -190,4 +200,215 @@ fn gensyms() {
                                   .assert().stdout(str::contains("#<symbol-0x"));
     check("(= (gensym) (gensym))", "()");
     check("(let (x (gensym)) (= x x))", "t");
+}
+
+#[test]
+fn when() {
+    check("(when (= 1 1) 'true)", "true");
+    check("(when (= 1 2) 'true)", "()");
+}
+
+#[test]
+fn foldl() {
+    check("(foldl (lambda (x y) (cons y x)) nil ())", "()");
+    check("(foldl (lambda (x y) (cons y x)) nil (list 1 2 3 4 5))", "(5 4 3 2 1)");
+}
+
+#[test]
+fn foldr() {
+    check("(foldr (lambda (x y) (cons x y)) nil ())", "()");
+    check("(foldr (lambda (x y) (cons x y)) nil (list 1 2 3 4 5))", "(1 2 3 4 5)");
+}
+
+#[test]
+fn reverse() {
+    check("(reverse nil)", "()");
+    check("(reverse (list 1))", "(1)");
+    check("(reverse (list 1 2 3 4 5))", "(5 4 3 2 1)");
+}
+
+#[test]
+fn zip() {
+    check("(zip nil nil)", "()");
+    check("(zip '(1 2 3) nil)", "()");
+    check("(zip nil '(1 2 3))", "()");
+    check("(zip '(a b c) '(1 2 3))", "((cons a 1) (cons b 2) (cons c 3))");
+    check("(zip '(a b c d) '(1 2 3))", "((cons a 1) (cons b 2) (cons c 3))");
+    check("(zip '(a b c) '(1 2 3 4))", "((cons a 1) (cons b 2) (cons c 3))");
+}
+
+#[test]
+fn enumerate() {
+    check("(enumerate nil)", "()");
+    check("(enumerate '(x y z))", "((cons x 0) (cons y 1) (cons z 2))");
+}
+
+#[test]
+fn map() {
+    check("(map (lambda (x) (+ x 1)) nil)", "()");
+    check("(map (lambda (x) (+ x 1)) (list 1 2 3 4 5))", "(2 3 4 5 6)");
+}
+
+#[test]
+fn apply() {
+    check("(apply + nil)", "0");
+    check("(apply + (list 1 2 3))", "6");
+}
+
+#[test]
+fn last() {
+    check_error("(last nil)", "wrong-argument", "details empty-list");
+    check("(last (list 1))", "1");
+    check("(last (list 1 2 3 4 5))", "5");
+}
+
+#[test]
+fn output() {
+    check("(output (print 'elephant))", "elephant\nok");
+}
+
+#[test]
+fn block() {
+    check("(block)", "()");
+    check("(block 'blue-whale)", "blue-whale");
+    check("(block (output (print 'apple)) 123 (output (print 'orange)) 42)", "apple\norange\n42");
+}
+
+#[test]
+fn and() {
+    check("(and t t)", "t");
+    check("(and t nil)", "()");
+    check("(and nil t)", "()");
+    check("(and nil nil)", "()");
+    check("(and nil (output \"monkey\"))", "()");
+}
+
+#[test]
+fn or() {
+    check("(or t t)", "t");
+    check("(or t nil)", "t");
+    check("(or nil t)", "t");
+    check("(or nil nil)", "()");
+    check("(or t (output \"monkey\"))", "t");
+}
+
+#[test]
+fn not() {
+    check("(not t)", "()");
+    check("(not ())", "t");
+}
+
+#[test]
+fn plus_minus() {
+    check("(+)", "0");
+    check("(+ 1)", "1");
+    check("(+ 1 2 3)", "6");
+    check("(-)", "0");
+    check("(- 1)", "-1");
+    check("(- 1 2)", "-1");
+    check("(- 1 2 3)", "-4");
+}
+
+#[test]
+fn multiply() {
+    check("(*)", "1");
+    check("(* 2)", "2");
+    check("(* 2 10)", "20");
+    check("(* 2 3 4 5)", "120");
+    check_error("(* 100000000000 100000000000)", "arithmetic-overflow", "");
+}
+
+#[test]
+fn divide() {
+    check("(/)", "1");
+    check("(/ 60 12)", "5");
+    check_error("(/ 60 0)", "divide-by-zero", "");
+}
+
+#[test]
+fn range() {
+    check("(range 0)", "()");
+    check("(range 1)", "(0)");
+    check("(range 10)", "(0 1 2 3 4 5 6 7 8 9)");
+}
+
+#[test]
+fn length() {
+    check("(length nil)", "0");
+    check("(length '(1))", "1");
+    check("(length '(1 2 3))", "3");
+    check("(length (range 100))", "100");
+}
+
+#[test]
+fn concat() {
+    check("(concat)", "()");
+    check("(concat '(a b c))", "(a b c)");
+    check("(concat (list 1 2 3) (list 4 5 6) (list 7 8 9))", "(1 2 3 4 5 6 7 8 9)");
+    check("(concat \"The sky is: \" (print 'blue) \".\")", "\"The sky is: blue.\"");
+}
+
+#[test]
+fn describe() {
+    check("(describe print)", "\"(lambda (input) ...)
+
+Convert `input` to its string representation.
+
+Defined in:
+ Rust source.\"");
+
+    check("(describe read)", "\"(lambda (input source start-line start-column) ...)
+
+Converts a Lisp-style string to an AST.
+
+Only reads the shortest prefix of the input string that is a valid AST.
+
+Returns a property list which always contains at least a `status` key.
+The `status` key can have one of the following values:
+ * `ok`:         Success. The key `result` is the AST.
+ * `nothing`:    The input was empty or only contained whitespace.
+ * `incomplete`: The input is not a valid AST, but can be the beginning of a valid AST.
+ * `error`:      The input is not a valid AST, not even the beginning of one. The `error` key contains the error details.
+ * `invalid`:    The input is not a valid string.
+
+Whenever there is a `rest` key, the `line` and `column` keys are also present,
+whose values are respectively the first line and column of the rest of the input.
+
+`source`, `start-line` and `start-column` describe where we are reading from.
+Possible values of `source`:
+ * prelude
+ * stdin
+ * a string representing a file-path.
+
+Defined in:
+ Rust source.\"");
+}
+
+#[test]
+fn read_simple() {
+    check("(read-simple \"(a b c) (d e f)\")", "(a b c)");
+    check_error("(read-simple \"(a b c\")", "read-error", "details (status incomplete)");
+}
+
+#[test]
+fn try_catch() {
+    check("(try 123 (catch unbound-symbol (lambda (x) (. x 'symbol))) (catch-all (lambda (_) 'something-else)))", "123");
+    check("(try something (catch unbound-symbol (lambda (x) (. x 'symbol))) (catch-all (lambda (_) 'something-else)))", "something");
+    check("(try (1 2 3) (catch unbound-symbol (lambda (x) (. x 'symbol))) (catch-all (lambda (_) 'something-else)))", "something-else");
+}
+
+#[test]
+fn metadata() {
+    check("(get-metadata (read-simple \"   123\"))", "(documentation () file stdin line 1 column 4)");
+}
+
+
+#[test]
+fn defun() {
+    check("(block (defun f (x y) \"\" (+ x y)) (f 1 2))", "3");
+}
+
+#[test]
+fn recursion() {
+    check("(block (defun factorial (n) \"\" (if (= n 0) 1 (* n (factorial (- n 1))))) (factorial 5))", "120");
 }

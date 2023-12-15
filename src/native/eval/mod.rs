@@ -348,7 +348,6 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
                             let error_details = vec![("symbol", expression.clone())];
                             let error = make_error(mem, "unbound-symbol", EVAL.name, &error_details);
                             return Err(error);
-                            // panic!("{} | {}", crate::native::print::print_to_rust_string(expression.clone(), 0).unwrap(), mem.get_current_module());
                         },
                         _ => unreachable!(),
                     }
