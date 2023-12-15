@@ -6,9 +6,11 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-assert_cmd = "2.0.12"
 eframe = "0.23.0"
 egui_plot = "0.23.0"
-predicates = "3.0.4"
-pretty_assertions = "1.4.0"
 unicode-segmentation = "1.10.1"
+
+[dev-dependencies]
+assert_cmd = "2.0.12"
+pretty_assertions = "1.4.0"
+predicates = "3.0.4"
