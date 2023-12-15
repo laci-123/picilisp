@@ -12,7 +12,7 @@ fn lookup_empty() {
     let key = mem.symbol_for("bird");
     let current_module = mem.get_current_module();
     let value = lookup(&mut mem, key, env, &current_module);
-    assert_eq!(value.err().unwrap(), Error::GlobalNonExistentOrPrivate);
+    assert_eq!(value.err().unwrap(), ModulError::GlobalNonExistentOrPrivate);
 }
 
 #[test]
@@ -28,7 +28,7 @@ fn lookup_not_found() {
     let key = mem.symbol_for("bird");
     let current_module = mem.get_current_module();
     let value = lookup(&mut mem, key, env, &current_module);
-    assert_eq!(value.err().unwrap(), Error::GlobalNonExistentOrPrivate);
+    assert_eq!(value.err().unwrap(), ModulError::GlobalNonExistentOrPrivate);
 }
 
 #[test]

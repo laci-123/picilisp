@@ -1,6 +1,5 @@
 use crate::memory::*;
 use crate::util::*;
-use crate::errors::Error;
 use crate::native::read::read;
 use crate::native::list::property;
 use crate::error_utils::*;
@@ -9,7 +8,7 @@ use super::NativeFunctionMetaData;
 
 
 
-fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef, environment_module: &str) -> Result<GcRef, Error> {
+fn lookup(mem: &mut Memory, key: GcRef, environment: GcRef, environment_module: &str) -> Result<GcRef, ModulError> {
     let mut cursor = environment;
 
     while let Some(c) = cursor.get() {
@@ -339,13 +338,13 @@ fn eval_internal(mem: &mut Memory, mut expression: GcRef, mut env: GcRef, mut en
                 Some(PrimitiveValue::Symbol(_)) => {
                     match lookup(mem, expression.clone(), env, &env_module) {
                         Ok(value) => return Ok(value),
-                        Err(Error::AmbiguousName(modules)) => {
+                        Err(ModulError::AmbiguousName(modules)) => {
                             let conflicting_modules = modules.iter().map(|m| mem.symbol_for(m)).collect::<Vec<GcRef>>();
                             let error_details = vec![("symbol", expression), ("conflicting-modules", vec_to_list(mem, &conflicting_modules))];
                             let error = make_error(mem, "ambiguous-name", EVAL.name, &error_details);
                             return Err(error);
                         },
-                        Err(Error::GlobalNonExistentOrPrivate) => {
+                        Err(ModulError::GlobalNonExistentOrPrivate) => {
                             let error_details = vec![("symbol", expression.clone())];
                             let error = make_error(mem, "unbound-symbol", EVAL.name, &error_details);
                             return Err(error);
@@ -436,13 +435,13 @@ fn macroexpand_internal(mem: &mut Memory, expression: GcRef, env: GcRef, env_mod
                             }
                         }
                     },
-                    Err(Error::AmbiguousName(modules)) => {
+                    Err(ModulError::AmbiguousName(modules)) => {
                         let conflicting_modules = modules.iter().map(|m| mem.symbol_for(m)).collect::<Vec<GcRef>>();
                         let error_details = vec![("symbol", expression), ("conflicting-modules", vec_to_list(mem, &conflicting_modules))];
                         let error = make_error(mem, "ambiguous-name", MACROEXPAND.name, &error_details);
                         return Err(error);
                     },
-                    Err(Error::GlobalNonExistentOrPrivate) => {
+                    Err(ModulError::GlobalNonExistentOrPrivate) => {
                         // do nothing
                     },
                     _ => unreachable!(),

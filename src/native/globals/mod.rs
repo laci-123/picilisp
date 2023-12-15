@@ -1,4 +1,3 @@
-use crate::errors::Error;
 use crate::memory::*;
 use crate::debug::*;
 use crate::error_utils::*;
@@ -41,11 +40,11 @@ pub fn from_module(mem: &mut Memory, args: &[GcRef], _env: GcRef, _recursion_dep
 
     match mem.get_global_from_module(&name.get_name(), &module.get_name()) {
         Ok(x) => Ok(x),
-        Err(Error::GlobalNonExistentOrPrivate) => {
+        Err(ModulError::GlobalNonExistentOrPrivate) => {
             let details = vec![("symbol", args[0].clone())];
             Err(make_error(mem, "unbound-symbol", FROM_MODULE.name, &details))
         },
-        Err(Error::ModuleNonExistent) => {
+        Err(ModulError::ModuleNonExistent) => {
             let details = vec![("module", args[1].clone())];
             Err(make_error(mem, "no-such-module", FROM_MODULE.name, &details))
         },

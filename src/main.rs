@@ -36,7 +36,6 @@ fn usage() -> String {
 }
 
 
-mod errors;
 mod metadata;
 mod memory;
 mod util;

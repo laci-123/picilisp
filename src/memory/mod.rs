@@ -1,4 +1,3 @@
-use crate::errors::Error;
 use crate::metadata::*;
 use crate::debug::*;
 use crate::config;
@@ -596,6 +595,14 @@ impl Module {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ModulError {
+    AmbiguousName(Vec<String>),
+    GlobalNonExistentOrPrivate,
+    ModuleNonExistent,
+    NoSuchModule,
+}
+
 
 pub struct Memory {
     // Order of fields matter!
@@ -641,13 +648,13 @@ impl Memory {
         self.current_module.borrow().name.clone()
     }
 
-    pub fn set_current_module(&mut self, name: &str) -> Result<(), Error> {
+    pub fn set_current_module(&mut self, name: &str) -> Result<(), ModulError> {
         if let Some(module) = self.modules.get(name) {
             self.current_module = module.clone();
             Ok(())
         }
         else {
-            Err(Error::NoSuchModule)
+            Err(ModulError::NoSuchModule)
         }
     }
 
@@ -684,7 +691,7 @@ impl Memory {
         self.current_module.borrow_mut().definitions.remove(name);
     }
 
-    pub fn get_global(&self, name: &str, module_name: &str) -> Result<GcRef, Error> {
+    pub fn get_global(&self, name: &str, module_name: &str) -> Result<GcRef, ModulError> {
         let mut found = false;
         let mut result = GcRef::nil();
         let mut colliding_modules = Vec::new();
@@ -701,25 +708,25 @@ impl Memory {
                 Ok(result)
             }
             else {
-                Err(Error::AmbiguousName(colliding_modules))
+                Err(ModulError::AmbiguousName(colliding_modules))
             }
         }
         else {
-            Err(Error::GlobalNonExistentOrPrivate)
+            Err(ModulError::GlobalNonExistentOrPrivate)
         }
     }
 
-    pub fn get_global_from_module(&self, name: &str, module_name: &str) -> Result<GcRef, Error> {
+    pub fn get_global_from_module(&self, name: &str, module_name: &str) -> Result<GcRef, ModulError> {
         if let Some(module) = self.modules.get(module_name).map(|m| m.borrow()) {
             if module.exports.as_ref().map(|exports| exports.contains(name)).unwrap_or(true) {
-                module.definitions.get(name).map(|x| x.clone()).ok_or(Error::GlobalNonExistentOrPrivate)
+                module.definitions.get(name).map(|x| x.clone()).ok_or(ModulError::GlobalNonExistentOrPrivate)
             }
             else {
-                Err(Error::GlobalNonExistentOrPrivate)
+                Err(ModulError::GlobalNonExistentOrPrivate)
             }
         }
         else {
-            Err(Error::ModuleNonExistent)
+            Err(ModulError::ModuleNonExistent)
         }
     }
 
